@@ -32,7 +32,16 @@ test("a full session: type, stream, workspace event, reload, new problem, photo"
   await frame(page).getByRole("button", { name: "Submit" }).click();
   await expect(page.getByText(/I saw this from the workspace/)).toBeVisible();
 
-  // Reload restores the bubbles and the workspace.
+  // The server stores a turn only when its stream ends, and the bubble is visible mid-stream: wait
+  // until the server has the workspace reply, or the reload below races the end of the turn.
+  await expect
+    .poll(async () => JSON.stringify(await (await page.request.get("/api/sessions/current")).json()))
+    .toContain("I saw this from the workspace");
+
+  // Reload restores the bubbles and the workspace from the server: localStorage is wiped first, so
+  // nothing can come from the browser (the guest cookie is what identifies the session).
+  await page.evaluate(() => localStorage.clear());
+  expect(await page.evaluate(() => localStorage.length)).toBe(0);
   await page.reload();
   await expect(page.getByText("Tìm m để hàm số đồng biến")).toBeVisible();
   await expect(page.getByText(/I saw this from the workspace/)).toBeVisible();
@@ -86,7 +95,7 @@ test("text arrives in chunks through the Next rewrite, not all at the end", asyn
   const res = await fetch(`${baseURL}/api/sessions/${session_id}/turns`, {
     method: "POST",
     headers: { ...json, cookie },
-    body: JSON.stringify({ messages: [{ role: "user", content: "x" }] }),
+    body: JSON.stringify({ message: { role: "user", content: "x" } }),
   });
   expect(res.status).toBe(200);
   const stamps: number[] = [];

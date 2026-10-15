@@ -10,6 +10,7 @@ const empty: Parsed = {
   line: null,
   offer: false,
   restate: false,
+  mode: null,
 };
 const p = (over: Partial<Parsed>): Parsed => ({ ...empty, ...over });
 
@@ -54,6 +55,14 @@ const CASES: [string, Partial<Parsed>][] = [
   ["[line 3", {}],
   ["[how][li", { ask: "how" }],
   ["Đúng rồi.", { chat: "Đúng rồi." }],
+  // pilot spec 4: mode tag
+  ["[mode:learn] Mình đọc đề là: x", { mode: "learn", restate: true, chat: "Mình đọc đề là: x" }],
+  ["[mode:practice][offer] Thử bài này", { mode: "practice", offer: true, chat: "Thử bài này" }],
+  ["[mode:solve] [why] Vì sao?", { mode: "solve", ask: "why", chat: "Vì sao?" }],
+  ["[mode:lea", {}],
+  ["[mode:other] hi", { chat: "[mode:other] hi" }],
+  ["[why] [mode:learn] x", { ask: "why", chat: "[mode:learn] x" }],
+  ["[mode:solve] [silent]", { mode: "solve", silent: true }],
 ];
 
 test.each(CASES)("parse(%j)", (raw, expected) => {

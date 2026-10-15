@@ -9,6 +9,7 @@ export type Parsed = {
   line: number | null;
   offer: boolean;
   restate: boolean;
+  mode: "learn" | "solve" | "practice" | null;
 };
 
 const OPEN = "```html";
@@ -16,13 +17,24 @@ const CLOSE = "\n```";
 const SILENT = "[silent]";
 const RESTATE = "Mình đọc đề là:";
 
-// Leading tags, in this order: [how]|[why], then [line N] (N >= 1), then [offer]. Whitespace may separate them.
+// Leading tags, in this order: [mode:X], then [how]|[why], then [line N] (N >= 1), then [offer].
+// Whitespace may separate them.
+const MODE_TAG = /^\s*\[mode:(learn|solve|practice)\]/;
 const ASK_TAG = /^\s*\[(how|why)\]/;
 const LINE_TAG = /^\s*\[line ([1-9]\d*)\]/;
 const OFFER_TAG = /^\s*\[offer\]/;
 
 // While streaming, a chat that is still a prefix of one of these tags is hidden.
-const PARTIAL_MARKERS = [SILENT, "[how]", "[why]", "[offer]", "[line "];
+const PARTIAL_MARKERS = [
+  SILENT,
+  "[how]",
+  "[why]",
+  "[offer]",
+  "[line ",
+  "[mode:learn]",
+  "[mode:solve]",
+  "[mode:practice]",
+];
 const PARTIAL_LINE = /^\[line \d+$/;
 // Line-start anchor: a closing inline-code backtick ("Try `h`") is not a fence.
 const TRAILING_FENCE = /(^|\n)`{1,3}[a-z]*$/;
@@ -33,11 +45,17 @@ function hidePartial(chat: string): string {
 }
 
 export function parse(raw: string): Parsed {
+  let mode: Parsed["mode"] = null;
   let ask: Parsed["ask"] = null;
   let line: number | null = null;
   let offer = false;
   let body = raw;
 
+  const modeTag = MODE_TAG.exec(body);
+  if (modeTag) {
+    mode = modeTag[1] as NonNullable<Parsed["mode"]>;
+    body = body.slice(modeTag[0].length);
+  }
   const askTag = ASK_TAG.exec(body);
   if (askTag) {
     ask = askTag[1] as "how" | "why";
@@ -54,7 +72,7 @@ export function parse(raw: string): Parsed {
     body = body.slice(offerTag[0].length);
   }
 
-  const common = { ask, line, offer };
+  const common = { mode, ask, line, offer };
   const open = body.indexOf(OPEN);
   if (open === -1) {
     const chat = body.replace(TRAILING_FENCE, "").trim();

@@ -267,7 +267,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
         sessionConfirmed = true;
       }
       let raw = "";
-      await api.turn(sessionId, messages, (delta) => {
+      await api.turn(sessionId, messages.at(-1)!, (delta) => {
         raw += delta;
         const view = parse(raw);
         show(view, false);

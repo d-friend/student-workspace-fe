@@ -8,7 +8,7 @@ import { createWorkspace } from "@/hooks/useWorkspace";
 const HTML_REPLY = "Mình đọc đề là: x.\n```html\n<p>x</p>\n```";
 const DONE = { turnId: "t", stopReason: "end_turn" };
 
-type Turn = (sessionId: string, messages: unknown[], onDelta: (t: string) => void) => Promise<typeof DONE>;
+type Turn = (sessionId: string, message: unknown, onDelta: (t: string) => void) => Promise<typeof DONE>;
 const reply =
   (text: string): Turn =>
   async (_s, _m, onDelta) => {
@@ -47,7 +47,7 @@ const post = (event: Record<string, unknown>, source: unknown = window) =>
   window.dispatchEvent(new MessageEvent("message", { data: { dfriend: true, event }, source: source as Window }));
 const click = (gesture: number, type = "answer_submitted") => post({ type, data: null, byStudent: true, gesture });
 const lastCall = (api: ReturnType<typeof setup>["api"]) => api.turn.mock.calls.at(-1)!;
-const lastContent = (api: ReturnType<typeof setup>["api"]) => (lastCall(api)[1].at(-1) as { content: unknown }).content;
+const lastContent = (api: ReturnType<typeof setup>["api"]) => (lastCall(api)[1] as { content: unknown }).content;
 
 function deferred() {
   let resolve!: () => void;

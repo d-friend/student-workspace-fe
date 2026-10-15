@@ -57,13 +57,16 @@ async function isNoGuest(res: Response): Promise<boolean> {
   return body?.error?.code === "no_guest";
 }
 
-async function post(path: string, body: unknown): Promise<Response> {
-  const send = () => fetch(path, { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) });
+async function withGuest(send: () => Promise<Response>): Promise<Response> {
   const res = await send();
   if (res.status !== 401 || !(await isNoGuest(res))) return res;
   await createGuest();
   return send();
 }
+
+const post = (path: string, body: unknown) =>
+  withGuest(() => fetch(path, { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) }));
+const get = (path: string) => withGuest(() => fetch(path));
 
 export async function createGuest(locale?: string): Promise<{ guestId: string; created: boolean }> {
   const res = await fetch("/api/guest", {
@@ -83,6 +86,15 @@ export async function createSession(startedVia: StartedVia): Promise<{ sessionId
   return { sessionId: body.session_id };
 }
 
+// The guest's open session with its transcript, or null (204) when there is none.
+export async function currentSession(): Promise<{ sessionId: string; messages: Message[]; html: string | null } | null> {
+  const res = await get("/api/sessions/current");
+  if (res.status === 204) return null;
+  if (!res.ok) throw await toApiError(res);
+  const body = await res.json();
+  return { sessionId: body.session_id, messages: body.messages, html: body.html };
+}
+
 export async function endSession(sessionId: string, reason: "new_problem" | "abandoned"): Promise<void> {
   const res = await post(`/api/sessions/${sessionId}/end`, { reason });
   if (!res.ok) throw await toApiError(res);
@@ -99,10 +111,10 @@ export async function sendEvents(
 // One agent turn. Text deltas go to onDelta; resolves on `done`, throws TurnError on `error`.
 export async function turn(
   sessionId: string,
-  messages: Message[],
+  message: Message,
   onDelta: (text: string) => void,
 ): Promise<{ turnId: string; stopReason: string | null }> {
-  const res = await post(`/api/sessions/${sessionId}/turns`, { messages });
+  const res = await post(`/api/sessions/${sessionId}/turns`, { message });
   if (!res.ok) throw await toApiError(res);
   try {
     for await (const { event, data } of readSse(res)) {

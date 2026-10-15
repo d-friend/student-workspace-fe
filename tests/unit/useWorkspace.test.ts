@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError, TurnError } from "@/lib/api";
 import { copy } from "@/lib/copy";
-import { loadSession } from "@/lib/store";
 import { createWorkspace } from "@/hooks/useWorkspace";
 
 const HTML_REPLY = "Mình đọc đề là: x.\n```html\n<p>x</p>\n```";
@@ -16,10 +15,17 @@ const reply =
     return DONE;
   };
 
-function setup(turn: Turn = reply(HTML_REPLY)) {
+type Current = { sessionId: string; messages: unknown[]; html: string | null };
+
+// `current` is what GET /api/sessions/current returns: a session, null (204), or an Error (network failure).
+function setup(turn: Turn = reply(HTML_REPLY), current: Current | Error | null = null) {
   let session = 0;
   const api = {
     createGuest: vi.fn().mockResolvedValue({ guestId: "g", created: true }),
+    currentSession: vi.fn(async () => {
+      if (current instanceof Error) throw current;
+      return current;
+    }),
     createSession: vi.fn(async () => ({ sessionId: `s${++session}` })),
     endSession: vi.fn().mockResolvedValue(undefined),
     turn: vi.fn(turn),
@@ -66,19 +72,20 @@ beforeEach(() => {
 afterEach(() => {
   cleanup.forEach((fn) => fn());
   cleanup = [];
-  localStorage.clear();
   vi.useRealTimers();
 });
-const boot = (turn?: Turn) => {
-  const t = setup(turn);
+// init() is async now (guest, then the server's current session), so wait for it to settle.
+const boot = async (turn?: Turn, current?: Current | Error | null) => {
+  const t = setup(turn, current);
   cleanup.push(t.detach);
+  await vi.advanceTimersByTimeAsync(0);
   return t;
 };
 
 describe("typed turn", () => {
   it("shows the student bubble and thinking, streams the chat, then the building text", async () => {
     const seen: string[] = [];
-    const t = boot(async (_s, _m, onDelta) => {
+    const t = await boot(async (_s, _m, onDelta) => {
       seen.push(t.state().bubbles.map((b) => b.text).join("|"));
       onDelta("Mình đọc đề");
       seen.push(t.state().bubbles.at(-1)!.text);
@@ -102,7 +109,7 @@ describe("typed turn", () => {
 
   it("shows building, then built, for a block-only reply", async () => {
     const texts: string[] = [];
-    const t = boot(async (_s, _m, onDelta) => {
+    const t = await boot(async (_s, _m, onDelta) => {
       onDelta("```html\n<p>x");
       texts.push(t.state().bubbles.at(-1)!.text);
       onDelta("</p>\n```");
@@ -117,7 +124,7 @@ describe("typed turn", () => {
 
 describe("workspace turn", () => {
   async function withWorkspace(turn: Turn = reply(HTML_REPLY)) {
-    const t = boot(turn);
+    const t = await boot(turn);
     t.ws.actions.setInput("x");
     await t.ws.actions.submit();
     return t;
@@ -131,7 +138,9 @@ describe("workspace turn", () => {
     await vi.advanceTimersByTimeAsync(800);
     expect(String(lastContent(t.api))).toMatch(/^\[workspace\] /);
     expect(t.state().bubbles).toHaveLength(before);
-    expect(loadSession()!.messages.at(-1)).toEqual({ role: "assistant", content: "[silent]" });
+    // The [silent] reply is kept in memory as a message, so it counts as a turn of the session.
+    t.ws.actions.newProblem();
+    expect(t.track).toHaveBeenCalledWith("new_problem_clicked", { turns_in_session: 2 }, "s1");
   });
 
   it("starts only from the iframe, only on a student gesture, flushed 800 ms after the first event", async () => {
@@ -218,13 +227,15 @@ describe("workspace turn", () => {
     await vi.advanceTimersByTimeAsync(800);
     expect(t.state().bubbles.at(-1)).toEqual(expect.objectContaining({ kind: "note", text: copy.errConnect("boom") }));
     expect(t.state().hasMessages).toBe(true);
-    expect(loadSession()!.messages).toHaveLength(2); // the failed user message was popped
+    // The failed user message was popped: one turn (two messages) remains.
+    t.ws.actions.newProblem();
+    expect(t.track).toHaveBeenCalledWith("new_problem_clicked", { turns_in_session: 1 }, "s1");
   });
 });
 
 describe("failure of a typed turn", () => {
   it("pops the message, removes the bubbles, restores text, photo and events", async () => {
-    const t = boot(reply(HTML_REPLY));
+    const t = await boot(reply(HTML_REPLY));
     t.ws.actions.setInput("x");
     await t.ws.actions.submit();
     await t.ws.actions.pickPhoto(new Blob(["x"]), "composer_button");
@@ -260,7 +271,7 @@ describe("failure of a typed turn", () => {
     ["stream code", new TurnError("model_refusal", "declined"), copy.errConnect("declined"), { code: "model_refusal" }],
     ["network", new TypeError("Failed to fetch"), copy.errConnect("Failed to fetch"), { code: "network" }],
   ])("maps %s to its copy and tracks turn_failed", async (_name, error, text, props) => {
-    const t = boot(async () => {
+    const t = await boot(async () => {
       throw error;
     });
     t.ws.actions.setInput("x");
@@ -272,7 +283,7 @@ describe("failure of a typed turn", () => {
 
 describe("session lifecycle", () => {
   it("creates a session once, with started_via from photo, starter or typed", async () => {
-    const t = boot();
+    const t = await boot();
     await t.ws.actions.pickPhoto(new Blob(["x"]), "snap_button");
     await t.ws.actions.submit();
     expect(t.api.createSession).toHaveBeenLastCalledWith("photo");
@@ -290,19 +301,19 @@ describe("session lifecycle", () => {
     expect(t.api.createSession).toHaveBeenLastCalledWith("typed");
   });
 
-  it("Bài mới ends the session, clears the store and resets", async () => {
-    const t = boot();
+  it("Bài mới ends the session and resets, and nothing is kept in localStorage", async () => {
+    const t = await boot();
     t.ws.actions.setInput("x");
     await t.ws.actions.submit();
     t.ws.actions.newProblem();
     expect(t.api.endSession).toHaveBeenCalledWith("s1", "new_problem");
-    expect(loadSession()).toBeNull();
+    expect(localStorage.length).toBe(0);
     expect(t.state()).toMatchObject({ bubbles: [], html: null, hasMessages: false, screen: "empty" });
     expect(t.track).toHaveBeenCalledWith("new_problem_clicked", { turns_in_session: 1 }, "s1");
   });
 
   it("on 409 session_ended it opens a new session and the resend uses it", async () => {
-    const t = boot();
+    const t = await boot();
     t.ws.actions.setInput("x");
     await t.ws.actions.submit();
     t.api.turn.mockRejectedValueOnce(new ApiError(409, "session_ended", "x"));
@@ -315,45 +326,104 @@ describe("session lifecycle", () => {
   });
 });
 
-describe("save and restore", () => {
-  it("restores bubbles, photo and workspace on load, and tracks it", async () => {
-    const t = boot();
-    await t.ws.actions.pickPhoto(new Blob(["x"]), "snap_button");
-    t.ws.actions.setInput("ghi chú");
-    await t.ws.actions.submit();
-    t.api.turn.mockImplementation(reply("[silent]"));
-    click(1);
-    await vi.advanceTimersByTimeAsync(800);
+describe("restore from the server", () => {
+  const photoMessage = {
+    role: "user",
+    content: [
+      { type: "image", source: { type: "base64", media_type: "image/jpeg", data: "PHOTO" } },
+      { type: "text", text: "ghi chú" },
+    ],
+  };
+  const SERVER_SESSION: Current = {
+    sessionId: "srv1",
+    messages: [
+      photoMessage,
+      { role: "assistant", content: HTML_REPLY },
+      { role: "user", content: '[workspace] [{"type":"answer_submitted"}]' },
+      { role: "assistant", content: "[silent]" },
+    ],
+    html: "<p>x</p>",
+  };
 
-    const again = boot();
-    const s = again.state();
+  it("restores bubbles and the workspace html from currentSession on init", async () => {
+    const t = await boot(undefined, SERVER_SESSION);
+    const s = t.state();
+    expect(t.api.currentSession).toHaveBeenCalledTimes(1);
+    expect(s.ready).toBe(true);
     expect(s.bubbles.map((b) => b.kind)).toEqual(["student", "agent"]);
     expect(s.bubbles[0]).toMatchObject({ text: "ghi chú", photo: "PHOTO" });
     expect(s.html).toBe("<p>x</p>");
     expect(s.screen).toBe("workspace");
-    await vi.advanceTimersByTimeAsync(0);
-    expect(again.track).toHaveBeenCalledWith(
+    expect(s.hasMessages).toBe(true);
+    expect(t.track).toHaveBeenCalledWith("session_restored", { messages: 4, has_workspace: true });
+    expect(s.restateChips).toBe(false);
+  });
+
+  it("continues the restored session: the next turn uses its id and creates no session", async () => {
+    const t = await boot(reply("ok"), SERVER_SESSION);
+    t.ws.actions.setInput("tiếp");
+    await t.ws.actions.submit();
+    expect(t.api.createSession).not.toHaveBeenCalled();
+    expect(lastCall(t.api)[0]).toBe("srv1");
+    expect(lastCall(t.api)[1]).toEqual({ role: "user", content: "tiếp" });
+  });
+
+  it("starts empty when currentSession returns nothing, after the guest call", async () => {
+    const t = await boot();
+    expect(t.state()).toMatchObject({ ready: true, screen: "empty", bubbles: [] });
+    expect(t.api.createGuest).toHaveBeenCalledTimes(1);
+    expect(t.api.createGuest.mock.invocationCallOrder[0]).toBeLessThan(t.api.currentSession.mock.invocationCallOrder[0]);
+    expect(t.track).toHaveBeenCalledWith("empty_state_shown", {}, null);
+  });
+
+  it("starts empty when currentSession fails", async () => {
+    const t = await boot(undefined, new TypeError("Failed to fetch"));
+    expect(t.state()).toMatchObject({ ready: true, screen: "empty", bubbles: [], html: null });
+    expect(t.track).toHaveBeenCalledWith("app_opened", expect.objectContaining({ restored: false }));
+    expect(t.track).not.toHaveBeenCalledWith("session_restored", expect.anything());
+  });
+
+  it("app_opened.restored is true only when currentSession returned a session", async () => {
+    const restored = await boot(undefined, SERVER_SESSION);
+    expect(restored.track).toHaveBeenCalledWith(
       "app_opened",
       expect.objectContaining({ restored: true, viewport_w: expect.any(Number) }),
     );
-    expect(again.track).toHaveBeenCalledWith("session_restored", { messages: 4, has_workspace: true });
-    // Nothing is sent with the stale session id until the server has seen it again.
-    expect(again.state().restateChips).toBe(false);
+    const empty = await boot();
+    expect(empty.track).toHaveBeenCalledWith("app_opened", expect.objectContaining({ restored: false }));
   });
 
-  it("starts empty when nothing is saved, after the guest call", async () => {
-    const t = boot();
-    expect(t.state()).toMatchObject({ ready: true, screen: "empty" });
-    await vi.advanceTimersByTimeAsync(0);
-    expect(t.api.createGuest).toHaveBeenCalledTimes(1);
-    expect(t.track).toHaveBeenCalledWith("empty_state_shown", {}, null);
-    expect(t.track).toHaveBeenCalledWith("app_opened", expect.objectContaining({ restored: false }));
+  it("after a history_conflict TurnError it reloads history from currentSession", async () => {
+    const t = await boot();
+    t.ws.actions.setInput("x");
+    await t.ws.actions.submit();
+    expect(t.api.currentSession).toHaveBeenCalledTimes(1);
+
+    // Another tab added a turn: the server's history now has four messages.
+    t.api.currentSession.mockResolvedValueOnce(SERVER_SESSION as never);
+    t.api.turn.mockRejectedValueOnce(new TurnError("history_conflict", "history changed"));
+    t.ws.actions.setInput("y");
+    await t.ws.actions.submit();
+
+    expect(t.api.currentSession).toHaveBeenCalledTimes(2);
+    const s = t.state();
+    expect(s.bubbles.map((b) => b.kind)).toEqual(["student", "agent", "error"]);
+    expect(s.bubbles[0]).toMatchObject({ text: "ghi chú", photo: "PHOTO" });
+    expect(s.bubbles.at(-1)).toMatchObject({ kind: "error", text: copy.errConnect("history changed") });
+    expect(s.input).toBe("y"); // the failed text is still there to resend
+    expect(s.html).toBe("<p>x</p>");
+
+    // The resend goes to the restored session.
+    t.api.turn.mockImplementation(reply("ok"));
+    await t.ws.actions.submit();
+    expect(lastCall(t.api)[0]).toBe("srv1");
+    expect(lastCall(t.api)[1]).toEqual({ role: "user", content: "y" });
   });
 });
 
 describe("chips", () => {
   it("restate chips show on the last agent bubble until something happens", async () => {
-    const t = boot();
+    const t = await boot();
     t.ws.actions.setInput("x");
     await t.ws.actions.submit();
     expect(t.state().restateChips).toBe(true);
@@ -364,13 +434,13 @@ describe("chips", () => {
   });
 
   it("a workspace event hides them, and 'Sửa lại đề' prefills the composer", async () => {
-    const t = boot();
+    const t = await boot();
     t.ws.actions.setInput("x");
     await t.ws.actions.submit();
     post({ type: "tick", byStudent: false });
     expect(t.state().restateChips).toBe(false);
 
-    const u = boot();
+    const u = await boot();
     u.ws.actions.setInput("x");
     await u.ws.actions.submit();
     u.ws.actions.correctRestate();
@@ -380,7 +450,7 @@ describe("chips", () => {
   });
 
   it("offer chips: yes sends a typed turn, later only hides; both are tracked", async () => {
-    const t = boot(reply("[offer] Có một bài tương tự."));
+    const t = await boot(reply("[offer] Có một bài tương tự."));
     t.ws.actions.setInput("x");
     await t.ws.actions.submit();
     expect(t.state().offerChips).toBe(true);
@@ -390,7 +460,7 @@ describe("chips", () => {
     expect(lastContent(t.api)).toBe(copy.offerYesMessage);
     expect(t.track).toHaveBeenCalledWith("similar_offer_answered", { accepted: true }, "s1");
 
-    const u = boot(reply("[offer] Có một bài tương tự."));
+    const u = await boot(reply("[offer] Có một bài tương tự."));
     u.ws.actions.setInput("x");
     await u.ws.actions.submit();
     await u.ws.actions.answerOffer(false);
@@ -402,7 +472,7 @@ describe("chips", () => {
 
 describe("tracking", () => {
   it("fires the catalog events at their moments", async () => {
-    const t = boot();
+    const t = await boot();
     t.ws.actions.typeProblemClicked();
     await t.ws.actions.pickPhoto(new Blob(["x"]), "snap_button");
     t.ws.actions.retake();
@@ -440,7 +510,7 @@ describe("tracking", () => {
   });
 
   it("tracks the watching cue when it goes from hidden to shown", async () => {
-    const t = boot();
+    const t = await boot();
     t.ws.actions.setInput("x");
     await t.ws.actions.submit();
     expect(t.track).not.toHaveBeenCalledWith("watching_cue_shown", expect.anything(), expect.anything());

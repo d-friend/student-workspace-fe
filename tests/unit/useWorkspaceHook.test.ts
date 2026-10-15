@@ -1,13 +1,12 @@
-import { act, renderHook } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { expect, it, vi } from "vitest";
 
 import { useWorkspace } from "@/hooks/useWorkspace";
-
-afterEach(() => localStorage.clear());
 
 it("wires the controller into React: input, a typed turn, and the screen", async () => {
   const api = {
     createGuest: vi.fn().mockResolvedValue({ guestId: "g", created: true }),
+    currentSession: vi.fn().mockResolvedValue(null),
     createSession: vi.fn().mockResolvedValue({ sessionId: "s1" }),
     endSession: vi.fn().mockResolvedValue(undefined),
     turn: vi.fn(async (_s: string, _m: unknown[], onDelta: (t: string) => void) => {
@@ -16,7 +15,7 @@ it("wires the controller into React: input, a typed turn, and the screen", async
     }),
   };
   const { result } = renderHook(() => useWorkspace({ api: api as never, track: vi.fn() as never }));
-  expect(result.current.ready).toBe(true);
+  await waitFor(() => expect(result.current.ready).toBe(true));
   expect(result.current.screen).toBe("empty");
 
   act(() => result.current.setInput("xin chào"));

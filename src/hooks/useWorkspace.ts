@@ -17,7 +17,6 @@ import {
 } from "@/lib/frame";
 import { parse, type Parsed } from "@/lib/parse";
 import { readPhoto as realReadPhoto, type PhotoResult } from "@/lib/photo";
-import { clearSession, loadSession, saveSession, type SavedSession } from "@/lib/store";
 import { track as realTrack, type TrackFn } from "@/lib/track";
 
 // shortcut: starter prompts live here, not in copy.ts (another task's file); move them there later.
@@ -68,10 +67,9 @@ export type WorkspaceState = {
 };
 
 export type WorkspaceDeps = {
-  api: Pick<typeof realApi, "createGuest" | "createSession" | "endSession" | "turn">;
+  api: Pick<typeof realApi, "createGuest" | "currentSession" | "createSession" | "endSession" | "turn">;
   track: TrackFn;
   readPhoto: (file: Blob) => Promise<PhotoResult>;
-  storage?: { load: () => SavedSession | null; save: (s: SavedSession) => void; clear: () => void };
   now?: () => number;
 };
 
@@ -95,7 +93,6 @@ function describeError(e: unknown): { text: string; code: string; status?: numbe
 
 export function createWorkspace(deps: WorkspaceDeps) {
   const { api, track, readPhoto } = deps;
-  const storage = deps.storage ?? { load: loadSession, save: saveSession, clear: clearSession };
   const now = deps.now ?? Date.now;
   // Set by the hook once the iframe and the composer exist.
   const dom = { frameWindow: (): Window | null => null, focusInput: (): void => {} };
@@ -117,8 +114,8 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let html: string | null = null;
   let building = false;
   let sessionId: string | null = null;
-  // Only a session this page load created or used is known to the server; events about a stale
-  // restored session would be rejected, so they go out without a session id.
+  // True once the server has confirmed the session (created, restored or used by a turn); events go out
+  // without a session id until then.
   let sessionConfirmed = false;
   let restateClosedId: number | null = null;
   let offerClosedId: number | null = null;
@@ -290,7 +287,6 @@ export function createWorkspace(deps: WorkspaceDeps) {
         pending = [];
         install(view.html, sentAt);
       }
-      storage.save({ sessionId, messages, html });
     } catch (e) {
       messages = messages.slice(0, base);
       removeBubble(agentId);
@@ -320,6 +316,17 @@ export function createWorkspace(deps: WorkspaceDeps) {
           sessionConfirmed = true;
         } catch {
           // The next turn creates one.
+        }
+      } else if (e instanceof TurnError && e.code === "history_conflict") {
+        // Another tab changed the history: take the server's version, and keep the error visible.
+        try {
+          const saved = await api.currentSession();
+          if (saved) {
+            restore(saved);
+            addBubble(typed ? { kind: "error", text: info.text } : { kind: "note", text: info.text });
+          }
+        } catch {
+          // Keep the local view; the next turn will report the conflict again.
         }
       }
     } finally {
@@ -385,10 +392,14 @@ export function createWorkspace(deps: WorkspaceDeps) {
     };
   }
 
-  function restore(saved: SavedSession) {
+  function restore(saved: { sessionId: string; messages: Message[]; html: string | null }) {
     messages = saved.messages;
     sessionId = saved.sessionId;
+    sessionConfirmed = true;
     html = saved.html;
+    bubbles = [];
+    restateClosedId = null;
+    offerClosedId = null;
     saved.messages.forEach((m, i) => {
       if (i % 2) {
         const view = parse(m.content as string);
@@ -408,16 +419,21 @@ export function createWorkspace(deps: WorkspaceDeps) {
   function init() {
     if (started) return;
     started = true;
-    const saved = storage.load();
-    if (saved) restore(saved);
-    ready = true;
-    publish();
     void (async () => {
       try {
         await api.createGuest(navigator.language?.slice(0, 20) || undefined);
       } catch {
         // The first API call retries it (401 no_guest).
       }
+      let saved: Awaited<ReturnType<typeof api.currentSession>> = null;
+      try {
+        saved = await api.currentSession();
+      } catch {
+        // Start empty.
+      }
+      if (saved) restore(saved);
+      ready = true;
+      publish();
       let referrerHost: string | undefined;
       try {
         referrerHost = document.referrer ? new URL(document.referrer).hostname.slice(0, 100) : undefined;
@@ -530,7 +546,6 @@ export function createWorkspace(deps: WorkspaceDeps) {
       if (busy) return;
       track("new_problem_clicked", { turns_in_session: Math.floor(messages.length / 2) }, sid());
       if (sessionId) api.endSession(sessionId, "new_problem").catch(() => {});
-      storage.clear();
       clearTimer();
       messages = [];
       pending = [];

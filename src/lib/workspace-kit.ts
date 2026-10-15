@@ -32,7 +32,11 @@ export const KIT_CSS = `
     --review-text: #ffb27a; --error-bg: #4a1f22; --error-text: #ffc9c9;
   }
 }
-body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+body {
+  box-sizing: border-box; margin: 0 auto; padding: 40px clamp(20px, 4vw, 64px);
+  max-width: calc(760px + 2 * clamp(20px, 4vw, 64px));
+  background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 /* Problem: the card with the label and the problem text. */
@@ -89,6 +93,7 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: system
 }
 
 /* Actions: help buttons, wrapping. */
+.df-entry + .df-actions { margin-top: 20px; }
 .df-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 0 0 20px; }
 .df-hint {
   font: inherit; height: 48px; padding: 0 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 10px;

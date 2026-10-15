@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useId, useLayoutEffect, useRef } from "react";
+import { type KeyboardEvent, type Ref, useId, useImperativeHandle, useLayoutEffect, useRef } from "react";
 import { IconCamera } from "@tabler/icons-react";
 import { copy } from "@/lib/copy";
 import { PhotoChip } from "./PhotoChip";
@@ -13,6 +13,8 @@ export type ComposerProps = {
   sendDisabled?: boolean;
   // With a photo attached, the chip shows, the note label is visible, and the camera button hides.
   photo?: { src: string; onRemove: () => void } | null;
+  // The page uses it to focus the field (after a failed send, a correction, or a removed photo).
+  inputRef?: Ref<HTMLTextAreaElement>;
 };
 
 const MIN_HEIGHT = 44;
@@ -26,17 +28,22 @@ export function Composer({
   placeholder,
   sendDisabled = false,
   photo,
+  inputRef,
 }: ComposerProps) {
   const id = useId();
   const field = useRef<HTMLTextAreaElement>(null);
+  useImperativeHandle(inputRef, () => field.current as HTMLTextAreaElement);
 
   // Grow with the text, between 44 and 140px.
+  // An empty field stays one line: a long placeholder would otherwise wrap and grow it.
+  const hasPhoto = Boolean(photo);
   useLayoutEffect(() => {
     const el = field.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.min(Math.max(el.scrollHeight, MIN_HEIGHT), MAX_HEIGHT)}px`;
-  }, [value]);
+    const natural = value === "" && !hasPhoto ? MIN_HEIGHT : el.scrollHeight;
+    el.style.height = `${Math.min(Math.max(natural, MIN_HEIGHT), MAX_HEIGHT)}px`;
+  }, [value, hasPhoto]);
 
   // Enter sends; Shift+Enter is a newline; Enter that finishes an IME composition does nothing.
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {

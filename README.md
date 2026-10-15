@@ -19,9 +19,11 @@ pnpm test        # Vitest, unit tests in tests/unit
 pnpm lint
 pnpm typecheck
 pnpm build
+pnpm test:e2e    # Playwright: starts the backend with MOCK=true and `pnpm build && pnpm start`; needs dfriend-db up
 ```
 
 ## Notes
 
 - `/api/*` is rewritten to `BACKEND_URL`, so the browser only talks to this origin. Next bakes the destination in at build time: after you change `BACKEND_URL`, run `pnpm build` again. `pnpm start` ignores a new value.
+- The turn stream is the exception: `src/app/api/sessions/[sessionId]/turns/route.ts` pipes it by hand, because a rewrite buffers `text/event-stream` until the reply ends. The proxy rewrite is `fallback`, so that route is matched first. It reads `BACKEND_URL` at runtime. Behind this server, set `TRUST_PROXY=true` on the backend, or every visitor shares one IP for the IP limit.
 - `AGENTS.md` is written by `next dev`. Keep it committed.

@@ -1,7 +1,8 @@
 .wrap {
   margin: auto;
   width: 100%;
-  max-width: 560px;
+  /* The 560px is the content width, so the padding is added to it. */
+  max-width: calc(560px + 2 * clamp(24px, 6vw, 96px));
   box-sizing: border-box;
   padding: 40px clamp(24px, 6vw, 96px);
   display: flex;

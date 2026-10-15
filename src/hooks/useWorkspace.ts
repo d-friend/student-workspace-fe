@@ -431,7 +431,12 @@ export function createWorkspace(deps: WorkspaceDeps) {
       } catch {
         // Start empty.
       }
-      if (saved) restore(saved);
+      // The composer is live while the two requests above run: never replace a turn that already started.
+      let applied: typeof saved = null;
+      if (saved && !busy && messages.length === 0) {
+        restore(saved);
+        applied = saved;
+      }
       ready = true;
       publish();
       let referrerHost: string | undefined;
@@ -445,10 +450,10 @@ export function createWorkspace(deps: WorkspaceDeps) {
         ...(referrerHost ? { referrer_host: referrerHost } : {}),
         viewport_w: window.innerWidth,
         viewport_h: window.innerHeight,
-        restored: saved !== null,
+        restored: applied !== null,
       });
-      if (saved) {
-        track("session_restored", { messages: saved.messages.length, has_workspace: saved.html !== null });
+      if (applied) {
+        track("session_restored", { messages: applied.messages.length, has_workspace: applied.html !== null });
       }
     })();
   }

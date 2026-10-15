@@ -64,8 +64,8 @@ async function withGuest(send: () => Promise<Response>): Promise<Response> {
   return send();
 }
 
-const post = (path: string, body: unknown) =>
-  withGuest(() => fetch(path, { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) }));
+const post = (path: string, body: unknown, keepalive = false) =>
+  withGuest(() => fetch(path, { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body), keepalive }));
 const get = (path: string) => withGuest(() => fetch(path));
 
 export async function createGuest(locale?: string): Promise<{ guestId: string; created: boolean }> {
@@ -96,7 +96,8 @@ export async function currentSession(): Promise<{ sessionId: string; messages: M
 }
 
 export async function endSession(sessionId: string, reason: "new_problem" | "abandoned"): Promise<void> {
-  const res = await post(`/api/sessions/${sessionId}/end`, { reason });
+  // keepalive: "Bài mới" then a reload must not leave the old session open for currentSession to resurrect.
+  const res = await post(`/api/sessions/${sessionId}/end`, { reason }, true);
   if (!res.ok) throw await toApiError(res);
 }
 

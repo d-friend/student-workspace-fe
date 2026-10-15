@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { ApiError, createSession, currentSession, turn } from "@/lib/api";
+import { ApiError, createSession, currentSession, endSession, turn } from "@/lib/api";
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
@@ -70,4 +70,14 @@ test("a 401 no_guest on currentSession creates the guest once and retries", asyn
   vi.stubGlobal("fetch", fetchMock);
   expect(await currentSession()).toBeNull();
   expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(["/api/sessions/current", "/api/guest", "/api/sessions/current"]);
+});
+
+test("endSession is sent with keepalive so a reload cannot cancel it", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+  vi.stubGlobal("fetch", fetchMock);
+  await endSession("s1", "new_problem");
+  const [url, init] = fetchMock.mock.calls[0];
+  expect(url).toBe("/api/sessions/s1/end");
+  expect(init.keepalive).toBe(true);
+  expect(JSON.parse(init.body)).toEqual({ reason: "new_problem" });
 });

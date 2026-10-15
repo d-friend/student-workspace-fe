@@ -17,8 +17,10 @@ const reply =
 
 type Current = { sessionId: string; messages: unknown[]; html: string | null };
 
-// `current` is what GET /api/sessions/current returns: a session, null (204), or an Error (network failure).
-function setup(turn: Turn = reply(HTML_REPLY), current: Current | Error | null = null) {
+// `current` is what GET /api/sessions/current returns: a session, null (204), an Error (network failure),
+// or a promise to settle it later.
+type CurrentArg = Current | Error | null | Promise<Current | null>;
+function setup(turn: Turn = reply(HTML_REPLY), current: CurrentArg = null) {
   let session = 0;
   const api = {
     createGuest: vi.fn().mockResolvedValue({ guestId: "g", created: true }),
@@ -75,7 +77,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 // init() is async now (guest, then the server's current session), so wait for it to settle.
-const boot = async (turn?: Turn, current?: Current | Error | null) => {
+const boot = async (turn?: Turn, current?: CurrentArg) => {
   const t = setup(turn, current);
   cleanup.push(t.detach);
   await vi.advanceTimersByTimeAsync(0);
@@ -391,6 +393,41 @@ describe("restore from the server", () => {
     );
     const empty = await boot();
     expect(empty.track).toHaveBeenCalledWith("app_opened", expect.objectContaining({ restored: false }));
+  });
+
+  it("a late currentSession does not clobber a turn that is already in flight", async () => {
+    let resolveCurrent!: (c: Current) => void;
+    const current = new Promise<Current | null>((res) => (resolveCurrent = res));
+    const gate = deferred();
+    const t = await boot(async (_s, _m, onDelta) => {
+      await gate.promise;
+      onDelta(HTML_REPLY);
+      return DONE;
+    }, current);
+    expect(t.state().ready).toBe(false);
+
+    // The student types while the restore request is still pending.
+    t.ws.actions.setInput("x");
+    const sent = t.ws.actions.submit();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.state().busy).toBe(true);
+
+    resolveCurrent(SERVER_SESSION);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.state().ready).toBe(true);
+    expect(t.state().bubbles.map((b) => b.kind)).toEqual(["student", "agent"]);
+    expect(t.state().bubbles[0]).toMatchObject({ text: "x" });
+    expect(t.state().html).toBeNull();
+
+    gate.resolve();
+    await sent;
+    expect(t.api.turn.mock.calls.map((c) => c[0])).toEqual(["s1"]);
+    expect(t.state().bubbles.map((b) => b.kind)).toEqual(["student", "agent"]);
+    expect(t.state().html).toBe("<p>x</p>");
+    t.ws.actions.newProblem();
+    expect(t.track).toHaveBeenCalledWith("new_problem_clicked", { turns_in_session: 1 }, "s1");
+    expect(t.track).toHaveBeenCalledWith("app_opened", expect.objectContaining({ restored: false }));
+    expect(t.track).not.toHaveBeenCalledWith("session_restored", expect.anything());
   });
 
   it("after a history_conflict TurnError it reloads history from currentSession", async () => {

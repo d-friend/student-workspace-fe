@@ -45,7 +45,7 @@ export default function Page() {
   const rail = (
     <>
       <RailHeader showNewProblem={ws.hasMessages} onNewProblem={ws.newProblem} />
-      <ChatLog empty={ws.bubbles.length === 0}>
+      <ChatLog empty={ws.bubbles.length === 0} tick={ws.bubbles}>
         {ws.bubbles.map((b) => {
           if (b.kind === "student") {
             return (

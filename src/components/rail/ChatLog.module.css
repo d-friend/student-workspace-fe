@@ -5,8 +5,12 @@
   padding: 20px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   gap: 12px;
+}
+
+/* Bottom-aligns a short log. justify-content: flex-end would make the overflowing top unreachable. */
+.log > :first-child {
+  margin-top: auto;
 }
 
 .empty {

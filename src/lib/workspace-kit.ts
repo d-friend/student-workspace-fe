@@ -24,14 +24,6 @@ export const KIT_CSS = `
   --student: #e3ebff; --agent: #eceef2; --review-bg: #fff5ec; --review-border: #f3d3b8;
   --review-text: #a14400; --error-bg: #fde8e8; --error-text: #8a1c1c;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #12151b; --panel: #1a1e26; --text: #e6e9ef; --muted: #9aa3b2;
-    --border: #333a47; --hairline: #2a303b; --accent: #7aa2ff; --accent-text: #0d1220;
-    --student: #26335a; --agent: #262b36; --review-bg: #3a2412; --review-border: #6b3d1a;
-    --review-text: #ffb27a; --error-bg: #4a1f22; --error-text: #ffc9c9;
-  }
-}
 body {
   box-sizing: border-box; margin: 0 auto; padding: 40px clamp(20px, 4vw, 64px);
   max-width: calc(760px + 2 * clamp(20px, 4vw, 64px));

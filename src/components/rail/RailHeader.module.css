@@ -14,17 +14,10 @@
   gap: 10px;
 }
 
-.mark {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--accent-text);
-  font-weight: 700;
-  font-size: 15px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.logo {
+  height: 32px;
+  width: auto;
+  flex: none;
 }
 
 .wordmark {

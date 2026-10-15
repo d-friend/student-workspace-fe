@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { IconPlus } from "@tabler/icons-react";
 import { copy } from "@/lib/copy";
-import logo from "../../../assets/logo.png";
+import logo from "../../../assets/logo-mark.png";
 import styles from "./RailHeader.module.css";
 
 export function RailHeader({ showNewProblem, onNewProblem }: { showNewProblem: boolean; onNewProblem: () => void }) {

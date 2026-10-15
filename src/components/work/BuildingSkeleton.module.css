@@ -1,0 +1,109 @@
+.wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 40px clamp(20px, 4vw, 64px);
+  display: flex;
+  justify-content: center;
+}
+
+.stack {
+  width: 100%;
+  max-width: 760px;
+  margin-top: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-self: flex-start;
+}
+
+.card {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+}
+
+.entry {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.block {
+  display: block;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--hairline), var(--agent), var(--hairline));
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+.label {
+  width: 120px;
+  height: 12px;
+}
+
+.line {
+  width: 78%;
+  height: 20px;
+}
+
+.lineShort {
+  width: 40%;
+  height: 20px;
+}
+
+.num {
+  width: 24px;
+  height: 14px;
+  flex: none;
+}
+
+.input {
+  flex: 1;
+  height: 44px;
+  border-radius: 10px;
+}
+
+.button {
+  width: 96px;
+  height: 44px;
+  flex: none;
+  border-radius: 10px;
+}
+
+.pillA {
+  width: 120px;
+  height: 48px;
+  border-radius: 10px;
+}
+
+.pillB {
+  width: 200px;
+  height: 48px;
+  border-radius: 10px;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .block {
+    animation: none;
+  }
+}

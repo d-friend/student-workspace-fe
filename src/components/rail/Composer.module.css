@@ -1,0 +1,79 @@
+.composer {
+  position: relative;
+  flex: none;
+  border-top: 1px solid var(--hairline);
+  padding: 0 0 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.noteLabel {
+  padding: 12px 12px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.row {
+  padding: 12px 12px 0;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.field {
+  font: inherit;
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  max-height: 140px;
+  resize: none;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.camera,
+.send {
+  font: inherit;
+  flex: none;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.camera {
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--agent);
+  color: var(--text);
+}
+
+.send {
+  padding: 0 16px;
+  font-size: 15px;
+  font-weight: 600;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

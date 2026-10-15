@@ -33,9 +33,11 @@ type NoProps = Record<string, never>;
 export type EventType = keyof TrackEvents;
 
 // Types without props can be tracked as `track("photo_removed")`.
-type TrackArgs<K extends EventType> = TrackEvents[K] extends NoProps
+export type TrackArgs<K extends EventType> = TrackEvents[K] extends NoProps
   ? [props?: NoProps, sessionId?: string | null]
   : [props: TrackEvents[K], sessionId?: string | null];
+
+export type TrackFn = <K extends EventType>(type: K, ...args: TrackArgs<K>) => void;
 
 export const FLUSH_AT = 20;
 export const FLUSH_AFTER_MS = 5000;

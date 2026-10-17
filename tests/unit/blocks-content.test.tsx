@@ -57,6 +57,45 @@ test("quiz open reports without check", async () => {
   expect(c.report).toHaveBeenCalledWith("quiz_answered", { block_id: "q2", answer: "vì thế", ok: false, tries: 1 });
 });
 
+test("quiz marks Xem lại only on the option whose check returned, not on a pending or failed pick", async () => {
+  const c = ctxWith([bad]);
+  show(choice, c);
+  fireEvent.click(screen.getByRole("radio", { name: "A" }));
+  await screen.findByText(copy.stateReview);
+
+  let release!: (r: CheckResponse) => void;
+  vi.mocked(c.check).mockImplementationOnce(() => new Promise((res) => (release = res)));
+  fireEvent.click(screen.getByRole("radio", { name: /B/ }));
+  // B is picked but unchecked: no verdict on it, A keeps its own.
+  expect(screen.getByRole("radio", { name: /B/ }).textContent).not.toContain(copy.stateReview);
+  expect(screen.getByRole("radio", { name: /A/ }).textContent).toContain(copy.stateReview);
+  release(ok);
+  await screen.findByText(copy.stateOk);
+  expect(screen.getByRole("radio", { name: /A/ }).textContent).not.toContain(copy.stateReview);
+});
+
+test("quiz network failure leaves no badge on the pick", async () => {
+  const c = ctxWith([bad]);
+  show(choice, c);
+  fireEvent.click(screen.getByRole("radio", { name: "A" }));
+  await screen.findByText(copy.stateReview);
+  vi.mocked(c.check).mockRejectedValueOnce(new Error("net"));
+  fireEvent.click(screen.getByRole("radio", { name: /B/ }));
+  await screen.findByText(copy.checkFailed);
+  expect(screen.getByRole("radio", { name: /B/ }).textContent).not.toContain(copy.stateReview);
+});
+
+test("quiz option answers on Enter and Space", async () => {
+  const c = ctxWith([bad, ok]);
+  show(choice, c);
+  fireEvent.keyDown(screen.getByRole("radio", { name: "A" }), { key: "Enter" });
+  await screen.findByText(copy.stateReview);
+  fireEvent.keyDown(screen.getByRole("radio", { name: /B/ }), { key: " " });
+  await screen.findByText(copy.stateOk);
+  expect(c.check).toHaveBeenNthCalledWith(1, "q1", "A", []);
+  expect(c.check).toHaveBeenNthCalledWith(2, "q1", "B", []);
+});
+
 test("example reveal", () => {
   const b: Block = { type: "example", id: "e1", title: "T", problem_md: "P", steps: ["s-one", "s-two", "s-three"] };
   show(b, ctxWith());

@@ -14,7 +14,7 @@ export function Quiz({ block, ctx }: BlockProps<Quiz>) {
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
-  const [ok, setOk] = useState(false);
+  const [answered, setAnswered] = useState<{ option: string; ok: boolean } | null>(null); // set only when a check returned
   const inputId = useId();
   const qId = useId();
   const optRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -35,7 +35,7 @@ export function Quiz({ block, ctx }: BlockProps<Quiz>) {
     try {
       const r = await ctx.check(block.id, answer, []);
       setTries(n);
-      setOk(r.ok);
+      setAnswered({ option: answer, ok: r.ok });
       if (r.ok || n >= 2) setDone(true);
       ctx.report("quiz_answered", { block_id: block.id, answer, ok: r.ok, tries: n });
     } catch {
@@ -55,6 +55,7 @@ export function Quiz({ block, ctx }: BlockProps<Quiz>) {
           {(block.options ?? []).map((o, i, all) => {
             const current = selected ? o === selected : i === 0;
             const mine = selected === o;
+            const shown = answered?.option === o ? answered : null; // the pending pick shows no verdict
             return (
               <div
                 key={o}
@@ -65,7 +66,7 @@ export function Quiz({ block, ctx }: BlockProps<Quiz>) {
                 aria-checked={mine}
                 aria-disabled={done}
                 tabIndex={current ? 0 : -1}
-                className={`${styles.option} ${mine && ok ? styles.optionOk : ""} ${mine && !ok && tries > 0 ? styles.optionReview : ""}`}
+                className={`${styles.option} ${shown?.ok ? styles.optionOk : ""} ${shown && !shown.ok ? styles.optionReview : ""}`}
                 onClick={() => submit(o)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -81,10 +82,10 @@ export function Quiz({ block, ctx }: BlockProps<Quiz>) {
                 }}
               >
                 <Md text={o} />
-                {mine && tries > 0 && (
+                {shown && (
                   <span className={styles.badge}>
-                    {ok ? <IconCheck size={20} stroke={2} aria-hidden="true" /> : <IconAlertTriangle size={20} stroke={2} aria-hidden="true" />}
-                    {ok ? copy.stateOk : copy.stateReview}
+                    {shown.ok ? <IconCheck size={20} stroke={2} aria-hidden="true" /> : <IconAlertTriangle size={20} stroke={2} aria-hidden="true" />}
+                    {shown.ok ? copy.stateOk : copy.stateReview}
                   </span>
                 )}
               </div>

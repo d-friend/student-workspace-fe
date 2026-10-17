@@ -2,33 +2,41 @@ import { copy } from "@/lib/copy";
 import { StatusPill } from "./StatusPill";
 import styles from "./BuildingSkeleton.module.css";
 
-// Grey shapes in the shape of the working area, shown while the agent is still replying.
-export function BuildingSkeleton({ status = copy.thinking }: { status?: string }) {
+// Grey shapes in the shape of the doc being built: learn is a title, text and an image; solve (also practice) is a
+// problem card and step rows.
+export function BuildingSkeleton({ status = copy.thinking, variant = "solve" }: { status?: string; variant?: "learn" | "solve" }) {
+  const b = (cls: string) => <span className={`${styles.block} ${cls}`} />;
   return (
-    <section className={styles.wrap} aria-busy="true">
+    <section className={styles.wrap} aria-busy="true" data-variant={variant}>
       <StatusPill>{status}</StatusPill>
-      <div className={styles.stack}>
-        <div className={styles.card}>
-          <span className={`${styles.block} ${styles.label}`} />
-          <span className={`${styles.block} ${styles.line}`} />
-          <span className={`${styles.block} ${styles.lineShort}`} />
-        </div>
-        <div className={styles.card}>
-          <div className={styles.entry}>
-            <span className={`${styles.block} ${styles.num}`} />
-            <span className={`${styles.block} ${styles.input}`} />
+      {variant === "learn" ? (
+        <div className={styles.stack}>
+          {b(styles.title)}
+          <div className={styles.lines}>
+            {b(styles.line)}
+            {b(styles.line)}
+            {b(styles.line)}
+            {b(styles.lineShort)}
           </div>
-          <div className={styles.entry}>
-            <span className={`${styles.block} ${styles.num}`} />
-            <span className={`${styles.block} ${styles.input}`} />
-            <span className={`${styles.block} ${styles.button}`} />
+          {b(styles.box)}
+        </div>
+      ) : (
+        <div className={styles.stack}>
+          <div className={styles.card}>
+            {b(styles.label)}
+            {b(styles.line)}
+            {b(styles.lineShort)}
+          </div>
+          <div className={styles.card}>
+            {[0, 1, 2].map((i) => (
+              <div key={i} className={styles.entry}>
+                {b(styles.num)}
+                {b(styles.input)}
+              </div>
+            ))}
           </div>
         </div>
-        <div className={styles.buttons}>
-          <span className={`${styles.block} ${styles.pillA}`} />
-          <span className={`${styles.block} ${styles.pillB}`} />
-        </div>
-      </div>
+      )}
     </section>
   );
 }

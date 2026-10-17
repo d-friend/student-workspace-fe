@@ -70,7 +70,8 @@ export function studentView(
   return workspace && !photo && !text ? null : { text, photo };
 }
 
+// Skips workspace-only user messages: a code-routed batch is stored with no reply after it.
 export function watching(messages: Message[]): boolean {
-  const last = messages.at(-1);
+  const last = messages.findLast((m) => m.role === "assistant" || studentView(m.content) !== null);
   return last?.role === "assistant" && typeof last.content === "string" && parse(last.content).chat === "";
 }

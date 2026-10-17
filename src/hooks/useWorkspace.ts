@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import * as realApi from "@/lib/api";
-import { ApiError, TurnError, type Message, type StartedVia } from "@/lib/api";
+import { ApiError, TurnError, type Message, type StartedVia, type TurnEvent } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import {
   eventMessage,
@@ -18,6 +18,7 @@ import {
 import { parse, type Parsed } from "@/lib/parse";
 import { readPhoto as realReadPhoto, type PhotoResult } from "@/lib/photo";
 import { track as realTrack, type TrackFn } from "@/lib/track";
+import type { CheckResponse, Phase, Workspace } from "@/workspace/types";
 
 // shortcut: starter prompts live here, not in copy.ts (another task's file); move them there later.
 const STARTER_PROMPTS = {
@@ -25,6 +26,12 @@ const STARTER_PROMPTS = {
     "Cho f(x) = x². Dùng định nghĩa đạo hàm để tính f′(2). Mình không hiểu trực giác của đạo hàm. Giúp mình tự hiểu, đừng đưa đáp án luôn.",
   geometry:
     "Cho tam giác ABC cân tại A, M là trung điểm BC. Chứng minh AM vuông góc với BC. Mình muốn tự làm, chỉ nhắc khi mình sai hoặc nhờ gợi ý.",
+} as const;
+
+const STATUS_LABEL = {
+  planning: copy.statusPlanning,
+  searching: copy.statusSearching,
+  reading: copy.statusReading,
 } as const;
 
 const FLUSH_DELAY_MS = 800;
@@ -55,8 +62,15 @@ export type WorkspaceState = {
   queued: boolean;
   input: string;
   photo: string | null;
-  html: string | null;
+  html: string | null; // legacy iframe workspace, only when there are no structured workspaces
+  workspaces: Partial<Record<Phase, Workspace>>;
+  phase: Phase | null;
+  overrides: Record<string, Record<number, "ok" | "review">>;
+  taskDone: string[];
   building: boolean;
+  status: string | null; // the StatusPill label from the latest SSE status
+  buildingPhase: Phase | null;
+  buildFailed: boolean; // the planner failed and there is nothing to show
   screen: Screen;
   watching: boolean;
   restateChips: boolean;
@@ -67,13 +81,14 @@ export type WorkspaceState = {
 };
 
 export type WorkspaceDeps = {
-  api: Pick<typeof realApi, "createGuest" | "currentSession" | "createSession" | "endSession" | "turn">;
+  api: Pick<typeof realApi, "createGuest" | "currentSession" | "createSession" | "endSession" | "turn" | "check">;
   track: TrackFn;
   readPhoto: (file: Blob) => Promise<PhotoResult>;
   now?: () => number;
 };
 
 type Queued = { text: string; photo: string | null; bubbleId: number };
+type Saved = NonNullable<Awaited<ReturnType<typeof realApi.currentSession>>>;
 
 function describeError(e: unknown): { text: string; code: string; status?: number; sessionGone: boolean } {
   if (e instanceof ApiError) {
@@ -112,7 +127,14 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let photo: string | null = null;
   let photoNoteId: number | null = null;
   let html: string | null = null;
+  let workspaces: Partial<Record<Phase, Workspace>> = {};
+  let phase: Phase | null = null;
+  let overrides: WorkspaceState["overrides"] = {};
+  let taskDone: string[] = [];
   let building = false;
+  let status: string | null = null;
+  let buildingPhase: Phase | null = null;
+  let buildFailed = false;
   let sessionId: string | null = null;
   // True once the server has confirmed the session (created, restored or used by a turn); events go out
   // without a session id until then.
@@ -129,8 +151,14 @@ export function createWorkspace(deps: WorkspaceDeps) {
   function compute(): WorkspaceState {
     const lastAgent = [...bubbles].reverse().find((b) => b.kind === "agent");
     const agent = lastAgent?.kind === "agent" ? lastAgent : null;
-    const screen: Screen =
-      html !== null ? "workspace" : busy ? "building" : photo !== null ? "photo" : "empty";
+    const shown = phase !== null || html !== null;
+    const screen: Screen = shown
+      ? "workspace"
+      : busy && !buildFailed
+        ? "building"
+        : photo !== null
+          ? "photo"
+          : "empty";
     const inputDisabled = busy && typedTurn;
     return {
       ready,
@@ -141,9 +169,16 @@ export function createWorkspace(deps: WorkspaceDeps) {
       input,
       photo,
       html,
+      workspaces,
+      phase,
+      overrides,
+      taskDone,
       building,
+      status,
+      buildingPhase,
+      buildFailed: buildFailed && !shown,
       screen,
-      watching: html !== null && !busy && watching(messages),
+      watching: shown && !busy && watching(messages),
       restateChips: !busy && !!agent?.restate && restateClosedId !== agent.id,
       offerChips: !busy && !!agent?.offer && offerClosedId !== agent.id,
       hasMessages: messages.length > 0,
@@ -170,6 +205,13 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
   function updateBubble(id: number, b: NewBubble) {
     bubbles = bubbles.map((x) => (x.id === id ? ({ ...b, id } as Bubble) : x));
+  }
+
+  function insertBubbleBefore(beforeId: number, b: NewBubble): number {
+    const id = nextId++;
+    const i = bubbles.findIndex((x) => x.id === beforeId);
+    bubbles = [...bubbles.slice(0, i), { ...b, id } as Bubble, ...bubbles.slice(i)];
+    return id;
   }
 
   function removeBubble(id: number | null) {
@@ -217,6 +259,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   ): Promise<void> {
     busy = true;
     typedTurn = typed;
+    buildFailed = false;
     const sentAt = now();
     let consumed: WorkspaceEvent[] = [];
     let studentId = existingStudentId;
@@ -246,15 +289,59 @@ export function createWorkspace(deps: WorkspaceDeps) {
       : null;
     publish();
 
+    let announceId: number | null = null;
+    let sawEvent = false;
+    let gotWorkspace = false;
+
     const show = (view: Parsed, final: boolean) => {
       const chat =
         view.chat ||
-        (typed ? (view.building ? copy.building : final && view.html !== null ? copy.built : "") : "");
+        (typed
+          ? view.building
+            ? copy.building
+            : final && (view.html !== null || gotWorkspace)
+              ? copy.built
+              : ""
+          : "");
       if (agentId === null) {
         if (chat) agentId = addBubble(agentBubble(chat, view));
       } else {
         updateBubble(agentId, agentBubble(chat || copy.thinking, view, !chat));
       }
+    };
+
+    const onEvent = (e: TurnEvent) => {
+      sawEvent = true;
+      if (e.event === "announce") {
+        const b: NewBubble = { kind: "agent", text: e.text, waiting: false, line: null, offer: false, restate: false };
+        // Its own bubble, before the waiting one, which keeps "thinking" until the reply text arrives.
+        announceId = agentId === null ? addBubble(b) : insertBubbleBefore(agentId, b);
+      } else if (e.event === "status") {
+        buildFailed = e.stage === "failed";
+        status = e.stage === "failed" ? null : STATUS_LABEL[e.stage];
+        building = e.stage !== "failed";
+        buildingPhase = e.stage === "failed" ? null : (e.phase ?? buildingPhase);
+      } else if (e.event === "workspace") {
+        const replaced = workspaces[e.phase] !== undefined;
+        workspaces = { ...workspaces, [e.phase]: { id: e.workspaceId, doc: e.doc } };
+        phase = e.phase;
+        gotWorkspace = true;
+        building = false;
+        status = null;
+        buildingPhase = null;
+        // A new doc starts clean: drop line states and master completions keyed by its block ids.
+        const ids = new Set(e.doc.blocks.map((b) => b.id));
+        overrides = Object.fromEntries(Object.entries(overrides).filter(([id]) => !ids.has(id)));
+        taskDone = taskDone.filter((id) => !ids.has(id));
+        track("workspace_shown", { ms_since_send: Math.max(0, now() - sentAt), replaced }, sid());
+      } else if (e.event === "phase") {
+        phase = e.phase;
+      } else if (e.event === "line_state") {
+        overrides = { ...overrides, [e.blockId]: { ...overrides[e.blockId], [e.line]: e.state } };
+      } else {
+        taskDone = [...taskDone, e.blockId];
+      }
+      publish();
     };
 
     let keepEvents = false;
@@ -268,19 +355,19 @@ export function createWorkspace(deps: WorkspaceDeps) {
         raw += delta;
         const view = parse(raw);
         show(view, false);
-        building = view.building;
+        building = view.building || status !== null;
         publish();
-      });
+      }, onEvent);
       sessionConfirmed = true;
-      if (!raw.trim()) throw new TurnError("empty_reply", "the agent sent an empty reply");
+      // A code-routed workspace turn ends with no reply at all; a typed turn always gets text or events.
+      if (!raw.trim() && typed && !sawEvent) throw new TurnError("empty_reply", "the agent sent an empty reply");
 
       const view = parse(raw);
-      if (view.silent) {
-        messages = [...messages, { role: "assistant", content: "[silent]" }];
+      if (raw.trim()) messages = [...messages, { role: "assistant", content: view.silent ? "[silent]" : raw }];
+      if (view.silent || !(raw.trim() || gotWorkspace)) {
         removeBubble(agentId);
         agentId = null;
       } else {
-        messages = [...messages, { role: "assistant", content: raw }];
         show(view, true);
       }
       if (view.html !== null) {
@@ -290,6 +377,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     } catch (e) {
       messages = messages.slice(0, base);
       removeBubble(agentId);
+      removeBubble(announceId);
       const info = describeError(e);
       if (typed) {
         removeBubble(studentId);
@@ -332,6 +420,8 @@ export function createWorkspace(deps: WorkspaceDeps) {
     } finally {
       busy = false;
       building = false;
+      status = null;
+      buildingPhase = null;
       publish();
       if (typed) dom.focusInput();
       if (!keepEvents) flush();
@@ -363,10 +453,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
     return runTurn(true, text, null, shot, via);
   }
 
-  const onMessage = (e: MessageEvent) => {
-    const win = dom.frameWindow();
-    if (!win || e.source !== win || e.data?.dfriend !== true || typeof e.data.event !== "object") return;
-    pending = [...pending, e.data.event as WorkspaceEvent].slice(-MAX_PENDING);
+  // Workspace events, from the legacy iframe or from WorkspaceView: batched and flushed 800 ms after the first.
+  function enqueue(event: WorkspaceEvent) {
+    pending = [...pending, event].slice(-MAX_PENDING);
     closeRestate();
     publish();
     if (timer === undefined) {
@@ -375,6 +464,12 @@ export function createWorkspace(deps: WorkspaceDeps) {
         flush();
       }, FLUSH_DELAY_MS);
     }
+  }
+
+  const onMessage = (e: MessageEvent) => {
+    const win = dom.frameWindow();
+    if (!win || e.source !== win || e.data?.dfriend !== true || typeof e.data.event !== "object") return;
+    enqueue(e.data.event as WorkspaceEvent);
   };
 
   const onVisibility = () => {
@@ -392,25 +487,31 @@ export function createWorkspace(deps: WorkspaceDeps) {
     };
   }
 
-  function restore(saved: { sessionId: string; messages: Message[]; html: string | null }) {
+  function restore(saved: Saved) {
     messages = saved.messages;
     sessionId = saved.sessionId;
     sessionConfirmed = true;
-    html = saved.html;
+    const structured = Object.keys(saved.workspaces).length > 0;
+    workspaces = saved.workspaces;
+    phase = structured ? (saved.phase ?? (Object.keys(saved.workspaces)[0] as Phase)) : null;
+    html = structured ? null : saved.html;
     bubbles = [];
     restateClosedId = null;
     offerClosedId = null;
-    saved.messages.forEach((m, i) => {
-      if (i % 2) {
+    // By role, not by index: an announce and its reply are two assistant messages, and a code-routed
+    // workspace batch is a user message with no reply.
+    for (const m of saved.messages) {
+      if (m.role === "assistant") {
         const view = parse(m.content as string);
         if (view.chat) addBubble(agentBubble(view.chat, view));
       } else {
         const view = studentView(m.content);
         if (view) addBubble({ kind: "student", text: view.text, photo: view.photo || null });
       }
-    });
-    // A trailing [silent] means something happened after the last visible agent message.
-    if (parse(saved.messages.at(-1)!.content as string).chat === "") {
+    }
+    // A trailing [silent] or workspace batch means something happened after the last visible agent message.
+    const last = saved.messages.at(-1);
+    if (last && (last.role === "user" || parse(last.content as string).chat === "")) {
       closeRestate();
       offerClosedId = lastAgentId();
     }
@@ -453,7 +554,10 @@ export function createWorkspace(deps: WorkspaceDeps) {
         restored: applied !== null,
       });
       if (applied) {
-        track("session_restored", { messages: applied.messages.length, has_workspace: applied.html !== null });
+        track("session_restored", {
+          messages: applied.messages.length,
+          has_workspace: applied.html !== null || Object.keys(applied.workspaces).length > 0,
+        });
       }
     })();
   }
@@ -547,6 +651,30 @@ export function createWorkspace(deps: WorkspaceDeps) {
       return accepted ? dispatch(copy.offerYesMessage, null) : Promise.resolve();
     },
 
+    // From WorkspaceView. Same event shape as the iframe bridge; a master completion is not a student gesture.
+    report(type: string, data?: unknown, byStudent = true) {
+      if (type === "task_completed" && (data as { via?: string } | null | undefined)?.via === "master") byStudent = false;
+      enqueue({ type, data: data ?? null, byStudent, gesture: byStudent ? now() : undefined });
+    },
+
+    setPhase(p: Phase) {
+      phase = p;
+      actions.report("phase_viewed", { phase: p });
+    },
+
+    check(blockId: string, answer: string, previous: string[]): Promise<CheckResponse> {
+      // Block ids are unique per doc only, so the showing phase wins.
+      const w = [phase && workspaces[phase], ...Object.values(workspaces)].find((x) =>
+        x?.doc.blocks.some((b) => b.id === blockId),
+      );
+      if (!w || sessionId === null) return Promise.reject(new Error(`no workspace holds block ${blockId}`));
+      return api.check(sessionId, { workspaceId: w.id, blockId, answer, previous });
+    },
+
+    rebuild(): Promise<void> {
+      return dispatch(copy.rebuildMessage, null);
+    },
+
     newProblem() {
       if (busy) return;
       track("new_problem_clicked", { turns_in_session: Math.floor(messages.length / 2) }, sid());
@@ -557,7 +685,14 @@ export function createWorkspace(deps: WorkspaceDeps) {
       queued = null;
       bubbles = [];
       html = null;
+      workspaces = {};
+      phase = null;
+      overrides = {};
+      taskDone = [];
       building = false;
+      status = null;
+      buildingPhase = null;
+      buildFailed = false;
       sessionId = null;
       sessionConfirmed = false;
       restateClosedId = null;

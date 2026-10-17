@@ -1,13 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError, TurnError } from "@/lib/api";
+import { ApiError, TurnError, type TurnEvent } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { createWorkspace } from "@/hooks/useWorkspace";
+import { fixtures } from "@/workspace/fixtures";
+import type { Phase, Workspace } from "@/workspace/types";
 
 const HTML_REPLY = "Mình đọc đề là: x.\n```html\n<p>x</p>\n```";
 const DONE = { turnId: "t", stopReason: "end_turn" };
 
-type Turn = (sessionId: string, message: unknown, onDelta: (t: string) => void) => Promise<typeof DONE>;
+type Turn = (
+  sessionId: string,
+  message: unknown,
+  onDelta: (t: string) => void,
+  onEvent?: (e: TurnEvent) => void,
+) => Promise<typeof DONE>;
 const reply =
   (text: string): Turn =>
   async (_s, _m, onDelta) => {
@@ -15,7 +22,13 @@ const reply =
     return DONE;
   };
 
-type Current = { sessionId: string; messages: unknown[]; html: string | null };
+type Current = {
+  sessionId: string;
+  messages: unknown[];
+  html: string | null;
+  workspaces: Partial<Record<Phase, Workspace>>;
+  phase: Phase | null;
+};
 
 // `current` is what GET /api/sessions/current returns: a session, null (204), an Error (network failure),
 // or a promise to settle it later.
@@ -345,6 +358,8 @@ describe("restore from the server", () => {
       { role: "assistant", content: "[silent]" },
     ],
     html: "<p>x</p>",
+    workspaces: {},
+    phase: null,
   };
 
   it("restores bubbles and the workspace html from currentSession on init", async () => {
@@ -556,5 +571,239 @@ describe("tracking", () => {
     await vi.advanceTimersByTimeAsync(800);
     expect(t.state().watching).toBe(true);
     expect(t.track.mock.calls.filter((c) => c[0] === "watching_cue_shown")).toHaveLength(1);
+  });
+});
+
+describe("structured workspace", () => {
+  const SOLVE = fixtures["solve-tangent.json"]; // blocks p1, s1
+  const LEARN = fixtures["learn-derivative.json"];
+  const shown = (id: string, doc = SOLVE): TurnEvent => ({ event: "workspace", workspaceId: id, phase: doc.phase, doc });
+  // Plays text deltas (strings) and events in order; `at` runs between items, for mid-turn checks.
+  const stream =
+    (items: (string | TurnEvent | (() => void))[]): Turn =>
+    async (_s, _m, onDelta, onEvent) => {
+      for (const i of items) {
+        if (typeof i === "string") onDelta(i);
+        else if (typeof i === "function") i();
+        else onEvent!(i);
+      }
+      return DONE;
+    };
+  const typed = async (t: Awaited<ReturnType<typeof boot>>, text = "x") => {
+    t.ws.actions.setInput(text);
+    await t.ws.actions.submit();
+  };
+  const sentEvents = (api: ReturnType<typeof setup>["api"]) =>
+    JSON.parse(String(lastContent(api)).slice("[workspace] ".length));
+
+  it("announce becomes its own bubble before the reply", async () => {
+    let mid: unknown;
+    const t = await boot(
+      stream([
+        { event: "announce", text: "Ok, mình dựng phần lý thuyết nhé." },
+        () => (mid = t.state().bubbles.map((b) => [b.kind, b.text, b.kind === "agent" && b.waiting])),
+        shown("w1"),
+        "Xong rồi.",
+      ]),
+    );
+    await typed(t);
+    expect(mid).toEqual([
+      ["student", "x", false],
+      ["agent", "Ok, mình dựng phần lý thuyết nhé.", false],
+      ["agent", copy.thinking, true],
+    ]);
+    expect(t.state().bubbles.map((b) => [b.kind, b.text])).toEqual([
+      ["student", "x"],
+      ["agent", "Ok, mình dựng phần lý thuyết nhé."],
+      ["agent", "Xong rồi."],
+    ]);
+  });
+
+  it("workspace event shows the view and clears building", async () => {
+    const seen: unknown[] = [];
+    const snap = () => {
+      const s = t.state();
+      seen.push({ screen: s.screen, building: s.building, status: s.status, phase: s.phase });
+    };
+    const t = await boot(
+      stream([
+        { event: "status", stage: "planning", phase: "solve" },
+        snap,
+        { event: "status", stage: "searching", label: "vi.wikipedia.org" },
+        snap,
+        shown("w1"),
+        snap,
+        "Xong.",
+      ]),
+    );
+    await typed(t);
+    expect(seen).toEqual([
+      { screen: "building", building: true, status: copy.statusPlanning, phase: null },
+      { screen: "building", building: true, status: copy.statusSearching, phase: null },
+      { screen: "workspace", building: false, status: null, phase: "solve" },
+    ]);
+    expect(t.state().workspaces).toEqual({ solve: { id: "w1", doc: SOLVE } });
+    expect(t.state().html).toBeNull();
+    expect(t.track).toHaveBeenCalledWith("workspace_shown", { ms_since_send: expect.any(Number), replaced: false }, "s1");
+  });
+
+  it("rebuild replaces one phase only", async () => {
+    const t = await boot(
+      stream([
+        shown("L1", LEARN),
+        shown("S1"),
+        { event: "line_state", blockId: "s1", line: 1, state: "review" },
+        { event: "task_done", blockId: "s1" },
+        "ok",
+      ]),
+    );
+    await typed(t);
+    expect(t.state().overrides).toEqual({ s1: { 1: "review" } });
+    expect(t.state().taskDone).toEqual(["s1"]);
+
+    t.api.turn.mockImplementation(stream([shown("S2"), { event: "phase", phase: "learn" }, "ok"]));
+    await typed(t, "dựng lại");
+    const s = t.state();
+    expect(s.workspaces.learn?.id).toBe("L1");
+    expect(s.workspaces.solve?.id).toBe("S2");
+    expect(s.phase).toBe("learn");
+    expect(s.overrides).toEqual({});
+    expect(s.taskDone).toEqual([]);
+    expect(t.track).toHaveBeenLastCalledWith("workspace_shown", expect.objectContaining({ replaced: true }), "s1");
+  });
+
+  it("report flushes as a workspace turn after 800ms", async () => {
+    const t = await boot(stream([shown("w1"), "Mình đọc đề là: x."]));
+    await typed(t);
+    expect(t.state().restateChips).toBe(true);
+    t.api.turn.mockClear();
+    t.api.turn.mockImplementation(stream([])); // code route: done with no text
+    const data = { block_id: "s1", line: 1, text: "y' = 3x^2", ok: true, state: "ok", retried: false };
+    t.ws.actions.report("line_checked", data);
+    expect(t.state().restateChips).toBe(false);
+    await vi.advanceTimersByTimeAsync(799);
+    expect(t.api.turn).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(t.api.turn).toHaveBeenCalledTimes(1);
+    expect(sentEvents(t.api)).toEqual([{ type: "line_checked", data, byStudent: true, gesture: expect.any(Number) }]);
+    // A code-routed turn has no reply: no bubble and no error.
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.state().bubbles.map((b) => b.kind)).toEqual(["student", "agent"]);
+    expect(t.track).not.toHaveBeenCalledWith("turn_failed", expect.anything(), expect.anything());
+  });
+
+  it("task_completed via master is not student-triggered", async () => {
+    const t = await boot(stream([shown("w1"), "ok"]));
+    await typed(t);
+    t.api.turn.mockClear();
+    t.ws.actions.report("task_completed", { similar: false, helped: false, max_hint: 0, via: "master" });
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(t.api.turn).not.toHaveBeenCalled();
+    t.ws.actions.report("help_requested", { block_id: "s1", level: 1 });
+    await vi.advanceTimersByTimeAsync(800);
+    expect(sentEvents(t.api).map((e: { type: string; byStudent: boolean; gesture?: number }) => [e.type, e.byStudent, e.gesture])).toEqual([
+      ["task_completed", false, undefined],
+      ["help_requested", true, expect.any(Number)],
+    ]);
+  });
+
+  it("setPhase reports phase_viewed", async () => {
+    const t = await boot(stream([shown("L1", LEARN), shown("S1"), "ok"]));
+    await typed(t);
+    t.api.turn.mockClear();
+    t.ws.actions.setPhase("learn");
+    expect(t.state().phase).toBe("learn");
+    await vi.advanceTimersByTimeAsync(800);
+    expect(sentEvents(t.api)).toEqual([expect.objectContaining({ type: "phase_viewed", data: { phase: "learn" }, byStudent: true })]);
+  });
+
+  it("check calls the api with the session and the workspace that holds the block", async () => {
+    const t = await boot(stream([shown("L1", LEARN), shown("S1"), "ok"]));
+    const check = vi.fn().mockResolvedValue({ ok: true, state: "ok", done: false });
+    Object.assign(t.api, { check });
+    await typed(t);
+    await expect(t.ws.actions.check("s1", "y", ["a"])).resolves.toMatchObject({ ok: true });
+    expect(check).toHaveBeenCalledWith("s1", { workspaceId: "S1", blockId: "s1", answer: "y", previous: ["a"] });
+  });
+
+  it("restore prefers workspaces over html", async () => {
+    const t = await boot(undefined, {
+      sessionId: "srv",
+      messages: [
+        { role: "user", content: "đề" },
+        { role: "assistant", content: "Ok." },
+      ],
+      html: "<p>old</p>",
+      workspaces: { solve: { id: "S1", doc: SOLVE } },
+      phase: "solve",
+    });
+    const s = t.state();
+    expect(s.html).toBeNull();
+    expect(s.phase).toBe("solve");
+    expect(s.workspaces.solve?.id).toBe("S1");
+    expect(s.screen).toBe("workspace");
+    expect(t.track).toHaveBeenCalledWith("session_restored", { messages: 2, has_workspace: true });
+  });
+
+  it("restore handles consecutive user messages", async () => {
+    const t = await boot(undefined, {
+      sessionId: "srv",
+      messages: [
+        { role: "user", content: "đề" },
+        { role: "user", content: '[workspace] [{"type":"phase_viewed"}]\n\nGiúp mình' },
+        { role: "assistant", content: "Ok, mình dựng nhé." },
+        { role: "assistant", content: "[silent]" },
+        { role: "user", content: '[workspace] [{"type":"line_checked"}]' },
+      ],
+      html: null,
+      workspaces: { solve: { id: "S1", doc: SOLVE } },
+      phase: "solve",
+    });
+    const s = t.state();
+    expect(s.bubbles.map((b) => [b.kind, b.text])).toEqual([
+      ["student", "đề"],
+      ["student", "Giúp mình"],
+      ["agent", "Ok, mình dựng nhé."],
+    ]);
+    // Workspace activity after a [silent]: the agent is still watching, and the chips are closed.
+    expect(s.watching).toBe(true);
+    expect(s.restateChips).toBe(false);
+  });
+
+  it("newProblem clears workspaces", async () => {
+    const t = await boot(
+      stream([shown("S1"), { event: "line_state", blockId: "s1", line: 1, state: "ok" }, { event: "task_done", blockId: "s1" }, "ok"]),
+    );
+    await typed(t);
+    t.ws.actions.newProblem();
+    expect(t.state()).toMatchObject({
+      workspaces: {},
+      phase: null,
+      overrides: {},
+      taskDone: [],
+      status: null,
+      buildingPhase: null,
+      screen: "empty",
+    });
+  });
+
+  it("skeleton follows status phase", async () => {
+    const seen: unknown[] = [];
+    const snap = () => seen.push(t.state().buildingPhase);
+    const t = await boot(stream([snap, { event: "status", stage: "planning", phase: "learn" }, snap, shown("L1", LEARN), snap, "ok"]));
+    await typed(t);
+    expect(seen).toEqual([null, "learn", null]);
+  });
+
+  it("failed build with no workspace offers retry", async () => {
+    const t = await boot(
+      stream([{ event: "status", stage: "planning", phase: "solve" }, { event: "status", stage: "failed" }, "Mình chưa dựng được."]),
+    );
+    await typed(t);
+    expect(t.state()).toMatchObject({ screen: "empty", buildFailed: true, building: false, status: null });
+    t.api.turn.mockImplementation(reply("ok"));
+    await t.ws.actions.rebuild();
+    expect(lastContent(t.api)).toBe(copy.rebuildMessage);
+    expect(t.state().buildFailed).toBe(false);
   });
 });

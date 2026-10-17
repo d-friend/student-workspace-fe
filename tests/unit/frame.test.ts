@@ -105,5 +105,9 @@ test("watching", () => {
   expect(watching([u, { role: "assistant", content: "```html\n<p>x</p>\n```" }])).toBe(true);
   expect(watching([u, { role: "assistant", content: "Xem lại dòng 2." }])).toBe(false);
   expect(watching([u])).toBe(false);
+  // A code-routed workspace batch has no reply: look past it to the last visible message.
+  const batch = { role: "user" as const, content: '[workspace] [{"type":"line_checked"}]' };
+  expect(watching([u, { role: "assistant", content: "[silent]" }, batch, batch])).toBe(true);
+  expect(watching([u, { role: "assistant", content: "Xem lại dòng 2." }, batch])).toBe(false);
   expect(watching([])).toBe(false);
 });

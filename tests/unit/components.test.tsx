@@ -65,6 +65,22 @@ test("the building skeleton shows its status pill", () => {
   expect(screen.getByRole("status").textContent).toBe(copy.thinking);
 });
 
+test("the building skeleton takes the shape of the target phase", () => {
+  const { container, rerender } = render(<BuildingSkeleton variant="learn" />);
+  expect(container.querySelector("section")?.dataset.variant).toBe("learn");
+  rerender(<BuildingSkeleton variant="solve" />);
+  expect(container.querySelector("section")?.dataset.variant).toBe("solve");
+});
+
+test("the empty state offers Thử lại only after a failed build", () => {
+  const onRetry = vi.fn();
+  const { rerender } = render(<EmptyState onSnap={vi.fn()} onType={vi.fn()} onStarter={vi.fn()} />);
+  expect(screen.queryByRole("button", { name: copy.retry })).toBeNull();
+  rerender(<EmptyState onSnap={vi.fn()} onType={vi.fn()} onStarter={vi.fn()} onRetry={onRetry} />);
+  fireEvent.click(screen.getByRole("button", { name: copy.retry }));
+  expect(onRetry).toHaveBeenCalledTimes(1);
+});
+
 test("Bài mới shows only when asked", () => {
   const { rerender } = render(<RailHeader showNewProblem={false} onNewProblem={vi.fn()} />);
   expect(screen.queryByRole("button", { name: copy.newProblem })).toBeNull();

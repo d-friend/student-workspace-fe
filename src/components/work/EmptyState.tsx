@@ -1,4 +1,4 @@
-import { IconArrowRight, IconCamera, IconPencil } from "@tabler/icons-react";
+import { IconArrowRight, IconCamera, IconPencil, IconRefresh } from "@tabler/icons-react";
 import { copy } from "@/lib/copy";
 import styles from "./EmptyState.module.css";
 
@@ -6,10 +6,12 @@ export function EmptyState({
   onSnap,
   onType,
   onStarter,
+  onRetry,
 }: {
   onSnap: () => void;
   onType: () => void;
   onStarter: (starter: "derivative" | "geometry") => void;
+  onRetry?: () => void; // set after a build failed with nothing to show
 }) {
   return (
     <section className={styles.wrap}>
@@ -18,6 +20,12 @@ export function EmptyState({
         <p className={styles.sub}>{copy.emptySub}</p>
       </div>
       <div className={styles.actions}>
+        {onRetry && (
+          <button type="button" className={styles.secondary} onClick={onRetry}>
+            <IconRefresh size={20} aria-hidden="true" />
+            {copy.retry}
+          </button>
+        )}
         <button type="button" className={styles.primary} onClick={onSnap}>
           <IconCamera size={22} aria-hidden="true" />
           {copy.snap}

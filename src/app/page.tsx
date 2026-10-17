@@ -12,10 +12,13 @@ import { WatchingCue } from "@/components/rail/WatchingCue";
 import { BuildingSkeleton } from "@/components/work/BuildingSkeleton";
 import { EmptyState } from "@/components/work/EmptyState";
 import { PhotoCheck } from "@/components/work/PhotoCheck";
+import { StatusPill } from "@/components/work/StatusPill";
 import { WorkspaceFrame } from "@/components/work/WorkspaceFrame";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { copy } from "@/lib/copy";
 import { frameDoc } from "@/lib/frame";
+import type { BlockCtx, Workspace } from "@/workspace/types";
+import { WorkspaceView } from "@/workspace/WorkspaceView";
 
 const JPEG_PREFIX = "data:image/jpeg;base64,";
 
@@ -100,11 +103,38 @@ export default function Page() {
     </>
   );
 
+  const pill = ws.building ? (ws.status ?? copy.building) : null;
+  // WorkspaceView wraps hintCount and onSolved per doc itself.
+  const makeCtx = (w: Workspace): BlockCtx => ({
+    workspaceId: w.id,
+    phase: w.doc.phase,
+    report: ws.report,
+    check: ws.check,
+    overrides: ws.overrides,
+    hintCount: 0,
+    onSolved: () => {},
+  });
+
   let work;
-  if (srcDoc !== null) {
-    work = <WorkspaceFrame srcDoc={srcDoc} building={ws.building} iframeRef={ws.frameRef} />;
+  if (ws.phase !== null) {
+    work = (
+      <div style={{ position: "relative", flex: "1 1 auto", minWidth: 0 }}>
+        <WorkspaceView
+          workspaces={ws.workspaces}
+          phase={ws.phase}
+          onPhase={ws.setPhase}
+          makeCtx={makeCtx}
+          taskDone={ws.taskDone}
+        />
+        {pill !== null && <StatusPill>{pill}</StatusPill>}
+      </div>
+    );
+  } else if (srcDoc !== null) {
+    work = <WorkspaceFrame srcDoc={srcDoc} status={pill} iframeRef={ws.frameRef} />;
   } else if (ws.screen === "building") {
-    work = <BuildingSkeleton status={ws.building ? copy.building : copy.thinking} />;
+    work = (
+      <BuildingSkeleton status={pill ?? copy.thinking} variant={ws.buildingPhase === "learn" ? "learn" : "solve"} />
+    );
   } else if (photoSrc) {
     work = (
       <PhotoCheck
@@ -122,6 +152,7 @@ export default function Page() {
         onSnap={() => pick("snap_button")}
         onType={ws.typeProblemClicked}
         onStarter={(s) => void ws.startStarter(s)}
+        onRetry={ws.buildFailed ? () => void ws.rebuild() : undefined}
       />
     );
   }

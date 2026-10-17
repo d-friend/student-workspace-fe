@@ -3,14 +3,14 @@ import { copy } from "@/lib/copy";
 import { StatusPill } from "./StatusPill";
 import styles from "./WorkspaceFrame.module.css";
 
-// The agent's workspace, in a sandboxed iframe. `building` shows the pill while an html block is still open.
+// The legacy workspace, in a sandboxed iframe. `status` is the pill label while a build is running.
 export function WorkspaceFrame({
   srcDoc,
-  building,
+  status,
   iframeRef,
 }: {
   srcDoc: string;
-  building: boolean;
+  status: string | null;
   iframeRef?: Ref<HTMLIFrameElement>;
 }) {
   return (
@@ -22,7 +22,7 @@ export function WorkspaceFrame({
         srcDoc={srcDoc}
         className={styles.frame}
       />
-      {building && <StatusPill>{copy.building}</StatusPill>}
+      {status !== null && <StatusPill>{status}</StatusPill>}
     </div>
   );
 }

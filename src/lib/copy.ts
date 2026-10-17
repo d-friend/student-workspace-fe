@@ -72,4 +72,5 @@ export const copy = {
   statusPlanning: "Đang dựng…",
   statusSearching: "Đang tìm tài liệu…",
   statusReading: "Đang đọc tài liệu…",
+  rebuildMessage: "Dựng lại giúp mình",
 } as const;

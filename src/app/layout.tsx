@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
 import type { ReactNode } from "react";
+import "katex/dist/katex.min.css";
 import "../styles/tokens.css";
 import "./globals.css";
 

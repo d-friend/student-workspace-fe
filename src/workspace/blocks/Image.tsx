@@ -27,11 +27,11 @@ export function ImageBlock({ block }: BlockProps<Extract<Block, { type: "image" 
       {!failed && (
         <figcaption className={styles.small}>
           {block.caption && (
-            <span style={{ display: "block" }}>
+            <span className={styles.caption}>
               <MdInline text={block.caption} />
             </span>
           )}
-          <span style={{ display: "block" }}>{block.credit}</span>
+          <span className={styles.caption}>{block.credit}</span>
         </figcaption>
       )}
     </figure>

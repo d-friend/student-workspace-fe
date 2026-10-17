@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import { afterEach, expect, test, vi } from "vitest";
 import { copy } from "@/lib/copy";
 import { renderBlock } from "@/workspace/blocks";
@@ -189,4 +190,25 @@ test("image caption and credit are separate lines", () => {
   const { container } = show({ type: "image", id: "i9", src: "/x.jpg", alt: "a", caption: "Cap", credit: "Cred", source_url: "https://x.y" }, ctxWith());
   const spans = container.querySelectorAll("figcaption > span");
   expect([...spans].map((s) => s.textContent)).toEqual(["Cap", "Cred"]);
+});
+
+test("heading renders inline math", () => {
+  const { container } = show({ type: "heading", id: "h9", text: "Đạo hàm $x^2$", level: 2 }, ctxWith());
+  const h2 = container.querySelector("h2")!;
+  expect(h2.querySelector(".katex")).toBeTruthy();
+  expect(h2.textContent).not.toContain("$");
+});
+
+test("image caption and credit carry no inline style", () => {
+  const { container } = show({ type: "image", id: "i8", src: "/x.jpg", alt: "a", caption: "Cap", credit: "Cred", source_url: "https://x.y" }, ctxWith());
+  for (const span of container.querySelectorAll("figcaption span")) expect(span.getAttribute("style")).toBeNull();
+});
+
+test("custom block does not read location while rendering on the server", () => {
+  vi.stubGlobal("location", undefined);
+  try {
+    expect(() => renderToString(<>{renderBlock({ type: "custom", id: "u1", html: "<p>x</p>", height: 120, reason: "r" }, ctxWith())}</>)).not.toThrow();
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });

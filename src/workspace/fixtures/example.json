@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "phase": "learn",
+  "title": "Bài học mẫu",
+  "blocks": [
+    {
+      "type": "example",
+      "id": "e1",
+      "title": "Đạo hàm của $x^2$",
+      "problem_md": "Tính $(x^2)'$ tại $x = 3$.",
+      "steps": [
+        "Áp dụng quy tắc lũy thừa: $(x^2)' = 2x$.",
+        "Thay $x = 3$ vào.",
+        "Kết quả là $6$."
+      ]
+    }
+  ],
+  "sources": []
+}

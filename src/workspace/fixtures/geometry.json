@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "phase": "learn",
+  "title": "Bài học mẫu",
+  "blocks": [
+    {
+      "type": "geometry",
+      "id": "geo1",
+      "points": [
+        {
+          "id": "A",
+          "x": 0,
+          "y": 0
+        },
+        {
+          "id": "B",
+          "x": 4,
+          "y": 0
+        },
+        {
+          "id": "C",
+          "x": 2,
+          "y": 3
+        }
+      ],
+      "segments": [
+        [
+          "A",
+          "B"
+        ],
+        [
+          "B",
+          "C"
+        ],
+        [
+          "C",
+          "A"
+        ]
+      ],
+      "circles": [
+        {
+          "center": "A",
+          "through": "B"
+        }
+      ],
+      "tools": [
+        "point",
+        "segment",
+        "circle",
+        "midpoint"
+      ]
+    }
+  ],
+  "sources": []
+}

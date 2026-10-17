@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "phase": "learn",
+  "title": "Bài học mẫu",
+  "blocks": [
+    {
+      "type": "quiz",
+      "id": "q1",
+      "question_md": "Đạo hàm của $x^2$ là gì?",
+      "answer": "choice",
+      "options": [
+        "$x$",
+        "$2x$",
+        "$x^2$"
+      ],
+      "explanation_md": "Theo quy tắc lũy thừa, $(x^2)' = 2x$."
+    }
+  ],
+  "sources": []
+}

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "phase": "learn",
+  "title": "Bài học mẫu",
+  "blocks": [
+    {
+      "type": "graph",
+      "id": "g1",
+      "fns": [
+        {
+          "expr": "x^2",
+          "label": "y = x^2"
+        }
+      ],
+      "x": [
+        -5,
+        5
+      ],
+      "y": [
+        -2,
+        10
+      ],
+      "points": [
+        {
+          "x": 1,
+          "y": 1,
+          "label": "A"
+        }
+      ],
+      "sliders": [
+        {
+          "name": "a",
+          "min": -3,
+          "max": 3,
+          "value": 1
+        }
+      ]
+    }
+  ],
+  "sources": []
+}

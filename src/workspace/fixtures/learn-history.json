@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "phase": "learn",
+  "title": "Ngô Quyền và chiến thắng Bạch Đằng năm 938",
+  "blocks": [
+    {
+      "type": "heading",
+      "id": "h1",
+      "text": "Bối cảnh",
+      "level": 2
+    },
+    {
+      "type": "text",
+      "id": "t1",
+      "md": "Năm 938, quân Nam Hán kéo thủy quân sang xâm lược nước ta. **Ngô Quyền** lãnh đạo nhân dân đánh trả, kết thúc hơn một nghìn năm Bắc thuộc."
+    },
+    {
+      "type": "image",
+      "id": "i1",
+      "src": "/fixtures/bach-dang.jpg",
+      "alt": "Sông Bạch Đằng, nơi Ngô Quyền cho quân cắm cọc nhọn dưới lòng sông",
+      "caption": "Cửa sông Bạch Đằng, nơi diễn ra trận thủy chiến năm 938",
+      "credit": "Ảnh minh họa tự tạo",
+      "source_url": "https://example.org/bach-dang"
+    },
+    {
+      "type": "text",
+      "id": "t2",
+      "md": "Ngô Quyền cho quân đóng cọc nhọn bịt sắt dưới lòng sông, đợi **nước triều lên** thì nhử thuyền giặc vào. Khi triều rút, thuyền giặc mắc cọc và bị tiêu diệt."
+    },
+    {
+      "type": "quiz",
+      "id": "q1",
+      "question_md": "Trận Bạch Đằng do Ngô Quyền lãnh đạo diễn ra vào năm nào?",
+      "answer": "number",
+      "explanation_md": "Trận Bạch Đằng diễn ra năm $938$. Sau chiến thắng này, Ngô Quyền xưng vương, mở ra thời kỳ độc lập lâu dài."
+    }
+  ],
+  "sources": [
+    {
+      "url": "https://vi.wikipedia.org/wiki/Trận_Bạch_Đằng_(938)",
+      "title": "Trận Bạch Đằng (938), Wikipedia tiếng Việt"
+    }
+  ]
+}

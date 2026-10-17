@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "phase": "learn",
+  "title": "Bài học mẫu",
+  "blocks": [
+    {
+      "type": "custom",
+      "id": "cu1",
+      "html": "<p>Mô phỏng tương tác</p>",
+      "height": 300,
+      "reason": "Cần mô phỏng chưa có block hỗ trợ"
+    }
+  ],
+  "sources": []
+}

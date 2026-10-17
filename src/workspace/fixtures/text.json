@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "phase": "learn",
+  "title": "Bài học mẫu",
+  "blocks": [
+    {
+      "type": "text",
+      "id": "t1",
+      "md": "Đạo hàm đo **tốc độ thay đổi** của hàm số tại một điểm, ví dụ $f'(x) = 2x$."
+    }
+  ],
+  "sources": []
+}

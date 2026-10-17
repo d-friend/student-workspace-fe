@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "phase": "learn",
+  "title": "Bài học mẫu",
+  "blocks": [
+    {
+      "type": "image",
+      "id": "i1",
+      "src": "/fixtures/bach-dang.jpg",
+      "alt": "Tranh minh họa trận Bạch Đằng",
+      "caption": "Trận Bạch Đằng năm 938",
+      "credit": "Ảnh minh họa tự tạo",
+      "source_url": "https://example.org/bach-dang"
+    }
+  ],
+  "sources": []
+}

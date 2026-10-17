@@ -14,8 +14,7 @@
 .line { display: flex; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--hairline); font: 500 18px/1.5 var(--font-sans); }
 .line:last-child { border-bottom: 0; }
 .line { position: relative; isolation: isolate; }
-.line::before { content: ""; position: absolute; inset: 0; z-index: -1; opacity: 1; animation: tint 160ms ease-out; }
-.lineOk::before { background: var(--idea-bg); border-radius: 10px; }
+.lineReview::before { content: ""; position: absolute; inset: 0; z-index: -1; animation: tint 160ms ease-out; }
 .lineReview { margin: 0 -16px; padding: 12px 16px; border-bottom-color: transparent; }
 .lineReview::before { background: var(--review-bg); }
 @keyframes tint { from { opacity: 0; } }
@@ -46,6 +45,6 @@
 .done b { font-weight: 600; }
 
 @media (prefers-reduced-motion: reduce) {
-  .line::before { animation: none; }
+  .lineReview::before { animation: none; }
   .btn:active, .primary:active, .hint:active, .idea:active { transform: none; }
 }

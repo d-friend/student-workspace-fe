@@ -71,6 +71,19 @@ test("network failure keeps line pending", async () => {
   expect(c.report).toHaveBeenCalledWith("line_checked", expect.objectContaining({ line: 1, retried: true }));
 });
 
+test("line remounts when its state changes so the tint replays", async () => {
+  const c = ctxWith([bad, ok]);
+  const { container } = show(c);
+  type("a");
+  submit();
+  await screen.findByText(copy.stateReview);
+  const before = container.querySelector("li");
+  type("b");
+  submit();
+  await screen.findByText(copy.stateOk);
+  expect(container.querySelector("li")).not.toBe(before);
+});
+
 test("retried after review then ok", async () => {
   const c = ctxWith([bad, ok]);
   show(c);

@@ -130,3 +130,94 @@ test("slider step is range/100 and readout rounds to 2 decimals", () => {
   expect((screen.getByLabelText(/a/, { selector: "input" }) as HTMLInputElement).step).toBe("0.01");
   expect(screen.getByText("0.33")).toBeTruthy();
 });
+
+// ---- geometry ----
+type Handler = (e?: unknown) => void;
+const geo = (over: Partial<Extract<Block, { type: "geometry" }>> = {}): Block => ({
+  type: "geometry",
+  id: "geo1",
+  points: [
+    { id: "A", x: 0, y: 0 },
+    { id: "B", x: 4, y: 0 },
+    { id: "C", x: 0, y: 3 },
+  ],
+  segments: [["A", "B"]],
+  circles: [{ center: "A", through: "C" }],
+  tools: ["point", "midpoint", "segment", "perpendicular"],
+  ...over,
+});
+// Every created element records its handlers so tests can "click" it.
+const els: { kind: string; args: unknown[]; attrs: Record<string, unknown>; h: Record<string, Handler> }[] = [];
+function setupGeo() {
+  els.length = 0;
+  jx.board.create.mockImplementation((kind: string, args: unknown[], attrs: Record<string, unknown> = {}) => {
+    const el = { kind, args, attrs, h: {} as Record<string, Handler>, on: (ev: string, f: Handler) => void (el.h[ev] = f) };
+    els.push(el);
+    return el;
+  });
+  Object.assign(jx.board, {
+    on: vi.fn((ev: string, f: Handler) => void (boardH[ev] = f)),
+    getAllObjectsUnderMouse: vi.fn(() => []),
+    getUsrCoordsOfMouse: vi.fn(() => [1.5, 2.5]),
+  });
+}
+const boardH: Record<string, Handler> = {};
+const pt = (name: string) => els.find((e) => e.kind === "point" && e.attrs.name === name)!;
+const ctxR = () => ({ ...ctx, report: vi.fn() }) as BlockCtx;
+
+test("draws fixed figure", async () => {
+  setupGeo();
+  render(<>{renderBlock(geo(), ctx)}</>);
+  await waitFor(() => expect(els.filter((e) => e.kind === "point")).toHaveLength(3));
+  expect(pt("B").attrs).toMatchObject({ fixed: true, fillColor: "#7da2ff" });
+  expect(els.filter((e) => e.kind === "segment")).toHaveLength(1);
+  expect(els.filter((e) => e.kind === "circle")).toHaveLength(1);
+});
+
+test("toolbar shows only listed tools", () => {
+  setupGeo();
+  render(<>{renderBlock(geo({ tools: ["midpoint", "angle"] }), ctx)}</>);
+  expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["Trung điểm", "Góc"]);
+  fireEvent.click(screen.getByRole("button", { name: "Góc" }));
+  expect(screen.getByRole("button", { name: "Góc" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("status").textContent).toBe("Chọn 3 điểm");
+  fireEvent.keyDown(screen.getByRole("button", { name: "Góc" }), { key: "Escape" });
+  expect(screen.getByRole("button", { name: "Góc" }).getAttribute("aria-pressed")).toBe("false");
+});
+
+test("midpoint construction reports deps", async () => {
+  setupGeo();
+  const c = ctxR();
+  render(<>{renderBlock(geo(), c)}</>);
+  await waitFor(() => expect(els.length).toBeGreaterThan(3));
+  fireEvent.click(screen.getByRole("button", { name: "Trung điểm" }));
+  pt("A").h.down();
+  expect(c.report).not.toHaveBeenCalled();
+  pt("B").h.down();
+  expect(c.report).toHaveBeenCalledWith("construction_made", { block_id: "geo1", type: "midpoint", deps: ["A", "B"] });
+  expect(els.some((e) => e.kind === "midpoint")).toBe(true);
+});
+
+test("new point gets next letter", async () => {
+  setupGeo();
+  const c = ctxR();
+  render(<>{renderBlock(geo(), c)}</>);
+  await waitFor(() => expect(els.length).toBeGreaterThan(3));
+  fireEvent.click(screen.getByRole("button", { name: "Điểm" }));
+  boardH.down({});
+  expect(pt("D").args).toEqual([1.5, 2.5]);
+  boardH.down({});
+  expect(pt("E")).toBeDefined();
+  expect(c.report).toHaveBeenCalledWith("construction_made", { block_id: "geo1", type: "point", deps: [] });
+});
+
+test("perpendicular takes a line then a point", async () => {
+  setupGeo();
+  const c = ctxR();
+  render(<>{renderBlock(geo(), c)}</>);
+  await waitFor(() => expect(els.length).toBeGreaterThan(3));
+  fireEvent.click(screen.getByRole("button", { name: "Vuông góc" }));
+  els.find((e) => e.kind === "segment")!.h.down();
+  pt("C").h.down();
+  expect(c.report).toHaveBeenCalledWith("construction_made", { block_id: "geo1", type: "perpendicular", deps: ["A", "B", "C"] });
+});

@@ -15,6 +15,9 @@ const jx = vi.hoisted(() => {
 });
 vi.mock("jsxgraph", () => ({ default: { JSXGraph: { initBoard: jx.initBoard, freeBoard: jx.freeBoard } } }));
 
+const tokens: Record<string, string> = { "--text": "#111", "--muted": "#999", "--accent": "#7da2ff", "--hairline": "#222", "--panel": "#1a1e26" };
+vi.spyOn(window, "getComputedStyle").mockImplementation(() => ({ getPropertyValue: (n: string) => ` ${tokens[n] ?? ""} ` }) as unknown as CSSStyleDeclaration);
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -86,4 +89,44 @@ test("bad term throws to the boundary", async () => {
     </BlockBoundary>,
   );
   await waitFor(() => expect(report).toHaveBeenCalledWith("render_error", expect.objectContaining({ block_id: "g1" })));
+});
+
+test("board colors come from the computed theme tokens", async () => {
+  render(<>{renderBlock(graph(), ctx)}</>);
+  await waitFor(() => expect(jx.board.create).toHaveBeenCalled());
+  expect(jx.initBoard).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ defaultAxes: expect.objectContaining({ x: expect.objectContaining({ strokeColor: "#999" }) }) }));
+  expect(jx.board.create).toHaveBeenCalledWith("functiongraph", expect.anything(), expect.objectContaining({ strokeColor: "#7da2ff", strokeWidth: 2 }));
+  expect(jx.board.create).toHaveBeenCalledWith("point", expect.anything(), expect.objectContaining({ fillColor: "#7da2ff", label: { strokeColor: "#111" } }));
+});
+
+test("re-running the effect keeps the student's slider value", async () => {
+  const { rerender } = render(<>{renderBlock(graph(), ctx)}</>);
+  await waitFor(() => expect(jx.board.create).toHaveBeenCalled());
+  fireEvent.change(screen.getByLabelText(/a/, { selector: "input" }), { target: { value: "2" } });
+  jx.board.jc.scope.locals.a = 0;
+  rerender(<>{renderBlock(graph(), ctx)}</>);
+  await waitFor(() => expect(jx.initBoard).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(jx.board.jc.scope.locals.a).toBe(2));
+});
+
+test.each([
+  ["create('point',[1,1])", "a"],
+  ["use('x')", "a"],
+  ["remove(x)", "a"],
+  ["x", "__proto__"],
+])("unsafe term %s / slider %s reaches render_error", async (expr, name) => {
+  const report = vi.fn();
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  render(
+    <BlockBoundary blockId="g1" report={report}>
+      {renderBlock(graph({ fns: [{ expr, label: "f" }], sliders: [{ name, min: 0, max: 1, value: 0 }] }), ctx)}
+    </BlockBoundary>,
+  );
+  await waitFor(() => expect(report).toHaveBeenCalledWith("render_error", expect.anything()));
+});
+
+test("slider step is range/100 and readout rounds to 2 decimals", () => {
+  render(<>{renderBlock(graph({ sliders: [{ name: "a", min: 0, max: 1, value: 0.33333 }] }), ctx)}</>);
+  expect((screen.getByLabelText(/a/, { selector: "input" }) as HTMLInputElement).step).toBe("0.01");
+  expect(screen.getByText("0.33")).toBeTruthy();
 });

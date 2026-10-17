@@ -66,3 +66,20 @@ test("a long unbroken word does not widen the doc at 360px", async ({ page }) =>
     expect(await s.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   }
 });
+
+test("each phase keeps its own scroll position", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 500 });
+  await restore(page);
+  const s = await scroller(page);
+  const scrollTo = (y: number) => s.evaluate((el, top) => { el.scrollTop = top; return el.scrollTop; }, y);
+  const top = () => s.evaluate((el) => el.scrollTop);
+
+  expect(await scrollTo(300)).toBe(300);
+  await page.getByRole("tab", { name: copy.phaseLearn }).click();
+  expect(await top()).toBe(0);
+  expect(await scrollTo(120)).toBe(120);
+  await page.getByRole("tab", { name: copy.phaseSolve }).click();
+  await expect.poll(top).toBe(300);
+  await page.getByRole("tab", { name: copy.phaseLearn }).click();
+  await expect.poll(top).toBe(120);
+});

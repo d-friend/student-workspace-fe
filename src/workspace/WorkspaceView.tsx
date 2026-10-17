@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { copy } from "@/lib/copy";
 import { BlockBoundary } from "./BlockBoundary";
 import { renderBlock } from "./blocks";
@@ -104,15 +104,25 @@ function Doc({ w, p, hidden, base, onPhase, hasSolve, taskDone }: {
 
 export function WorkspaceView({ workspaces, phase, onPhase, makeCtx, taskDone = {} }: Props) {
   const present = ORDER.filter((p) => workspaces[p]);
+  // Hidden docs share this scroller, so a switch would carry the offset over; keep one per phase.
+  const scroller = useRef<HTMLDivElement>(null);
+  const tops = useRef<Partial<Record<Phase, number>>>({});
+  const shown = useRef(phase);
+  useLayoutEffect(() => {
+    shown.current = phase;
+    if (scroller.current) scroller.current.scrollTop = tops.current[phase] ?? 0;
+  }, [phase]);
   return (
-    <div className={styles.view}>
-      {present.length > 1 && <PhaseSwitch phases={present} phase={phase} onPhase={onPhase} />}
-      {present.map((p) => {
-        const w = workspaces[p]!;
-        return (
-          <Doc key={w.id} w={w} p={p} hidden={p !== phase} base={makeCtx(w)} onPhase={onPhase} hasSolve={!!workspaces.solve} taskDone={taskDone[w.id] ?? []} />
-        );
-      })}
+    <div ref={scroller} className={styles.scroll} onScroll={(e) => (tops.current[shown.current] = e.currentTarget.scrollTop)}>
+      <div className={styles.view}>
+        {present.length > 1 && <PhaseSwitch phases={present} phase={phase} onPhase={onPhase} />}
+        {present.map((p) => {
+          const w = workspaces[p]!;
+          return (
+            <Doc key={w.id} w={w} p={p} hidden={p !== phase} base={makeCtx(w)} onPhase={onPhase} hasSolve={!!workspaces.solve} taskDone={taskDone[w.id] ?? []} />
+          );
+        })}
+      </div>
     </div>
   );
 }

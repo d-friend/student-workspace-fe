@@ -27,9 +27,7 @@ export function FixtureView({ doc, pill }: { doc: WorkspaceDoc; pill: boolean })
       rail={null}
       work={
         <div className={styles.viewWrap}>
-          <div className={styles.viewScroll}>
-            <WorkspaceView workspaces={{ [doc.phase]: w }} phase={phase} onPhase={setPhase} makeCtx={makeCtx} />
-          </div>
+          <WorkspaceView workspaces={{ [doc.phase]: w }} phase={phase} onPhase={setPhase} makeCtx={makeCtx} />
           {pill && <StatusPill>{copy.statusPlanning}</StatusPill>}
         </div>
       }

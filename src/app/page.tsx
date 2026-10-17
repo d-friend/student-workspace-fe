@@ -119,17 +119,15 @@ export default function Page() {
   let work;
   if (ws.phase !== null) {
     work = (
-      // The pill sits on the non-scrolling wrapper, so it stays pinned while the doc scrolls.
+      // The pill sits on the non-scrolling wrapper, so it stays pinned while the doc (WorkspaceView's scroller) scrolls.
       <div className={styles.viewWrap}>
-        <div className={styles.viewScroll}>
-          <WorkspaceView
-            workspaces={ws.workspaces}
-            phase={ws.phase}
-            onPhase={ws.setPhase}
-            makeCtx={makeCtx}
-            taskDone={ws.taskDone}
-          />
-        </div>
+        <WorkspaceView
+          workspaces={ws.workspaces}
+          phase={ws.phase}
+          onPhase={ws.setPhase}
+          makeCtx={makeCtx}
+          taskDone={ws.taskDone}
+        />
         {pill !== null && <StatusPill>{pill}</StatusPill>}
       </div>
     );

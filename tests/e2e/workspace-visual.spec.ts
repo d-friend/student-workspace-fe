@@ -36,7 +36,7 @@ for (const name of names) {
         }
         // Show the whole document: lift the fixed-height shell so a full-page shot captures it.
         await page.addStyleTag({
-          content: "aside{display:none!important}main{overflow:visible!important;flex:none!important}main>div>div{overflow:visible!important}div:has(>main){height:auto!important}",
+          content: "aside[aria-label]{display:none!important}main{overflow:visible!important;flex:none!important}main>div>div{overflow:visible!important}div:has(>main){height:auto!important}",
         });
         await expect(page).toHaveScreenshot(`${name}-${w}-${scheme}.png`, { fullPage: true, maxDiffPixelRatio: 0.01 });
       });

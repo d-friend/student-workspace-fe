@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { Block, BlockCtx } from "../types";
 import { Callout } from "./Callout";
 import { Example } from "./Example";
+import { Graph } from "./Graph";
 import { Heading } from "./Heading";
 import { ImageBlock } from "./Image";
 import { MathBlock } from "./MathBlock";
@@ -30,8 +31,10 @@ export function renderBlock(block: Block, ctx: BlockCtx): ReactNode {
       return <Problem block={block} ctx={ctx} />;
     case "steps":
       return <Steps block={block} ctx={ctx} />;
+    case "graph":
+      return <Graph block={block} ctx={ctx} />;
     default:
-      // Temporary null: graph (Task 8), geometry (Task 9), custom (Task 10) fill this.
+      // Temporary null: geometry (Task 9), custom (Task 10) fill this.
       return null;
   }
 }

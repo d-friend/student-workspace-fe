@@ -217,7 +217,40 @@ test("perpendicular takes a line then a point", async () => {
   render(<>{renderBlock(geo(), c)}</>);
   await waitFor(() => expect(els.length).toBeGreaterThan(3));
   fireEvent.click(screen.getByRole("button", { name: "Vuông góc" }));
-  els.find((e) => e.kind === "segment")!.h.down();
-  pt("C").h.down();
+  els.find((e) => e.kind === "segment")!.h.down({});
+  await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Chọn 1 điểm"));
+  pt("C").h.down({});
   expect(c.report).toHaveBeenCalledWith("construction_made", { block_id: "geo1", type: "perpendicular", deps: ["A", "B", "C"] });
+});
+
+test("one pointer event on a point and its segment builds once", async () => {
+  setupGeo();
+  const c = ctxR();
+  render(<>{renderBlock(geo(), c)}</>);
+  await waitFor(() => expect(els.length).toBeGreaterThan(3));
+  fireEvent.click(screen.getByRole("button", { name: "Vuông góc" }));
+  els.find((e) => e.kind === "segment")!.h.down({});
+  await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Chọn 1 điểm"));
+  const ev = {};
+  pt("A").h.down(ev);
+  els.find((e) => e.kind === "segment")!.h.down(ev);
+  await new Promise((r) => setTimeout(r, 0));
+  expect(c.report).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("status").textContent).toBe("Chọn 1 đường");
+});
+
+test("nextName skips fixed ids and continues A1 after Z", async () => {
+  setupGeo();
+  render(<>{renderBlock(geo({ points: [{ id: "A", x: 0, y: 0 }, { id: "B", x: 1, y: 0 }, { id: "D", x: 2, y: 0 }], segments: [], circles: [] }), ctxR())}</>);
+  await waitFor(() => expect(els.length).toBe(3));
+  fireEvent.click(screen.getByRole("button", { name: "Điểm" }));
+  boardH.down({});
+  expect(pt("C")).toBeDefined();
+  boardH.down({});
+  expect(pt("E")).toBeDefined();
+  for (let i = 0; i < 21; i++) boardH.down({}); // F..Z
+  boardH.down({});
+  expect(pt("A1")).toBeDefined();
+  boardH.down({});
+  expect(pt("A2")).toBeDefined();
 });

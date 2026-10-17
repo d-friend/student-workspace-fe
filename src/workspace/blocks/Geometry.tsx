@@ -52,7 +52,7 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
   useEffect(() => {
     live.current = { tool, picks, ctx, block };
   });
-  const act = useRef<{ point: (n: string) => void; line: (a: string, b: string) => void; board: (e: unknown) => void } | null>(null);
+  const act = useRef<{ point: (n: string, e?: unknown) => void; line: (a: string, b: string, e?: unknown) => void; board: (e: unknown) => void } | null>(null);
   const select = (t: GeometryTool | null) => {
     setTool(t);
     setPicks([]);
@@ -79,14 +79,14 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
         const paint = { strokeColor: accent, highlightStrokeColor: accent, strokeWidth: 2 };
         const lineEl = (kind: string, a: string, c: string, attrs: object = {}) => {
           const el = board.create(kind, [pts.get(a), pts.get(c)], { ...paint, ...attrs });
-          el?.on("down", () => act.current?.line(a, c));
+          el?.on("down", (e) => act.current?.line(a, c, e));
           return el;
         };
         const makePoint = (name: string, args: unknown[], kind = "point") => {
           names.add(name);
           const el = board.create(kind, args, { name, fixed: true, size: 5, fillColor: accent, strokeColor: accent, highlightFillColor: accent, highlightStrokeColor: accent, label: { strokeColor: text } });
           pts.set(name, el);
-          el?.on("down", () => act.current?.point(name));
+          el?.on("down", (e) => act.current?.point(name, e));
           return el;
         };
         block.points.forEach((p) => makePoint(p.id, [p.x, p.y]));
@@ -130,10 +130,24 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
             done(t, next);
           }
         };
+        // JSXGraph fires "down" on every element under the pointer; one pointer event may act once, and a point beats a line.
+        const used = new WeakSet<object>();
+        const take = (e: unknown) => {
+          if (typeof e !== "object" || !e) return true;
+          if (used.has(e)) return false;
+          used.add(e);
+          return true;
+        };
+        const seen = (e: unknown) => typeof e === "object" && !!e && used.has(e);
         act.current = {
-          point: (n) => push(n),
-          line: (a, c) => push("", [a, c]),
+          point: (n, e) => take(e) && push(n),
+          line: (a, c, e) => {
+            if (seen(e)) return;
+            // Let point handlers of the same event run first (student points are created after segments).
+            queueMicrotask(() => take(e) && !dead && push("", [a, c]));
+          },
           board: (e) => {
+            if (seen(e) || !take(e)) return;
             if (live.current.tool !== "point" || board.getAllObjectsUnderMouse(e).length) return;
             const [x, y] = board.getUsrCoordsOfMouse(e);
             makePoint(nextName(names), [x, y]);

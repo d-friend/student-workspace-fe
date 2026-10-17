@@ -254,3 +254,34 @@ test("nextName skips fixed ids and continues A1 after Z", async () => {
   boardH.down({});
   expect(pt("A2")).toBeDefined();
 });
+
+test("real dispatch order: line pick survives the board handler", async () => {
+  setupGeo();
+  const c = ctxR();
+  render(<>{renderBlock(geo(), c)}</>);
+  await waitFor(() => expect(els.length).toBeGreaterThan(3));
+  fireEvent.click(screen.getByRole("button", { name: "Vuông góc" }));
+  const seg = els.find((e) => e.kind === "segment")!;
+  const e1 = {};
+  seg.h.down(e1);
+  boardH.down(e1);
+  await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Chọn 1 điểm"));
+  const e2 = {};
+  pt("A").h.down(e2);
+  seg.h.down(e2);
+  boardH.down(e2);
+  await new Promise((r) => setTimeout(r, 0));
+  expect(c.report).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("status").textContent).toBe("Chọn 1 đường");
+});
+
+test("point tool on empty board creates one point", async () => {
+  setupGeo();
+  const c = ctxR();
+  render(<>{renderBlock(geo(), c)}</>);
+  await waitFor(() => expect(els.length).toBeGreaterThan(3));
+  fireEvent.click(screen.getByRole("button", { name: "Điểm" }));
+  boardH.down({});
+  expect(els.filter((e) => e.kind === "point")).toHaveLength(4);
+  expect(c.report).toHaveBeenCalledTimes(1);
+});

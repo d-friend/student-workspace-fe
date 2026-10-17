@@ -147,8 +147,8 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
             queueMicrotask(() => take(e) && !dead && push("", [a, c]));
           },
           board: (e) => {
-            if (seen(e) || !take(e)) return;
-            if (live.current.tool !== "point" || board.getAllObjectsUnderMouse(e).length) return;
+            // Runs after the element handlers; consume the event only when it creates a point, so a deferred line pick survives.
+            if (seen(e) || live.current.tool !== "point" || board.getAllObjectsUnderMouse(e).length || !take(e)) return;
             const [x, y] = board.getUsrCoordsOfMouse(e);
             makePoint(nextName(names), [x, y]);
             done("point", []);

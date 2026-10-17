@@ -7,6 +7,7 @@ import * as realApi from "@/lib/api";
 import { ApiError, TurnError, type Message, type StartedVia, type TurnEvent } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import {
+  customFrames,
   eventMessage,
   shouldTrigger,
   studentView,
@@ -474,7 +475,8 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
   const onMessage = (e: MessageEvent) => {
     const win = dom.frameWindow();
-    if (!win || e.source !== win || e.data?.dfriend !== true || typeof e.data.event !== "object") return;
+    const trusted = (win !== null && e.source === win) || (e.source !== null && customFrames.has(e.source as Window));
+    if (!trusted || e.data?.dfriend !== true || typeof e.data.event !== "object") return;
     enqueue(e.data.event as WorkspaceEvent);
   };
 

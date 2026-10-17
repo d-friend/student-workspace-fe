@@ -18,7 +18,7 @@ test("frameDoc puts the doctype, policy, base and bridge before the agent's docu
   expect(doc.startsWith("<!doctype html>")).toBe(true);
   expect(doc.endsWith("<p>agent</p>")).toBe(true);
   const csp = doc.indexOf(
-    `content="default-src 'unsafe-inline' data: blob:; script-src 'unsafe-inline' 'unsafe-eval' ${O}/vendor/; style-src 'unsafe-inline' ${O}/vendor/"`,
+    `content="default-src 'unsafe-inline' data: blob:; script-src 'unsafe-inline' 'unsafe-eval' ${O}/vendor/; style-src 'unsafe-inline' ${O}/vendor/; font-src ${O}/vendor/"`,
   );
   const base = doc.indexOf(`<base target="_blank">`);
   const bridge = doc.indexOf("window.dfriend");
@@ -30,7 +30,7 @@ test("frameDoc puts the doctype, policy, base and bridge before the agent's docu
 
 test("frameDoc injects the kit CSS after the bridge and before the agent's document", () => {
   const doc = frameDoc("<p>agent</p>", O);
-  const kit = doc.indexOf(`<style>${KIT_CSS}`);
+  const kit = doc.indexOf(KIT_CSS);
   expect(kit).toBeGreaterThan(doc.indexOf("window.dfriend"));
   expect(kit).toBeLessThan(doc.indexOf("<p>agent</p>"));
 });
@@ -110,4 +110,21 @@ test("watching", () => {
   expect(watching([u, { role: "assistant", content: "[silent]" }, batch, batch])).toBe(true);
   expect(watching([u, { role: "assistant", content: "Xem lại dòng 2." }, batch])).toBe(false);
   expect(watching([])).toBe(false);
+});
+
+test("frame csp allows vendor fonts", () => {
+  expect(frameDoc("", O)).toContain(`font-src ${O}/vendor/"`);
+});
+
+test("frame head declares be vietnam pro", () => {
+  const doc = frameDoc("", O);
+  for (const w of [400, 500, 600])
+    for (const s of ["latin", "vietnamese"]) expect(doc).toContain(`${O}/vendor/fonts/BeVietnamPro-${s}-${w}.woff2`);
+  expect(doc).toContain("font-display:swap");
+  expect(doc).toContain("U+0102-0103");
+  expect(doc).toContain('font-family: "Be Vietnam Pro", system-ui, sans-serif');
+});
+
+test("kit control edges use --control-border", () => {
+  expect(KIT_CSS).not.toMatch(/\.df-hint \{[^}]*1px solid var\(--border\)/);
 });

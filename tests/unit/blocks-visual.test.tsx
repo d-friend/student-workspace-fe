@@ -285,3 +285,10 @@ test("point tool on empty board creates one point", async () => {
   expect(els.filter((e) => e.kind === "point")).toHaveLength(4);
   expect(c.report).toHaveBeenCalledTimes(1);
 });
+
+test("custom renders iframe at block height", () => {
+  const { container } = render(<>{renderBlock({ type: "custom", id: "c1", html: "<p>x</p>", height: 320, reason: "r" }, ctx)}</>);
+  const f = container.querySelector("iframe")!;
+  expect(f.style.height).toBe("320px");
+  expect(f.getAttribute("srcdoc")).toContain("<p>x</p>");
+});

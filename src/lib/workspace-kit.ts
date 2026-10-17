@@ -35,7 +35,7 @@ export const KIT_CSS = `
 body {
   box-sizing: border-box; margin: 0 auto; padding: 40px clamp(20px, 4vw, 64px);
   max-width: calc(760px + 2 * clamp(20px, 4vw, 64px));
-  background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--bg); color: var(--text); font-family: "Be Vietnam Pro", system-ui, sans-serif;
 }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
@@ -98,7 +98,7 @@ body {
 .df-hint {
   font: inherit; height: 48px; padding: 0 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 10px;
   font-size: 15px; font-weight: 600; color: var(--text); background: var(--panel);
-  border: 1px solid var(--border); border-radius: 10px;
+  border: 1px solid var(--control-border); border-radius: 10px;
 }
 .df-hint::before {
   content: ""; width: 20px; height: 20px; flex: none; background: var(--text);

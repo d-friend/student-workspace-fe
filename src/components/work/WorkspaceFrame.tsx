@@ -8,10 +8,12 @@ export function WorkspaceFrame({
   srcDoc,
   status,
   iframeRef,
+  height,
 }: {
   srcDoc: string;
   status: string | null;
   iframeRef?: Ref<HTMLIFrameElement>;
+  height?: number;
 }) {
   return (
     <div className={styles.wrap}>
@@ -20,6 +22,7 @@ export function WorkspaceFrame({
         title={copy.workspaceTitle}
         sandbox="allow-scripts allow-forms"
         srcDoc={srcDoc}
+        style={height === undefined ? undefined : { height }}
         className={styles.frame}
       />
       {status !== null && <StatusPill>{status}</StatusPill>}

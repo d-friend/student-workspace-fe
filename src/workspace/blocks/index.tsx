@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Block, BlockCtx } from "../types";
+import { Custom } from "./Custom";
 import { Callout } from "./Callout";
 import { Example } from "./Example";
 import { Geometry } from "./Geometry";
@@ -36,8 +37,7 @@ export function renderBlock(block: Block, ctx: BlockCtx): ReactNode {
       return <Graph block={block} ctx={ctx} />;
     case "geometry":
       return <Geometry block={block} ctx={ctx} />;
-    default:
-      // Temporary null: (Task 10) fills this.
-      return null;
+    case "custom":
+      return <Custom block={block} ctx={ctx} />;
   }
 }

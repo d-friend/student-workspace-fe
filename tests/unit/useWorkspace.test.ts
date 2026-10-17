@@ -1,3 +1,4 @@
+import { customFrames } from "@/lib/frame";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError, TurnError, type TurnEvent } from "@/lib/api";
@@ -156,6 +157,20 @@ describe("workspace turn", () => {
     // The [silent] reply is kept in memory as a message, so it counts as a turn of the session.
     t.ws.actions.newProblem();
     expect(t.track).toHaveBeenCalledWith("new_problem_clicked", { turns_in_session: 2 }, "s1");
+  });
+
+  it("custom iframe events reach pending", async () => {
+    const t = await withWorkspace();
+    t.api.turn.mockClear();
+    const win = {} as Window;
+    post({ type: "answer_submitted", byStudent: true, gesture: 5 }, win);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(t.api.turn).not.toHaveBeenCalled();
+    customFrames.add(win);
+    post({ type: "answer_submitted", byStudent: true, gesture: 5 }, win);
+    await vi.advanceTimersByTimeAsync(800);
+    expect(t.api.turn).toHaveBeenCalled();
+    customFrames.delete(win);
   });
 
   it("starts only from the iframe, only on a student gesture, flushed 800 ms after the first event", async () => {

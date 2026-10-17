@@ -102,7 +102,7 @@ export async function currentSession(): Promise<{
   const workspaces: Partial<Record<Phase, Workspace>> = {};
   for (const [phase, w] of Object.entries(body.workspaces ?? {}) as [Phase, { workspace_id: string; doc: WorkspaceDoc }][])
     workspaces[phase] = { id: w.workspace_id, doc: w.doc };
-  return { sessionId: body.session_id, messages: body.messages, html: body.html, workspaces, phase: body.phase ?? null };
+  return { sessionId: body.session_id, messages: body.messages, html: body.html ?? null, workspaces, phase: body.phase ?? null };
 }
 
 export async function check(

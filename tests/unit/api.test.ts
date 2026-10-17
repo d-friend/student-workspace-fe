@@ -150,3 +150,8 @@ test("check throws ApiError on 429", async () => {
   expect(err).toBeInstanceOf(ApiError);
   expect(err.status).toBe(429);
 });
+
+test("currentSession maps a missing html key to null", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json(200, { session_id: "s1", messages: [] })));
+  expect((await currentSession())?.html).toBeNull();
+});

@@ -1,3 +1,4 @@
+import type { CheckResponse, Phase, Workspace, WorkspaceDoc } from "@/workspace/types";
 import { readSse } from "./sse";
 
 // Typed client for spec 4.2 to 4.6. A 401 no_guest makes one guest call and one retry.
@@ -87,12 +88,35 @@ export async function createSession(startedVia: StartedVia): Promise<{ sessionId
 }
 
 // The guest's open session with its transcript, or null (204) when there is none.
-export async function currentSession(): Promise<{ sessionId: string; messages: Message[]; html: string | null } | null> {
+export async function currentSession(): Promise<{
+  sessionId: string;
+  messages: Message[];
+  html: string | null;
+  workspaces: Partial<Record<Phase, Workspace>>;
+  phase: Phase | null;
+} | null> {
   const res = await get("/api/sessions/current");
   if (res.status === 204) return null;
   if (!res.ok) throw await toApiError(res);
   const body = await res.json();
-  return { sessionId: body.session_id, messages: body.messages, html: body.html };
+  const workspaces: Partial<Record<Phase, Workspace>> = {};
+  for (const [phase, w] of Object.entries(body.workspaces ?? {}) as [Phase, { workspace_id: string; doc: WorkspaceDoc }][])
+    workspaces[phase] = { id: w.workspace_id, doc: w.doc };
+  return { sessionId: body.session_id, messages: body.messages, html: body.html, workspaces, phase: body.phase ?? null };
+}
+
+export async function check(
+  sessionId: string,
+  body: { workspaceId: string; blockId: string; answer: string; previous: string[] },
+): Promise<CheckResponse> {
+  const res = await post(`/api/sessions/${sessionId}/check`, {
+    workspace_id: body.workspaceId,
+    block_id: body.blockId,
+    answer: body.answer,
+    previous: body.previous,
+  });
+  if (!res.ok) throw await toApiError(res);
+  return res.json();
 }
 
 export async function endSession(sessionId: string, reason: "new_problem" | "abandoned"): Promise<void> {
@@ -109,17 +133,34 @@ export async function sendEvents(
   return res.json();
 }
 
+export type TurnEvent =
+  | { event: "announce"; text: string }
+  | { event: "status"; stage: "planning" | "searching" | "reading" | "failed"; label?: string; phase?: Phase }
+  | { event: "workspace"; workspaceId: string; phase: Phase; doc: WorkspaceDoc }
+  | { event: "phase"; phase: Phase }
+  | { event: "line_state"; blockId: string; line: number; state: "ok" | "review" }
+  | { event: "task_done"; blockId: string };
+
 // One agent turn. Text deltas go to onDelta; resolves on `done`, throws TurnError on `error`.
 export async function turn(
   sessionId: string,
   message: Message,
   onDelta: (text: string) => void,
+  onEvent?: (e: TurnEvent) => void,
 ): Promise<{ turnId: string; stopReason: string | null }> {
   const res = await post(`/api/sessions/${sessionId}/turns`, { message });
   if (!res.ok) throw await toApiError(res);
   try {
     for await (const { event, data } of readSse(res)) {
       if (event === "text") onDelta((data as { delta: string }).delta);
+      else if (event === "announce" || event === "status" || event === "phase") onEvent?.({ event, ...(data as object) } as TurnEvent);
+      else if (event === "workspace") {
+        const d = data as { workspace_id: string; phase: Phase; doc: WorkspaceDoc };
+        onEvent?.({ event, workspaceId: d.workspace_id, phase: d.phase, doc: d.doc });
+      } else if (event === "line_state") {
+        const d = data as { block_id: string; line: number; state: "ok" | "review" };
+        onEvent?.({ event, blockId: d.block_id, line: d.line, state: d.state });
+      } else if (event === "task_done") onEvent?.({ event, blockId: (data as { block_id: string }).block_id });
       else if (event === "done") {
         const done = data as { turn_id: string; stop_reason: string | null };
         return { turnId: done.turn_id, stopReason: done.stop_reason };

@@ -690,6 +690,27 @@ describe("structured workspace", () => {
     expect(t.track).toHaveBeenLastCalledWith("workspace_shown", expect.objectContaining({ replaced: true }), "s1");
   });
 
+  it("replacing a phase doc drops pending events about blocks only the old doc had", async () => {
+    const t = await boot(stream([shown("S1"), "ok"]));
+    await typed(t);
+    const lineChecked = { block_id: "s1", line: 1, text: "a", ok: true, state: "ok", retried: false };
+    const without = { ...SOLVE, blocks: SOLVE.blocks.filter((b) => b.id !== "s1") };
+    t.api.turn.mockImplementationOnce(
+      stream([
+        () => t.ws.actions.report("line_checked", lineChecked), // queued while the rebuild streams
+        () => t.ws.actions.report("phase_viewed", { phase: "solve" }),
+        shown("S2", without),
+        "ok",
+      ]),
+    );
+    t.api.turn.mockImplementation(stream([]));
+    await typed(t, "dựng lại");
+    await vi.advanceTimersByTimeAsync(0); // the leftover phase_viewed starts a workspace turn
+    const sent = String(lastContent(t.api));
+    expect(sent).toContain("phase_viewed");
+    expect(sent).not.toContain("line_checked");
+  });
+
   it("report flushes as a workspace turn after 800ms", async () => {
     const t = await boot(stream([shown("w1"), "Mình đọc đề là: x."]));
     await typed(t);

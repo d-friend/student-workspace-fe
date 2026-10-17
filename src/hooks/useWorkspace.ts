@@ -338,6 +338,10 @@ export function createWorkspace(deps: WorkspaceDeps) {
           delete overrides[old.id];
           taskDone = { ...taskDone };
           delete taskDone[old.id];
+          // Pending events about blocks that only the old doc had are stale. A shared id is ambiguous, so it stays.
+          const gone = new Set(old.doc.blocks.map((b) => b.id));
+          for (const w of Object.values(workspaces)) if (w.id !== e.workspaceId) w.doc.blocks.forEach((b) => gone.delete(b.id));
+          pending = pending.filter((p) => !gone.has((p.data as { block_id?: string } | null)?.block_id ?? ""));
         }
         track("workspace_shown", { ms_since_send: Math.max(0, now() - sentAt), replaced }, sid());
       } else if (e.event === "phase") {

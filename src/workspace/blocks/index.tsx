@@ -5,7 +5,9 @@ import { Example } from "./Example";
 import { Heading } from "./Heading";
 import { ImageBlock } from "./Image";
 import { MathBlock } from "./MathBlock";
+import { Problem } from "./Problem";
 import { Quiz } from "./Quiz";
+import { Steps } from "./Steps";
 import { Text } from "./Text";
 
 export function renderBlock(block: Block, ctx: BlockCtx): ReactNode {
@@ -24,8 +26,12 @@ export function renderBlock(block: Block, ctx: BlockCtx): ReactNode {
       return <Example block={block} ctx={ctx} />;
     case "quiz":
       return <Quiz block={block} ctx={ctx} />;
+    case "problem":
+      return <Problem block={block} ctx={ctx} />;
+    case "steps":
+      return <Steps block={block} ctx={ctx} />;
     default:
-      // Temporary null: problem/steps (Task 5), graph (Task 8), geometry (Task 9), custom (Task 10) fill this.
+      // Temporary null: graph (Task 8), geometry (Task 9), custom (Task 10) fill this.
       return null;
   }
 }

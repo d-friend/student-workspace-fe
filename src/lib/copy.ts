@@ -58,6 +58,8 @@ export const copy = {
   calloutRemember: "Ghi nhớ",
   calloutWarning: "Lưu ý",
   problemLabel: "Đề bài",
+  lineLabel: (n: number) => `Dòng ${n}`,
+  doneTitle: "Bạn đã xong bài này",
   phaseLearn: "Lý thuyết",
   phaseSolve: "Bài của bạn",
   phasePractice: "Luyện tập",

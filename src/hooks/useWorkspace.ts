@@ -604,7 +604,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       return dispatch(text, shot);
     },
 
-    async pickPhoto(file: Blob, source: "snap_button" | "composer_button" | "retake") {
+    async pickPhoto(file: Blob, source: "snap_button" | "composer_button" | "retake" | "paste") {
       removeBubble(photoNoteId);
       photoNoteId = null;
       try {

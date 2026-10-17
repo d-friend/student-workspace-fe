@@ -67,6 +67,19 @@ test("a long unbroken word does not widen the doc at 360px", async ({ page }) =>
   }
 });
 
+test("the doc is centered in the workspace", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 800 });
+  await restore(page);
+  const s = await scroller(page);
+  const [left, right] = await s.evaluate((el) => {
+    const doc = el.firstElementChild!.getBoundingClientRect();
+    const box = el.getBoundingClientRect();
+    return [doc.left - box.left, box.right - doc.right];
+  });
+  expect(left).toBeGreaterThan(0);
+  expect(Math.abs(left - right)).toBeLessThanOrEqual(1);
+});
+
 test("each phase keeps its own scroll position", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 500 });
   await restore(page);

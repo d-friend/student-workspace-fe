@@ -1,6 +1,6 @@
 "use client";
 
-import { type ChangeEvent, useMemo, useRef } from "react";
+import { type ChangeEvent, useEffect, useMemo, useRef } from "react";
 import { Shell } from "@/components/Shell";
 import { Bubble } from "@/components/rail/Bubble";
 import { ChatLog } from "@/components/rail/ChatLog";
@@ -23,7 +23,7 @@ import styles from "./page.module.css";
 
 const JPEG_PREFIX = "data:image/jpeg;base64,";
 
-type PhotoSource = "snap_button" | "composer_button" | "retake";
+type PhotoSource = "snap_button" | "composer_button" | "retake" | "paste";
 
 export default function Page() {
   const ws = useWorkspace();
@@ -39,6 +39,19 @@ export default function Page() {
     e.target.value = "";
     if (file) void ws.pickPhoto(file, source.current);
   };
+
+  // A pasted screenshot becomes the photo, wherever the focus is. Pasted text is left to the browser.
+  const { pickPhoto } = ws;
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const file = Array.from(e.clipboardData?.files ?? []).find((f) => f.type.startsWith("image/"));
+      if (!file) return;
+      e.preventDefault();
+      void pickPhoto(file, "paste");
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [pickPhoto]);
 
   // html is null on the server and on the first client render, so location is only read in the browser.
   const srcDoc = useMemo(() => (ws.html === null ? null : frameDoc(ws.html, location.origin)), [ws.html]);

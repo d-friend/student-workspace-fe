@@ -673,13 +673,22 @@ export function createWorkspace(deps: WorkspaceDeps) {
       actions.report("phase_viewed", { phase: p });
     },
 
-    check(blockId: string, answer: string, previous: string[]): Promise<CheckResponse> {
-      // Block ids are unique per doc only, so the showing phase wins.
-      const w = [phase && workspaces[phase], ...Object.values(workspaces)].find((x) =>
-        x?.doc.blocks.some((b) => b.id === blockId),
-      );
-      if (!w || sessionId === null) return Promise.reject(new Error(`no workspace holds block ${blockId}`));
-      return api.check(sessionId, { workspaceId: w.id, blockId, answer, previous });
+    check(workspaceId: string, blockId: string, answer: string, previous: string[]): Promise<CheckResponse> {
+      const w = Object.values(workspaces).find((x) => x.id === workspaceId);
+      if (!w || sessionId === null) return Promise.reject(new Error(`no workspace ${workspaceId}`));
+      return api.check(sessionId, { workspaceId, blockId, answer, previous }).then((r) => {
+        // A master line_state judged the attempt it was issued for, not the next one at that line.
+        // shortcut: the line is previous.length + 1, which is Steps' contract; other blocks hold no overrides.
+        const line = previous.length + 1;
+        const lines = overrides[workspaceId]?.[blockId];
+        if (lines && line in lines) {
+          const rest = { ...lines };
+          delete rest[line];
+          overrides = { ...overrides, [workspaceId]: { ...overrides[workspaceId], [blockId]: rest } };
+          publish();
+        }
+        return r;
+      });
     },
 
     rebuild(): Promise<void> {

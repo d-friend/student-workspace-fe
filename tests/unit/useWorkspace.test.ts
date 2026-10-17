@@ -740,8 +740,33 @@ describe("structured workspace", () => {
     const check = vi.fn().mockResolvedValue({ ok: true, state: "ok", done: false });
     Object.assign(t.api, { check });
     await typed(t);
-    await expect(t.ws.actions.check("s1", "y", ["a"])).resolves.toMatchObject({ ok: true });
+    await expect(t.ws.actions.check("S1", "s1", "y", ["a"])).resolves.toMatchObject({ ok: true });
     expect(check).toHaveBeenCalledWith("s1", { workspaceId: "S1", blockId: "s1", answer: "y", previous: ["a"] });
+  });
+
+  it("check binds to the given workspace even when another phase repeats the block id", async () => {
+    const practice = { ...SOLVE, phase: "practice" as const };
+    const t = await boot(stream([shown("S1"), shown("P1", practice), { event: "phase", phase: "solve" }, "ok"]));
+    const check = vi.fn().mockResolvedValue({ ok: true, state: "ok", done: false });
+    Object.assign(t.api, { check });
+    await typed(t);
+    await t.ws.actions.check("P1", "s1", "y", []);
+    expect(check).toHaveBeenCalledWith("s1", expect.objectContaining({ workspaceId: "P1" }));
+  });
+
+  it("a new attempt at a line consumes the master's line_state override for it", async () => {
+    const t = await boot(
+      stream([
+        shown("S1"),
+        { event: "line_state", workspaceId: "S1", blockId: "s1", line: 1, state: "review" },
+        { event: "line_state", workspaceId: "S1", blockId: "s1", line: 2, state: "review" },
+        "ok",
+      ]),
+    );
+    Object.assign(t.api, { check: vi.fn().mockResolvedValue({ ok: true, state: "ok", done: false }) });
+    await typed(t);
+    await t.ws.actions.check("S1", "s1", "y", []);
+    expect(t.state().overrides).toEqual({ S1: { s1: { 2: "review" } } });
   });
 
   it("restore prefers workspaces over html", async () => {

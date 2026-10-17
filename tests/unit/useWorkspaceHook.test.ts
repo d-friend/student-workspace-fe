@@ -121,3 +121,37 @@ it("a master task_done marks only its own workspace when block ids repeat across
     { type: "task_completed", data: { similar: false, helped: false, max_hint: 0, via: "master" }, byStudent: false },
   ]);
 });
+
+it("a retyped line is judged on its own after the master withdrew an ok", async () => {
+  const solve = fixtures["solve-tangent.json"];
+  vi.mocked(api.check).mockResolvedValue({ ok: true, state: "ok", done: false });
+  vi.mocked(api.turn).mockImplementationOnce(async (_s, _m, onDelta, onEvent) => {
+    onEvent!({ event: "workspace", workspaceId: "S1", phase: "solve", doc: solve });
+    onDelta("Xong.");
+    return DONE;
+  });
+  render(createElement(Page));
+  await send("đề bài");
+  fireEvent.change(screen.getByRole("textbox", { name: copy.lineLabel(1) }), { target: { value: "y' = 3x^2" } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: copy.check }));
+  });
+  await screen.findByText(copy.stateOk);
+
+  vi.mocked(api.turn).mockImplementationOnce(async (_s, _m, onDelta, onEvent) => {
+    onEvent!({ event: "line_state", workspaceId: "S1", blockId: "s1", line: 1, state: "review" });
+    onDelta("Dòng 1 chưa đúng.");
+    return DONE;
+  });
+  await send("sao sai?");
+  await screen.findByText(copy.stateReview);
+  const line = screen.getByRole("textbox", { name: copy.lineLabel(1) });
+
+  fireEvent.change(line, { target: { value: "y' = 3x^2 - 2" } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: copy.check }));
+  });
+  await screen.findByText(copy.stateOk);
+  expect(screen.queryByText(copy.stateReview)).toBeNull();
+  expect(screen.getByRole("textbox", { name: copy.lineLabel(2) })).toBeTruthy();
+});

@@ -110,7 +110,7 @@ export default function Page() {
     workspaceId: w.id,
     phase: w.doc.phase,
     report: ws.report,
-    check: ws.check,
+    check: (blockId, answer, previous) => ws.check(w.id, blockId, answer, previous),
     overrides: ws.overrides[w.id] ?? {},
     hintCount: 0,
     onSolved: () => {},

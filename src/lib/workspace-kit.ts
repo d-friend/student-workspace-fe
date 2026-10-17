@@ -20,9 +20,17 @@ const ICON_BOOK = icon(
 export const KIT_CSS = `
 :root {
   --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f27; --muted: #5b6472;
-  --border: #d5d9e0; --hairline: #e6e9ee; --accent: #2457d6; --accent-text: #ffffff;
-  --student: #e3ebff; --agent: #eceef2; --review-bg: #fff5ec; --review-border: #f3d3b8;
+  --border: #d5d9e0; --control-border: #7d8696; --hairline: #e6e9ee; --accent: #2457d6; --accent-text: #ffffff;
+  --student: #e3ebff; --agent: #eceef2; --idea-bg: #eef3ff; --review-bg: #fff5ec; --review-border: #f3d3b8;
   --review-text: #a14400; --error-bg: #fde8e8; --error-text: #8a1c1c;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12151b; --panel: #1a1e26; --text: #e7e9ee; --muted: #a3abb8;
+    --border: #343a46; --control-border: #6b7486; --hairline: #262b35; --accent: #7da2ff; --accent-text: #0d1220;
+    --student: #1c2640; --agent: #222833; --idea-bg: #1c2640; --review-bg: #2b1d10; --review-border: #5a3b22;
+    --review-text: #ffb27a; --error-bg: #3a1717; --error-text: #ffb4b4;
+  }
 }
 body {
   box-sizing: border-box; margin: 0 auto; padding: 40px clamp(20px, 4vw, 64px);

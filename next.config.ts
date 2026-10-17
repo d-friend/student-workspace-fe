@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // The workspace iframe is sandboxed without allow-same-origin (opaque origin), so its @font-face fetches are cross-origin.
+  async headers() {
+    return [{ source: "/vendor/fonts/:path*", headers: [{ key: "Access-Control-Allow-Origin", value: "*" }] }];
+  },
   // One origin for the browser: /api/* goes to the backend, so the guest cookie stays first-party.
   // `fallback`, not the default afterFiles: dynamic routes are matched after afterFiles rewrites, and the
   // turn stream needs its own Route Handler (src/app/api/sessions/[sessionId]/turns/route.ts) to win.

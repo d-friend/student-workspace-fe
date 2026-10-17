@@ -9,7 +9,7 @@ export function Problem({ block }: BlockProps<Problem>) {
   return (
     <section className={styles.card}>
       <h2 className={styles.label}>{copy.problemLabel}</h2>
-      <div className={styles.prose}>
+      <div className={styles.problem}>
         <Md text={block.md} />
       </div>
       {/* eslint-disable-next-line @next/next/no-img-element */}

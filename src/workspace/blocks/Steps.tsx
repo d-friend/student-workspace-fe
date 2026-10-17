@@ -51,7 +51,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
     <section className={styles.card}>
       <ol className={styles.lines} aria-live="polite">
         {entries.map((e, i) => (
-          <li key={i} className={`${styles.line} ${effective[i] === "review" ? styles.lineReview : ""}`}>
+          <li key={i} className={`${styles.line} ${effective[i] === "review" ? styles.lineReview : styles.lineOk}`}>
             <span className={styles.n}>{i + 1}</span>
             <span className={styles.lineText}>{e.text}</span>
             <span className={`${styles.badge} ${effective[i] === "review" ? styles.badgeReview : ""}`}>

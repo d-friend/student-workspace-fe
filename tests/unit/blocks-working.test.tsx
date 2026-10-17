@@ -33,6 +33,11 @@ const show = (c: BlockCtx) => render(<>{renderBlock(steps, c)}</>);
 const type = (v: string) => fireEvent.change(screen.getByRole("textbox"), { target: { value: v } });
 const submit = () => fireEvent.click(screen.getByRole("button", { name: copy.check }));
 
+test("live region is mounted before any result", () => {
+  const { container } = show(ctxWith());
+  expect(container.querySelector('[aria-live="polite"]')).toBeTruthy();
+});
+
 test("steps ok line", async () => {
   const c = ctxWith([ok]);
   show(c);

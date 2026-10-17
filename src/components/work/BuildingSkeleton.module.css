@@ -36,7 +36,7 @@
 
 .block {
   display: block;
-  border-radius: 6px;
+  border-radius: 10px;
   background: linear-gradient(90deg, var(--hairline), var(--agent), var(--hairline));
   background-size: 200% 100%;
   animation: shimmer 1.6s ease-in-out infinite;

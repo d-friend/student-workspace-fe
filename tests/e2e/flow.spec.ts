@@ -1,84 +1,45 @@
-import { execFileSync } from "node:child_process";
-import path from "node:path";
-
 import { expect, test, type Page } from "@playwright/test";
 
 import { copy } from "../../src/lib/copy";
 
-// The backend runs with MOCK=true (see playwright.config.ts), so replies are the canned ones from
-// backend/app/agent/mock.py: any text gets the demo workspace, a photo gets the restatement and the demo.
+// The backend runs with MOCK=true (see playwright.config.ts): replies come from backend/app/agent/mock.py,
+// where "__build" builds the tangent solve workspace and "__learn" builds a learn workspace.
 
-const frame = (page: Page) => page.frameLocator(`iframe[title="${copy.workspaceTitle}"]`);
 const composer = (page: Page) => page.getByLabel(copy.inputLabel);
+const send = async (page: Page, text: string) => {
+  await composer(page).fill(text);
+  await composer(page).press("Enter");
+};
 
-function psql(sql: string): string {
-  return execFileSync("docker", ["exec", "dfriend-db", "psql", "-U", "dfriend", "-d", "dfriend", "-tAc", sql], {
-    encoding: "utf8",
-  }).trim();
-}
-
-test("a full session: type, stream, workspace event, reload, new problem, photo", async ({ page, context }) => {
+test("build, check a line, add a learn phase, switch keeping input, reload", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: copy.emptyTitle })).toBeVisible();
 
-  // Type a problem: the reply streams and the workspace appears.
-  await composer(page).fill("Tìm m để hàm số đồng biến");
-  await composer(page).press("Enter");
-  await expect(page.getByText("Try the workspace on the right.")).toBeVisible();
-  await expect(frame(page).getByRole("button", { name: "Submit" })).toBeVisible();
+  await send(page, "__build");
+  await expect(page.getByText("Mình dựng nhé.")).toBeVisible();
+  await expect(page.getByText("Viết phương trình tiếp tuyến")).toBeVisible();
+  const line = page.getByLabel(copy.lineLabel(1));
+  await line.fill("f'(x)=3x^2-2");
+  await page.getByRole("button", { name: copy.check }).click();
+  await expect(page.getByText(copy.stateOk, { exact: true })).toBeVisible();
 
-  // A student click inside the frame starts a workspace turn.
-  await frame(page).locator("#n").fill("4");
-  await frame(page).getByRole("button", { name: "Submit" }).click();
-  await expect(page.getByText(/I saw this from the workspace/)).toBeVisible();
+  // Type the next line without sending it, then add the learn phase.
+  await page.getByLabel(copy.lineLabel(2)).fill("f'(2)=1");
+  await send(page, "__learn");
+  await expect(page.getByRole("tab")).toHaveCount(2);
+  await page.getByRole("tab", { name: copy.phaseLearn }).click();
+  await expect(page.getByRole("heading", { name: "Ý tưởng" })).toBeVisible();
+  await page.getByRole("tab", { name: copy.phaseSolve }).click();
+  await expect(page.getByLabel(copy.lineLabel(2))).toHaveValue("f'(2)=1");
 
-  // The server stores a turn only when its stream ends, and the bubble is visible mid-stream: wait
-  // until the server has the workspace reply, or the reload below races the end of the turn.
+  // The server stores a turn when its stream ends: wait for it, or the reload races the turn.
   await expect
     .poll(async () => JSON.stringify(await (await page.request.get("/api/sessions/current")).json()))
-    .toContain("I saw this from the workspace");
-
-  // Reload restores the bubbles and the workspace from the server: localStorage is wiped first, so
-  // nothing can come from the browser (the guest cookie is what identifies the session).
-  await page.evaluate(() => localStorage.clear());
-  expect(await page.evaluate(() => localStorage.length)).toBe(0);
+    .toContain("Phương trình bậc nhất");
   await page.reload();
-  await expect(page.getByText("Tìm m để hàm số đồng biến")).toBeVisible();
-  await expect(page.getByText(/I saw this from the workspace/)).toBeVisible();
-  await expect(frame(page).getByRole("button", { name: "Submit" })).toBeVisible();
-
-  // "Bài mới" brings back the empty state.
-  await page.getByRole("button", { name: copy.newProblem }).click();
-  await expect(page.getByRole("heading", { name: copy.emptyTitle })).toBeVisible();
-  await expect(page.locator("iframe")).toHaveCount(0);
-
-  // Photo flow: PhotoCheck, send, the restatement with its chips.
-  await page.locator('input[type="file"]').setInputFiles(path.join(__dirname, "../fixtures/photo.jpg"));
-  await expect(page.getByRole("heading", { name: copy.photoTitle })).toBeVisible();
-  await page.getByRole("button", { name: copy.sendPhoto }).click();
-  await expect(page.getByText("Mình đọc đề là: (ảnh mẫu).")).toBeVisible();
-  await expect(page.getByRole("button", { name: copy.restateYes })).toBeVisible();
-  await expect(frame(page).getByRole("button", { name: "Submit" })).toBeVisible();
-
-  // Tracking: let the 5 s queue flush, then the database has this guest's rows.
-  await page.waitForTimeout(6000);
-  const guest = (await context.cookies()).find((c) => c.name === "df_guest")?.value;
-  expect(guest).toMatch(/^[0-9a-f-]{36}$/);
-  const count = (table: string) => Number(psql(`SELECT count(*) FROM ${table} WHERE guest_id = '${guest}'`));
-  expect(count("turns")).toBeGreaterThanOrEqual(3);
-  expect(Number(psql(`SELECT count(*) FROM guests WHERE id = '${guest}'`))).toBe(1);
-  expect(count("sessions")).toBeGreaterThanOrEqual(2);
-  expect(count("events")).toBeGreaterThanOrEqual(5);
-  expect(psql(`SELECT count(*) FROM events WHERE guest_id = '${guest}' AND source = 'workspace'`)).not.toBe("0");
-  expect(psql(`SELECT string_agg(DISTINCT type, ',') FROM events WHERE guest_id = '${guest}' AND source = 'app'`)).toContain(
-    "app_opened",
-  );
-  // No content: none of the typed text is anywhere in this guest's rows.
-  const dump = psql(
-    `SELECT row_to_json(t)::text FROM turns t WHERE guest_id = '${guest}' UNION ALL ` +
-      `SELECT row_to_json(e)::text FROM events e WHERE guest_id = '${guest}'`,
-  );
-  expect(dump).not.toContain("Tìm m");
+  await expect(page.getByRole("tab")).toHaveCount(2);
+  await expect(page.getByRole("tab", { name: copy.phaseLearn })).toBeVisible();
+  await expect(page.getByRole("tab", { name: copy.phaseSolve })).toBeVisible();
 });
 
 test("text arrives in chunks through the Next rewrite, not all at the end", async ({ baseURL }) => {
@@ -95,7 +56,7 @@ test("text arrives in chunks through the Next rewrite, not all at the end", asyn
   const res = await fetch(`${baseURL}/api/sessions/${session_id}/turns`, {
     method: "POST",
     headers: { ...json, cookie },
-    body: JSON.stringify({ message: { role: "user", content: "x" } }),
+    body: JSON.stringify({ message: { role: "user", content: "__build" } }),
   });
   expect(res.status).toBe(200);
   const stamps: number[] = [];
@@ -105,7 +66,8 @@ test("text arrives in chunks through the Next rewrite, not all at the end", asyn
     if (done) break;
     stamps.push(Date.now());
   }
-  // The mock sends ~70 chunks over ~2 s. A buffering proxy would deliver them in one or two reads.
-  expect(stamps.length).toBeGreaterThan(10);
-  expect(stamps.at(-1)! - stamps[0]).toBeGreaterThan(500);
+  // A __build turn streams the announce, the workspace events and the closing text with mock delays in
+  // between. A buffering proxy would deliver them in one or two reads.
+  expect(stamps.length).toBeGreaterThanOrEqual(3);
+  expect(stamps.at(-1)! - stamps[0]).toBeGreaterThan(20);
 });

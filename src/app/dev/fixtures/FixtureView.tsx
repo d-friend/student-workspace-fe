@@ -1,0 +1,38 @@
+"use client";
+
+import { useState } from "react";
+import { Shell } from "@/components/Shell";
+import { StatusPill } from "@/components/work/StatusPill";
+import { copy } from "@/lib/copy";
+import type { BlockCtx, Phase, WorkspaceDoc } from "@/workspace/types";
+import { WorkspaceView } from "@/workspace/WorkspaceView";
+import styles from "../../page.module.css";
+
+const noop = () => {};
+
+export function FixtureView({ doc, pill }: { doc: WorkspaceDoc; pill: boolean }) {
+  const [phase, setPhase] = useState<Phase>(doc.phase);
+  const w = { id: "fx", doc };
+  const makeCtx = (): BlockCtx => ({
+    workspaceId: "fx",
+    phase: doc.phase,
+    report: noop,
+    check: async () => ({ ok: true, state: "ok", done: false }),
+    overrides: {},
+    hintCount: 0,
+    onSolved: noop,
+  });
+  return (
+    <Shell
+      rail={null}
+      work={
+        <div className={styles.viewWrap}>
+          <div className={styles.viewScroll}>
+            <WorkspaceView workspaces={{ [doc.phase]: w }} phase={phase} onPhase={setPhase} makeCtx={makeCtx} />
+          </div>
+          {pill && <StatusPill>{copy.statusPlanning}</StatusPill>}
+        </div>
+      }
+    />
+  );
+}

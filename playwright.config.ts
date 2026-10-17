@@ -19,6 +19,7 @@ export default defineConfig({
     },
     {
       command: "pnpm build && pnpm start",
+      env: { ...(process.env as Record<string, string>), NEXT_PUBLIC_FIXTURES: "1" },
       url: WEB,
       reuseExistingServer: true,
       timeout: 240_000,

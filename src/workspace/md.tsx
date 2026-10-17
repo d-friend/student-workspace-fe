@@ -42,10 +42,6 @@ export function Md({ text }: { text: string }): ReactNode {
           </Tag>
         );
       }
-      // A lone $$…$$ block is a <div>, which cannot sit inside <p>.
-      if (/^\$\$[\s\S]+\$\$$/.test(block) && !/\$\$[\s\S]*\$\$[\s\S]*\$\$/.test(block)) {
-        return <div key={i}>{inline(block)}</div>;
-      }
       return (
         <p key={i}>
           {lines.flatMap((l, j) => (j ? [<br key={`b${j}`} />, ...inline(l)] : inline(l)))}

@@ -1,4 +1,15 @@
+/* A span, not a div, so display math is valid inside <p> and <li>. */
 .scroll {
+  display: block;
   overflow-x: auto;
   max-width: 100%;
+}
+
+/* KaTeX centers display math; the spec wants it left-aligned at the text indent. */
+.scroll :global(.katex-display) {
+  text-align: left;
+}
+
+.scroll :global(.katex-display > .katex) {
+  text-align: left;
 }

@@ -11,5 +11,5 @@ export function TeX({ tex, display }: { tex: string; display: boolean }) {
   });
   // The only dangerouslySetInnerHTML in the codebase: KaTeX output, trust: false.
   const inner = <span dangerouslySetInnerHTML={{ __html: html }} />;
-  return display ? <div className={styles.scroll}>{inner}</div> : inner;
+  return display ? <span className={styles.scroll}>{inner}</span> : inner;
 }

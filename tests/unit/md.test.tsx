@@ -1,6 +1,7 @@
 // CSS-module class names are hashed under vitest, so match the `scroll` class by substring.
 import { cleanup, render } from "@testing-library/react";
-import { afterEach, expect, test } from "vitest";
+import { readFileSync } from "node:fs";
+import { afterEach, expect, test, vi } from "vitest";
 import { Md } from "@/workspace/md";
 
 afterEach(cleanup);
@@ -57,4 +58,26 @@ test("bad tex does not throw", () => {
 test("test_wide_math_scrolls_in_box", () => {
   const c = r("$$a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p$$");
   expect(c.querySelector('[class*="scroll"] .katex-display')).not.toBeNull();
+});
+
+test("display math inside text and lists has no div inside p or li", () => {
+  const spy = vi.spyOn(console, "error");
+  const c = r("Ta có $$x^2$$ suy ra y\n\n- a $$z$$ b");
+  expect(c.querySelector("p div, li div")).toBeNull();
+  expect(c.querySelector('p [class*="scroll"] .katex-display')).not.toBeNull();
+  expect(spy).not.toHaveBeenCalled();
+  spy.mockRestore();
+});
+
+test("display math is left-aligned in the CSS module", () => {
+  const css = readFileSync("src/workspace/TeX.module.css", "utf8");
+  expect(css).toMatch(/\.katex-display\)\s*\{[^}]*text-align:\s*left/);
+});
+
+test("hostile tex produces no links or javascript:", () => {
+  const c = r("$\\href{javascript:alert(1)}{x}$ and $\\htmlClass{x}{y}$");
+  expect(c.querySelector("a[href]")).toBeNull();
+  // The source survives only as inert annotation text, never as an attribute.
+  expect(c.querySelector('[href], [src], [onclick]')).toBeNull();
+  expect(c.innerHTML).not.toMatch(/(href|src)=/);
 });

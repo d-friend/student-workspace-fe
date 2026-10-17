@@ -92,3 +92,32 @@ it("a failed build with nothing to show offers Thử lại, which asks for a reb
   });
   expect(vi.mocked(api.turn).mock.calls.at(-1)![1]).toEqual({ role: "user", content: copy.rebuildMessage });
 });
+
+it("a master task_done marks only its own workspace when block ids repeat across phases", async () => {
+  const solve = fixtures["solve-tangent.json"]; // steps block s1
+  const practice = { ...solve, phase: "practice" as const, title: "Luyện" }; // also s1
+  vi.mocked(api.turn).mockImplementationOnce(async (_s, _m, onDelta, onEvent) => {
+    onEvent!({ event: "workspace", workspaceId: "S1", phase: "solve", doc: solve });
+    onEvent!({ event: "workspace", workspaceId: "P1", phase: "practice", doc: practice });
+    onEvent!({ event: "phase", phase: "solve" });
+    onEvent!({ event: "task_done", workspaceId: "S1", blockId: "s1" });
+    onDelta("Xong rồi.");
+    return DONE;
+  });
+  const { container } = render(createElement(Page));
+  await send("đề bài");
+  expect(container.querySelector("#panel-solve")!.textContent).toContain(copy.doneTitle);
+  expect(container.querySelector("#panel-practice")!.textContent).not.toContain(copy.doneTitle);
+
+  // The completions ride along with the next typed message.
+  vi.mocked(api.turn).mockImplementationOnce(async (_s, _m, onDelta) => {
+    onDelta("ok");
+    return DONE;
+  });
+  await send("tiếp");
+  const content = String((vi.mocked(api.turn).mock.calls.at(-1)![1] as { content: string }).content);
+  const events = JSON.parse(content.slice("[workspace] ".length, content.indexOf("\n\n")));
+  expect(events.filter((e: { type: string }) => e.type === "task_completed")).toEqual([
+    { type: "task_completed", data: { similar: false, helped: false, max_hint: 0, via: "master" }, byStudent: false },
+  ]);
+});

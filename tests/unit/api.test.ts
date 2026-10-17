@@ -92,8 +92,8 @@ test("turn relays every new event in order", async () => {
     sse("workspace", { workspace_id: "w1", phase: "learn", doc }) +
     sse("text", { delta: "x" }) +
     sse("phase", { phase: "solve" }) +
-    sse("line_state", { block_id: "b1", line: 2, state: "review" }) +
-    sse("task_done", { block_id: "b1" }) +
+    sse("line_state", { workspace_id: "w1", block_id: "b1", line: 2, state: "review" }) +
+    sse("task_done", { workspace_id: "w1", block_id: "b1" }) +
     sse("done", { turn_id: "t1", stop_reason: "end_turn" });
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
   const events: TurnEvent[] = [];
@@ -105,8 +105,8 @@ test("turn relays every new event in order", async () => {
     { event: "status", stage: "planning", label: "L", phase: "learn" },
     { event: "workspace", workspaceId: "w1", phase: "learn", doc },
     { event: "phase", phase: "solve" },
-    { event: "line_state", blockId: "b1", line: 2, state: "review" },
-    { event: "task_done", blockId: "b1" },
+    { event: "line_state", workspaceId: "w1", blockId: "b1", line: 2, state: "review" },
+    { event: "task_done", workspaceId: "w1", blockId: "b1" },
   ]);
 });
 

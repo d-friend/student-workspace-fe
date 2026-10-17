@@ -18,7 +18,7 @@ import {
 import { parse, type Parsed } from "@/lib/parse";
 import { readPhoto as realReadPhoto, type PhotoResult } from "@/lib/photo";
 import { track as realTrack, type TrackFn } from "@/lib/track";
-import type { CheckResponse, Phase, Workspace } from "@/workspace/types";
+import type { BlockCtx, CheckResponse, Phase, Workspace } from "@/workspace/types";
 
 // shortcut: starter prompts live here, not in copy.ts (another task's file); move them there later.
 const STARTER_PROMPTS = {
@@ -65,8 +65,9 @@ export type WorkspaceState = {
   html: string | null; // legacy iframe workspace, only when there are no structured workspaces
   workspaces: Partial<Record<Phase, Workspace>>;
   phase: Phase | null;
-  overrides: Record<string, Record<number, "ok" | "review">>;
-  taskDone: string[];
+  // SSE line_state and task_done, by workspace id (block ids are unique per doc only).
+  overrides: Record<string, BlockCtx["overrides"]>;
+  taskDone: Record<string, string[]>;
   building: boolean;
   status: string | null; // the StatusPill label from the latest SSE status
   buildingPhase: Phase | null;
@@ -130,7 +131,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let workspaces: Partial<Record<Phase, Workspace>> = {};
   let phase: Phase | null = null;
   let overrides: WorkspaceState["overrides"] = {};
-  let taskDone: string[] = [];
+  let taskDone: WorkspaceState["taskDone"] = {};
   let building = false;
   let status: string | null = null;
   let buildingPhase: Phase | null = null;
@@ -176,7 +177,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       building,
       status,
       buildingPhase,
-      buildFailed: buildFailed && !shown,
+      buildFailed: buildFailed && !shown && !busy, // a retry while a turn streams would be a no-op
       screen,
       watching: shown && !busy && watching(messages),
       restateChips: !busy && !!agent?.restate && restateClosedId !== agent.id,
@@ -322,24 +323,29 @@ export function createWorkspace(deps: WorkspaceDeps) {
         building = e.stage !== "failed";
         buildingPhase = e.stage === "failed" ? null : (e.phase ?? buildingPhase);
       } else if (e.event === "workspace") {
-        const replaced = workspaces[e.phase] !== undefined;
+        const old = workspaces[e.phase];
+        const replaced = old !== undefined;
         workspaces = { ...workspaces, [e.phase]: { id: e.workspaceId, doc: e.doc } };
         phase = e.phase;
         gotWorkspace = true;
         building = false;
         status = null;
         buildingPhase = null;
-        // A new doc starts clean: drop line states and master completions keyed by its block ids.
-        const ids = new Set(e.doc.blocks.map((b) => b.id));
-        overrides = Object.fromEntries(Object.entries(overrides).filter(([id]) => !ids.has(id)));
-        taskDone = taskDone.filter((id) => !ids.has(id));
+        // Drop the replaced doc's line states and master completions.
+        if (old) {
+          overrides = { ...overrides };
+          delete overrides[old.id];
+          taskDone = { ...taskDone };
+          delete taskDone[old.id];
+        }
         track("workspace_shown", { ms_since_send: Math.max(0, now() - sentAt), replaced }, sid());
       } else if (e.event === "phase") {
-        phase = e.phase;
+        if (workspaces[e.phase]) phase = e.phase;
       } else if (e.event === "line_state") {
-        overrides = { ...overrides, [e.blockId]: { ...overrides[e.blockId], [e.line]: e.state } };
+        const w = overrides[e.workspaceId] ?? {};
+        overrides = { ...overrides, [e.workspaceId]: { ...w, [e.blockId]: { ...w[e.blockId], [e.line]: e.state } } };
       } else {
-        taskDone = [...taskDone, e.blockId];
+        taskDone = { ...taskDone, [e.workspaceId]: [...(taskDone[e.workspaceId] ?? []), e.blockId] };
       }
       publish();
     };
@@ -493,8 +499,11 @@ export function createWorkspace(deps: WorkspaceDeps) {
     sessionConfirmed = true;
     const structured = Object.keys(saved.workspaces).length > 0;
     workspaces = saved.workspaces;
-    phase = structured ? (saved.phase ?? (Object.keys(saved.workspaces)[0] as Phase)) : null;
+    phase = saved.phase && workspaces[saved.phase] ? saved.phase : ((Object.keys(workspaces)[0] as Phase) ?? null);
     html = structured ? null : saved.html;
+    overrides = {};
+    taskDone = {};
+    buildFailed = false;
     bubbles = [];
     restateClosedId = null;
     offerClosedId = null;
@@ -688,7 +697,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       workspaces = {};
       phase = null;
       overrides = {};
-      taskDone = [];
+      taskDone = {};
       building = false;
       status = null;
       buildingPhase = null;

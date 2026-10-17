@@ -138,8 +138,8 @@ export type TurnEvent =
   | { event: "status"; stage: "planning" | "searching" | "reading" | "failed"; label?: string; phase?: Phase }
   | { event: "workspace"; workspaceId: string; phase: Phase; doc: WorkspaceDoc }
   | { event: "phase"; phase: Phase }
-  | { event: "line_state"; blockId: string; line: number; state: "ok" | "review" }
-  | { event: "task_done"; blockId: string };
+  | { event: "line_state"; workspaceId: string; blockId: string; line: number; state: "ok" | "review" }
+  | { event: "task_done"; workspaceId: string; blockId: string };
 
 // One agent turn. Text deltas go to onDelta; resolves on `done`, throws TurnError on `error`.
 export async function turn(
@@ -158,9 +158,12 @@ export async function turn(
         const d = data as { workspace_id: string; phase: Phase; doc: WorkspaceDoc };
         onEvent?.({ event, workspaceId: d.workspace_id, phase: d.phase, doc: d.doc });
       } else if (event === "line_state") {
-        const d = data as { block_id: string; line: number; state: "ok" | "review" };
-        onEvent?.({ event, blockId: d.block_id, line: d.line, state: d.state });
-      } else if (event === "task_done") onEvent?.({ event, blockId: (data as { block_id: string }).block_id });
+        const d = data as { workspace_id: string; block_id: string; line: number; state: "ok" | "review" };
+        onEvent?.({ event, workspaceId: d.workspace_id, blockId: d.block_id, line: d.line, state: d.state });
+      } else if (event === "task_done") {
+        const d = data as { workspace_id: string; block_id: string };
+        onEvent?.({ event, workspaceId: d.workspace_id, blockId: d.block_id });
+      }
       else if (event === "done") {
         const done = data as { turn_id: string; stop_reason: string | null };
         return { turnId: done.turn_id, stopReason: done.stop_reason };

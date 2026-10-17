@@ -15,7 +15,7 @@ type Props = {
   phase: Phase;
   onPhase: (p: Phase) => void;
   makeCtx: (w: Workspace) => BlockCtx;
-  taskDone?: string[];
+  taskDone?: Record<string, string[]>; // master completions (SSE task_done), by workspace id
 };
 
 function Doc({ w, p, hidden, base, onPhase, hasSolve, taskDone }: {
@@ -101,7 +101,7 @@ function Doc({ w, p, hidden, base, onPhase, hasSolve, taskDone }: {
   );
 }
 
-export function WorkspaceView({ workspaces, phase, onPhase, makeCtx, taskDone = [] }: Props) {
+export function WorkspaceView({ workspaces, phase, onPhase, makeCtx, taskDone = {} }: Props) {
   const present = ORDER.filter((p) => workspaces[p]);
   return (
     <div className={styles.view}>
@@ -109,7 +109,7 @@ export function WorkspaceView({ workspaces, phase, onPhase, makeCtx, taskDone = 
       {present.map((p) => {
         const w = workspaces[p]!;
         return (
-          <Doc key={w.id} w={w} p={p} hidden={p !== phase} base={makeCtx(w)} onPhase={onPhase} hasSolve={!!workspaces.solve} taskDone={taskDone} />
+          <Doc key={w.id} w={w} p={p} hidden={p !== phase} base={makeCtx(w)} onPhase={onPhase} hasSolve={!!workspaces.solve} taskDone={taskDone[w.id] ?? []} />
         );
       })}
     </div>

@@ -19,6 +19,7 @@ import { copy } from "@/lib/copy";
 import { frameDoc } from "@/lib/frame";
 import type { BlockCtx, Workspace } from "@/workspace/types";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
+import styles from "./page.module.css";
 
 const JPEG_PREFIX = "data:image/jpeg;base64,";
 
@@ -110,7 +111,7 @@ export default function Page() {
     phase: w.doc.phase,
     report: ws.report,
     check: ws.check,
-    overrides: ws.overrides,
+    overrides: ws.overrides[w.id] ?? {},
     hintCount: 0,
     onSolved: () => {},
   });
@@ -118,14 +119,17 @@ export default function Page() {
   let work;
   if (ws.phase !== null) {
     work = (
-      <div style={{ position: "relative", flex: "1 1 auto", minWidth: 0 }}>
-        <WorkspaceView
-          workspaces={ws.workspaces}
-          phase={ws.phase}
-          onPhase={ws.setPhase}
-          makeCtx={makeCtx}
-          taskDone={ws.taskDone}
-        />
+      // The pill sits on the non-scrolling wrapper, so it stays pinned while the doc scrolls.
+      <div className={styles.viewWrap}>
+        <div className={styles.viewScroll}>
+          <WorkspaceView
+            workspaces={ws.workspaces}
+            phase={ws.phase}
+            onPhase={ws.setPhase}
+            makeCtx={makeCtx}
+            taskDone={ws.taskDone}
+          />
+        </div>
         {pill !== null && <StatusPill>{pill}</StatusPill>}
       </div>
     );

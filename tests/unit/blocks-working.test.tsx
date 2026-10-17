@@ -154,8 +154,8 @@ const view = (
   workspaces: Partial<Record<Phase, Workspace>>,
   phase: Phase,
   c: BlockCtx,
-  extra: { onPhase?: (p: Phase) => void; taskDone?: string[] } = {},
-) => <WorkspaceView workspaces={workspaces} phase={phase} onPhase={extra.onPhase ?? vi.fn()} makeCtx={() => c} taskDone={extra.taskDone ?? []} />;
+  extra: { onPhase?: (p: Phase) => void; taskDone?: Record<string, string[]> } = {},
+) => <WorkspaceView workspaces={workspaces} phase={phase} onPhase={extra.onPhase ?? vi.fn()} makeCtx={() => c} taskDone={extra.taskDone ?? {}} />;
 const doneCalls = (c: BlockCtx) => (c.report as ReturnType<typeof vi.fn>).mock.calls.filter((a) => a[0] === "task_completed");
 
 test("done reports task_completed once with max_hint and helped", async () => {
@@ -174,9 +174,9 @@ test("done reports task_completed once with max_hint and helped", async () => {
 test("taskDone prop reports via master", () => {
   const c = ctxWith();
   const { rerender } = render(view({ solve: ws("solve") }, "solve", c));
-  rerender(view({ solve: ws("solve") }, "solve", c, { taskDone: ["s_solve"] }));
+  rerender(view({ solve: ws("solve") }, "solve", c, { taskDone: { solve: ["s_solve"] } }));
   expect(screen.getByText(copy.doneTitle)).toBeTruthy();
-  rerender(view({ solve: ws("solve") }, "solve", c, { taskDone: ["s_solve"] }));
+  rerender(view({ solve: ws("solve") }, "solve", c, { taskDone: { solve: ["s_solve"] } }));
   expect(doneCalls(c)).toEqual([["task_completed", { similar: false, helped: false, max_hint: 0, via: "master" }]]);
 });
 

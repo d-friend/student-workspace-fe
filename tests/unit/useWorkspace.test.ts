@@ -652,14 +652,16 @@ describe("structured workspace", () => {
       stream([
         shown("L1", LEARN),
         shown("S1"),
-        { event: "line_state", blockId: "s1", line: 1, state: "review" },
-        { event: "task_done", blockId: "s1" },
+        { event: "line_state", workspaceId: "S1", blockId: "s1", line: 1, state: "review" },
+        { event: "task_done", workspaceId: "S1", blockId: "s1" },
+        { event: "line_state", workspaceId: "L1", blockId: "q1", line: 1, state: "ok" },
+        { event: "task_done", workspaceId: "L1", blockId: "q1" },
         "ok",
       ]),
     );
     await typed(t);
-    expect(t.state().overrides).toEqual({ s1: { 1: "review" } });
-    expect(t.state().taskDone).toEqual(["s1"]);
+    expect(t.state().overrides).toEqual({ S1: { s1: { 1: "review" } }, L1: { q1: { 1: "ok" } } });
+    expect(t.state().taskDone).toEqual({ S1: ["s1"], L1: ["q1"] });
 
     t.api.turn.mockImplementation(stream([shown("S2"), { event: "phase", phase: "learn" }, "ok"]));
     await typed(t, "dựng lại");
@@ -667,8 +669,9 @@ describe("structured workspace", () => {
     expect(s.workspaces.learn?.id).toBe("L1");
     expect(s.workspaces.solve?.id).toBe("S2");
     expect(s.phase).toBe("learn");
-    expect(s.overrides).toEqual({});
-    expect(s.taskDone).toEqual([]);
+    // Only the replaced workspace's entries go.
+    expect(s.overrides).toEqual({ L1: { q1: { 1: "ok" } } });
+    expect(s.taskDone).toEqual({ L1: ["q1"] });
     expect(t.track).toHaveBeenLastCalledWith("workspace_shown", expect.objectContaining({ replaced: true }), "s1");
   });
 
@@ -772,7 +775,12 @@ describe("structured workspace", () => {
 
   it("newProblem clears workspaces", async () => {
     const t = await boot(
-      stream([shown("S1"), { event: "line_state", blockId: "s1", line: 1, state: "ok" }, { event: "task_done", blockId: "s1" }, "ok"]),
+      stream([
+        shown("S1"),
+        { event: "line_state", workspaceId: "S1", blockId: "s1", line: 1, state: "ok" },
+        { event: "task_done", workspaceId: "S1", blockId: "s1" },
+        "ok",
+      ]),
     );
     await typed(t);
     t.ws.actions.newProblem();
@@ -780,7 +788,7 @@ describe("structured workspace", () => {
       workspaces: {},
       phase: null,
       overrides: {},
-      taskDone: [],
+      taskDone: {},
       status: null,
       buildingPhase: null,
       screen: "empty",
@@ -796,14 +804,62 @@ describe("structured workspace", () => {
   });
 
   it("failed build with no workspace offers retry", async () => {
+    let mid: unknown;
     const t = await boot(
-      stream([{ event: "status", stage: "planning", phase: "solve" }, { event: "status", stage: "failed" }, "Mình chưa dựng được."]),
+      stream([
+        { event: "status", stage: "planning", phase: "solve" },
+        { event: "status", stage: "failed" },
+        () => (mid = { screen: t.state().screen, buildFailed: t.state().buildFailed }),
+        "Mình chưa dựng được.",
+      ]),
     );
     await typed(t);
+    // No retry while the turn still streams: it would be a no-op.
+    expect(mid).toEqual({ screen: "empty", buildFailed: false });
     expect(t.state()).toMatchObject({ screen: "empty", buildFailed: true, building: false, status: null });
     t.api.turn.mockImplementation(reply("ok"));
     await t.ws.actions.rebuild();
     expect(lastContent(t.api)).toBe(copy.rebuildMessage);
     expect(t.state().buildFailed).toBe(false);
+  });
+
+  it("phase is only set to a phase that has a doc", async () => {
+    const t = await boot(stream([shown("S1"), { event: "phase", phase: "practice" }, "ok"]));
+    await typed(t);
+    expect(t.state().phase).toBe("solve");
+
+    const r = await boot(undefined, {
+      sessionId: "srv",
+      messages: [{ role: "assistant", content: "Ok." }],
+      html: null,
+      workspaces: { solve: { id: "S1", doc: SOLVE } },
+      phase: "learn",
+    });
+    expect(r.state().phase).toBe("solve");
+  });
+
+  it("history_conflict restore resets line states, completions and the failed build", async () => {
+    const t = await boot(
+      stream([
+        shown("S1"),
+        { event: "line_state", workspaceId: "S1", blockId: "s1", line: 1, state: "review" },
+        { event: "task_done", workspaceId: "S1", blockId: "s1" },
+        "ok",
+      ]),
+    );
+    await typed(t);
+    t.api.currentSession.mockResolvedValueOnce({
+      sessionId: "srv",
+      messages: [{ role: "user", content: "đề" }],
+      html: null,
+      workspaces: {},
+      phase: null,
+    } as never);
+    t.api.turn.mockImplementationOnce(async (_s, _m, _d, onEvent) => {
+      onEvent!({ event: "status", stage: "failed" });
+      throw new TurnError("history_conflict", "history changed");
+    });
+    await typed(t, "y");
+    expect(t.state()).toMatchObject({ overrides: {}, taskDone: {}, buildFailed: false, workspaces: {}, phase: null });
   });
 });

@@ -34,7 +34,8 @@ test("renders every content fixture", () => {
   }
   const d = fixtures["learn-history.json"];
   render(view({ learn: ws(d) }, "learn"));
-  if (d.sources.length) expect(screen.getByText(copy.sources)).toBeTruthy();
+  expect(d.sources.length).toBeGreaterThan(0);
+  expect(screen.getByText(copy.sources)).toBeTruthy();
 });
 
 test("phase switch shows only present phases and calls onPhase", () => {

@@ -6,7 +6,6 @@ import type { Block, BlockCtx, CheckResponse } from "@/workspace/types";
 
 afterEach(cleanup);
 
-
 const ok: CheckResponse = { ok: true, state: "ok", done: true };
 const bad: CheckResponse = { ok: false, state: "review", done: false };
 
@@ -85,4 +84,56 @@ test("callout labels", () => {
     expect(screen.getByText("nội dung")).toBeTruthy();
     unmount();
   }
+});
+
+test("quiz feedback region exists before answering and holds the explanation after", async () => {
+  const { container } = show(choice, ctxWith([ok]));
+  const live = container.querySelector('[aria-live="polite"]')!;
+  expect(live).toBeTruthy();
+  expect(live.textContent).toBe("");
+  fireEvent.click(screen.getByRole("radio", { name: "A" }));
+  await screen.findByText("Vì sao đúng");
+  expect(live.textContent).toContain("Vì sao đúng");
+});
+
+test("quiz radiogroup is named by the question and selection drives aria-checked", async () => {
+  show(choice, ctxWith([bad, ok]));
+  expect(screen.getByRole("radiogroup", { name: "Q?" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("radio", { name: "A" }));
+  await screen.findByText(copy.stateReview);
+  const a = screen.getByRole("radio", { name: /A/ });
+  expect(a.getAttribute("aria-checked")).toBe("true");
+  expect(a.textContent).toContain(copy.stateReview);
+  fireEvent.click(screen.getByRole("radio", { name: "B" }));
+  await screen.findByText(copy.stateOk);
+  const b = screen.getByRole("radio", { name: /B/ });
+  expect(b.getAttribute("aria-checked")).toBe("true");
+  expect(screen.getByRole("radio", { name: /A/ }).getAttribute("aria-checked")).toBe("false");
+});
+
+test("quiz radiogroup uses roving tabindex and arrow keys", () => {
+  show(choice, ctxWith());
+  const [a, b, c] = screen.getAllByRole("radio");
+  expect([a, b, c].map((r) => r.tabIndex)).toEqual([0, -1, -1]);
+  a.focus();
+  fireEvent.keyDown(a, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(b);
+  fireEvent.keyDown(b, { key: "ArrowLeft" });
+  expect(document.activeElement).toBe(a);
+  fireEvent.keyDown(a, { key: "ArrowUp" });
+  expect(document.activeElement).toBe(c);
+});
+
+test("quiz text input has a visible label and a rejected check shows checkFailed without counting a try", async () => {
+  const c = ctxWith([bad]);
+  vi.mocked(c.check).mockRejectedValueOnce(new Error("net"));
+  show({ type: "quiz", id: "q3", question_md: "Q", answer: "number", explanation_md: "E" }, c);
+  const input = screen.getByLabelText(copy.answer);
+  fireEvent.change(input, { target: { value: "5" } });
+  fireEvent.click(screen.getByRole("button", { name: copy.answer }));
+  await screen.findByText(copy.checkFailed);
+  expect(c.report).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: copy.answer }));
+  await waitFor(() => expect(c.report).toHaveBeenCalled());
+  expect(c.report).toHaveBeenCalledWith("quiz_answered", { block_id: "q3", answer: "5", ok: false, tries: 1 });
 });

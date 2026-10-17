@@ -1,4 +1,5 @@
-import { useId, useState } from "react";
+import { IconAlertTriangle, IconCheck } from "@tabler/icons-react";
+import { useId, useRef, useState } from "react";
 import { copy } from "@/lib/copy";
 import { Md } from "../md";
 import type { Block, BlockProps } from "../types";
@@ -9,11 +10,14 @@ type Quiz = Extract<Block, { type: "quiz" }>;
 export function Quiz({ block, ctx }: BlockProps<Quiz>) {
   const [tries, setTries] = useState(0);
   const [done, setDone] = useState(false);
-  const [wrong, setWrong] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
   const inputId = useId();
+  const qId = useId();
+  const optRefs = useRef<(HTMLDivElement | null)[]>([]);
   const isOpen = block.answer === "open";
 
   async function submit(answer: string) {
@@ -26,11 +30,12 @@ export function Quiz({ block, ctx }: BlockProps<Quiz>) {
       return;
     }
     setBusy(true);
+    setSelected(answer);
     setFailed(false);
     try {
       const r = await ctx.check(block.id, answer, []);
       setTries(n);
-      setWrong(r.ok ? null : answer);
+      setOk(r.ok);
       if (r.ok || n >= 2) setDone(true);
       ctx.report("quiz_answered", { block_id: block.id, answer, ok: r.ok, tries: n });
     } catch {
@@ -42,61 +47,84 @@ export function Quiz({ block, ctx }: BlockProps<Quiz>) {
 
   return (
     <section className={styles.card}>
-      <div className={styles.prose}>
+      <div id={qId} className={styles.prose}>
         <Md text={block.question_md} />
       </div>
       {block.answer === "choice" ? (
-        <div role="radiogroup" className={styles.options}>
-          {(block.options ?? []).map((o) => (
-            <div
-              key={o}
-              role="radio"
-              aria-checked={wrong === o}
-              aria-disabled={done}
-              tabIndex={done ? -1 : 0}
-              className={styles.option}
-              onClick={() => submit(o)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  void submit(o);
-                }
-              }}
-            >
-              <Md text={o} />
-            </div>
-          ))}
+        <div role="radiogroup" aria-labelledby={qId} className={styles.options}>
+          {(block.options ?? []).map((o, i, all) => {
+            const current = selected ? o === selected : i === 0;
+            const mine = selected === o;
+            return (
+              <div
+                key={o}
+                ref={(el) => {
+                  optRefs.current[i] = el;
+                }}
+                role="radio"
+                aria-checked={mine}
+                aria-disabled={done}
+                tabIndex={current ? 0 : -1}
+                className={`${styles.option} ${mine && ok ? styles.optionOk : ""} ${mine && !ok && tries > 0 ? styles.optionReview : ""}`}
+                onClick={() => submit(o)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    void submit(o);
+                    return;
+                  }
+                  const d = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+                  if (d) {
+                    e.preventDefault();
+                    optRefs.current[(i + d + all.length) % all.length]?.focus();
+                  }
+                }}
+              >
+                <Md text={o} />
+                {mine && tries > 0 && (
+                  <span className={styles.badge}>
+                    {ok ? <IconCheck size={20} stroke={2} aria-hidden="true" /> : <IconAlertTriangle size={20} stroke={2} aria-hidden="true" />}
+                    {ok ? copy.stateOk : copy.stateReview}
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : (
         <form
-          className={styles.row}
+          className={styles.field}
           onSubmit={(e) => {
             e.preventDefault();
             void submit(text);
           }}
         >
-          <label htmlFor={inputId} className={styles.srOnly}>
+          <label htmlFor={inputId} className={styles.small}>
             {copy.answer}
           </label>
-          <input
-            id={inputId}
-            className={styles.input}
-            value={text}
-            disabled={done}
-            onChange={(e) => setText(e.target.value)}
-          />
-          <button type="submit" className={styles.btn} disabled={done || busy}>
-            {copy.answer}
-          </button>
+          <div className={styles.row}>
+            <input
+              id={inputId}
+              className={styles.input}
+              value={text}
+              disabled={done}
+              onChange={(e) => setText(e.target.value)}
+            />
+            <button type="submit" className={styles.btn} disabled={done || busy}>
+              {copy.answer}
+            </button>
+          </div>
         </form>
       )}
-      {isOpen && done && <p className={styles.small}>{copy.sent}</p>}
-      {failed && <p className={styles.small}>{copy.checkFailed}</p>}
-      {done && !isOpen && (
-        <div className={`${styles.prose} ${styles.reveal}`}>
-          <Md text={block.explanation_md} />
-        </div>
-      )}
+      <div aria-live="polite">
+        {isOpen && done && <p className={styles.small}>{copy.sent}</p>}
+        {failed && <p className={styles.small}>{copy.checkFailed}</p>}
+        {done && !isOpen && (
+          <div className={`${styles.prose} ${styles.reveal}`}>
+            <Md text={block.explanation_md} />
+          </div>
+        )}
+      </div>
     </section>
   );
 }

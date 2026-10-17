@@ -26,7 +26,8 @@ export function Quiz({ block, ctx }: BlockProps<Quiz>) {
     if (isOpen) {
       setTries(n);
       setDone(true);
-      ctx.report("quiz_answered", { block_id: block.id, answer, ok: false, tries: n });
+      // No ok: code never judges an open answer, so the router sends it to the master.
+      ctx.report("quiz_answered", { block_id: block.id, answer, tries: n });
       return;
     }
     setBusy(true);

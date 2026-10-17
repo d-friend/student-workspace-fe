@@ -54,7 +54,7 @@ test("quiz open reports without check", async () => {
   fireEvent.click(screen.getByRole("button", { name: copy.answer }));
   await screen.findByText(copy.sent);
   expect(c.check).not.toHaveBeenCalled();
-  expect(c.report).toHaveBeenCalledWith("quiz_answered", { block_id: "q2", answer: "vì thế", ok: false, tries: 1 });
+  expect(c.report).toHaveBeenCalledWith("quiz_answered", { block_id: "q2", answer: "vì thế", tries: 1 });
 });
 
 test("quiz marks Xem lại only on the option whose check returned, not on a pending or failed pick", async () => {

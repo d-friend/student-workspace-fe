@@ -8,8 +8,8 @@
       "id": "g1",
       "fns": [
         {
-          "expr": "x^2",
-          "label": "y = x^2"
+          "expr": "a*x^2",
+          "label": "y = a·x^2"
         }
       ],
       "x": [

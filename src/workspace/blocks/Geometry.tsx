@@ -183,13 +183,13 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
           const Icon = ICONS[t];
           return (
             <button key={t} type="button" className={styles.tool} aria-pressed={tool === t} onClick={() => select(tool === t ? null : t)}>
-              <Icon size={20} stroke={2} />
+              <Icon size={20} stroke={2} aria-hidden="true" />
               {copy.geoTools[t]}
             </button>
           );
         })}
       </div>
-      <div ref={box} className={styles.board} />
+      <div ref={box} className={styles.board} role="group" aria-label={copy.geoBoard(block.points.map((p) => p.id))} />
       <p className={styles.status} role="status" aria-live="polite">
         {status}
       </p>

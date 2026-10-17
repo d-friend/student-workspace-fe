@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
+import { copy } from "@/lib/copy";
 import { renderBlock } from "@/workspace/blocks";
 import { BlockBoundary } from "@/workspace/BlockBoundary";
 import type { Block, BlockCtx } from "@/workspace/types";
@@ -291,4 +292,14 @@ test("custom renders iframe at block height", () => {
   const f = container.querySelector("iframe")!;
   expect(f.style.height).toBe("320px");
   expect(f.getAttribute("srcdoc")).toContain("<p>x</p>");
+});
+
+test("boards have an accessible name and the toolbar icons are decorative", () => {
+  setupGeo();
+  const { unmount } = render(<>{renderBlock(graph(), ctx)}</>);
+  expect(screen.getByRole("img", { name: "Đồ thị của y = ax^2, y = x" })).toBeTruthy();
+  unmount();
+  render(<>{renderBlock(geo(), ctx)}</>);
+  expect(screen.getByRole("group", { name: "Bảng dựng hình, các điểm A, B, C" })).toBeTruthy();
+  for (const svg of screen.getByRole("group", { name: copy.geoToolbar }).querySelectorAll("svg")) expect(svg.getAttribute("aria-hidden")).toBe("true");
 });

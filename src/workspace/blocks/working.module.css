@@ -36,6 +36,7 @@
 
 .help { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .hint { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 16px; font: 600 15px/1.4 var(--font-sans); color: var(--text); background: var(--panel); border: 1px solid var(--control-border); border-radius: 10px; cursor: pointer; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .ladder { display: inline-flex; gap: 3px; margin-left: 4px; }
 .seg { width: 14px; height: 6px; border-radius: 999px; background: var(--border); }
 .segOn { background: var(--accent); }

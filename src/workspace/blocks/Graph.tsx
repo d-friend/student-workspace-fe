@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { copy } from "@/lib/copy";
 import type { Block, BlockProps } from "../types";
 import styles from "./Board.module.css";
 
@@ -91,7 +92,7 @@ export function Graph({ block }: BlockProps<GraphBlock>) {
 
   return (
     <div className={styles.wrap}>
-      <div ref={box} className={styles.board} />
+      <div ref={box} className={styles.board} role="img" aria-label={copy.graphBoard(block.fns.map((f) => f.label))} />
       {block.sliders && (
         <div className={styles.sliders}>
           {block.sliders.map((s) => (

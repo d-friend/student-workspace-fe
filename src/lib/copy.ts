@@ -51,6 +51,7 @@ export const copy = {
   nextStep: "Bước tiếp",
   showAll: "Xem hết",
   hint: "Gợi ý",
+  hintLevel: (n: number) => `Đã dùng ${n}/3 gợi ý`,
   idea: "Mình chưa hiểu ý tưởng",
   backToProblem: "Quay lại bài",
   retry: "Thử lại",
@@ -88,4 +89,6 @@ export const copy = {
   geoPickPoints: (n: number) => `Chọn ${n} điểm`,
   geoPickLine: "Chọn 1 đường",
   geoToolbar: "Công cụ dựng hình",
+  geoBoard: (points: string[]) => `Bảng dựng hình, các điểm ${points.join(", ")}`,
+  graphBoard: (labels: string[]) => `Đồ thị của ${labels.join(", ")}`,
 } as const;

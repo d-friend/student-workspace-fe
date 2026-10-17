@@ -12,6 +12,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const [text, setText] = useState("");
   const [failed, setFailed] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
   const inputId = useId();
   const input = useRef<HTMLInputElement>(null);
   const dirty = useRef(false); // this position had a review or error
@@ -23,7 +24,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   while (pos < entries.length && effective[pos] === "ok") pos++;
 
   async function run(answer: string) {
-    if (busy || !answer.trim()) return;
+    if (busy || done || !answer.trim()) return;
     setBusy(true);
     setFailed(null);
     const previous = entries.slice(0, pos).map((e) => e.text);
@@ -37,7 +38,10 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
         hintBase.current = ctx.hintCount;
         setText("");
       } else dirty.current = true;
-      if (r.done) ctx.onSolved(block.id);
+      if (r.done) {
+        setDone(true);
+        ctx.onSolved(block.id);
+      }
     } catch {
       dirty.current = true;
       setFailed(answer);
@@ -69,22 +73,24 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
           </li>
         )}
       </ol>
-      <form
-        className={styles.entry}
-        onSubmit={(e) => {
-          e.preventDefault();
-          void run(text);
-        }}
-      >
-        <label htmlFor={inputId} className={styles.entryLabel}>
-          {copy.lineLabel(pos + 1)}
-        </label>
-        {block.help && <p className={`${styles.small} ${styles.help}`}>{block.help}</p>}
-        <input ref={input} id={inputId} className={styles.input} value={text} onChange={(e) => setText(e.target.value)} autoComplete="off" />
-        <button type="submit" className={styles.primary} disabled={busy}>
-          {copy.check}
-        </button>
-      </form>
+      {!done && (
+        <form
+          className={styles.entry}
+          onSubmit={(e) => {
+            e.preventDefault();
+            void run(text);
+          }}
+        >
+          <label htmlFor={inputId} className={styles.entryLabel}>
+            {copy.lineLabel(pos + 1)}
+          </label>
+          {block.help && <p className={`${styles.small} ${styles.help}`}>{block.help}</p>}
+          <input ref={input} id={inputId} className={styles.input} value={text} onChange={(e) => setText(e.target.value)} autoComplete="off" />
+          <button type="submit" className={styles.primary} disabled={busy}>
+            {copy.check}
+          </button>
+        </form>
+      )}
     </section>
   );
 }

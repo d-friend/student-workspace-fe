@@ -3,6 +3,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { copy } from "@/lib/copy";
 import { renderBlock } from "@/workspace/blocks";
 import type { Block, BlockCtx, CheckResponse, Phase, Workspace, WorkspaceDoc } from "@/workspace/types";
+import { HelpBar } from "@/workspace/HelpBar";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
 
 afterEach(cleanup);
@@ -207,4 +208,22 @@ test("back to problem reports foundation_done and switches", () => {
   fireEvent.click(screen.getByRole("button", { name: copy.backToProblem }));
   expect(c.report).toHaveBeenCalledWith("foundation_done", {});
   expect(onPhase).toHaveBeenCalledWith("solve");
+});
+
+test("steps stops accepting lines once the task is done", async () => {
+  const c = ctxWith([fin]);
+  show(c);
+  type("x=1");
+  submit();
+  await screen.findByText(copy.stateOk);
+  expect(c.onSolved).toHaveBeenCalledWith("s1");
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(screen.queryByRole("button", { name: copy.check })).toBeNull();
+});
+
+test("the hint level is available to assistive tech without renaming the button", () => {
+  render(<HelpBar level={2} onHint={() => {}} />);
+  const hint = screen.getByRole("button", { name: copy.hint });
+  expect(hint.getAttribute("aria-describedby")).toBeTruthy();
+  expect(screen.getByText(copy.hintLevel(2))).toBeTruthy();
 });

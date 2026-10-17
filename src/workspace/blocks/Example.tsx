@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { copy } from "@/lib/copy";
-import { Md } from "../md";
+import { Md, MdInline } from "../md";
 import type { Block, BlockProps } from "../types";
 import styles from "./blocks.module.css";
 
@@ -9,7 +9,7 @@ export function Example({ block }: BlockProps<Extract<Block, { type: "example" }
   const more = shown < block.steps.length;
   return (
     <section className={styles.card}>
-      <h3 className={styles.cardTitle}>{block.title}</h3>
+      <h3 className={styles.cardTitle}><MdInline text={block.title} /></h3>
       <div className={styles.prose}>
         <Md text={block.problem_md} />
       </div>

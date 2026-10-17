@@ -78,3 +78,8 @@ test("boundary isolates a throwing block", () => {
   expect(ctx.report).toHaveBeenCalledWith("render_error", { block_id: "bad", message: "boom" });
   spy.mockRestore();
 });
+
+test("a single phase renders no phase switch", () => {
+  render(view({ learn: ws(fixtures["learn-derivative.json"]) }, "learn"));
+  expect(screen.queryByRole("tablist")).toBeNull();
+});

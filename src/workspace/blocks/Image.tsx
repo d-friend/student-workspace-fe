@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MdInline } from "../md";
 import type { Block, BlockProps } from "../types";
 import styles from "./blocks.module.css";
 
@@ -25,8 +26,12 @@ export function ImageBlock({ block }: BlockProps<Extract<Block, { type: "image" 
       )}
       {!failed && (
         <figcaption className={styles.small}>
-          {block.caption && <span>{block.caption} </span>}
-          <span>{block.credit}</span>
+          {block.caption && (
+            <span style={{ display: "block" }}>
+              <MdInline text={block.caption} />
+            </span>
+          )}
+          <span style={{ display: "block" }}>{block.credit}</span>
         </figcaption>
       )}
     </figure>

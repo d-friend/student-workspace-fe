@@ -137,3 +137,17 @@ test("quiz text input has a visible label and a rejected check shows checkFailed
   await waitFor(() => expect(c.report).toHaveBeenCalled());
   expect(c.report).toHaveBeenCalledWith("quiz_answered", { block_id: "q3", answer: "5", ok: false, tries: 1 });
 });
+
+test("example title renders inline math inside the h3 without a <p>", () => {
+  const { container } = show({ type: "example", id: "e9", title: "Đạo hàm của $y = x^2$ tại $x = 3$", problem_md: "P", steps: ["a"] }, ctxWith());
+  const h3 = container.querySelector("h3")!;
+  expect(h3.querySelector(".katex")).toBeTruthy();
+  expect(h3.querySelector("p")).toBeNull();
+  expect(h3.textContent).not.toContain("$");
+});
+
+test("image caption and credit are separate lines", () => {
+  const { container } = show({ type: "image", id: "i9", src: "/x.jpg", alt: "a", caption: "Cap", credit: "Cred", source_url: "https://x.y" }, ctxWith());
+  const spans = container.querySelectorAll("figcaption > span");
+  expect([...spans].map((s) => s.textContent)).toEqual(["Cap", "Cred"]);
+});

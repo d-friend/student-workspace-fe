@@ -20,6 +20,11 @@ function inline(s: string): ReactNode[] {
   return out;
 }
 
+// Inline subset only (math, bold, italic), no block wrapper: safe inside headings and figcaptions.
+export function MdInline({ text }: { text: string }): ReactNode {
+  return inline(text);
+}
+
 const UL = /^- /;
 const OL = /^\d+\. /;
 

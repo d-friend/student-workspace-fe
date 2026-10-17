@@ -3,6 +3,7 @@ import { copy } from "@/lib/copy";
 import { BlockBoundary } from "./BlockBoundary";
 import { renderBlock } from "./blocks";
 import { DoneBanner } from "./DoneBanner";
+import { MdInline } from "./md";
 import { HelpBar } from "./HelpBar";
 import { PhaseSwitch } from "./PhaseSwitch";
 import type { BlockCtx, Phase, Workspace } from "./types";
@@ -54,7 +55,7 @@ function Doc({ w, p, hidden, base, onPhase, hasSolve, taskDone }: {
 
   return (
     <section id={`panel-${p}`} role="tabpanel" aria-labelledby={`tab-${p}`} hidden={hidden} className={styles.doc}>
-      <h1 className={styles.title}>{w.doc.title}</h1>
+      <h1 className={styles.title}><MdInline text={w.doc.title} /></h1>
       {w.doc.blocks.map((b) => (
         <BlockBoundary key={b.id} blockId={b.id} report={ctx.report}>
           {renderBlock(b, ctx)}
@@ -105,7 +106,7 @@ export function WorkspaceView({ workspaces, phase, onPhase, makeCtx, taskDone = 
   const present = ORDER.filter((p) => workspaces[p]);
   return (
     <div className={styles.view}>
-      <PhaseSwitch phases={present} phase={phase} onPhase={onPhase} />
+      {present.length > 1 && <PhaseSwitch phases={present} phase={phase} onPhase={onPhase} />}
       {present.map((p) => {
         const w = workspaces[p]!;
         return (

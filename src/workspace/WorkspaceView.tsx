@@ -19,10 +19,11 @@ type Props = {
   taskDone?: Record<string, string[]>; // master completions (SSE task_done), by workspace id
 };
 
-function Doc({ w, p, hidden, base, onPhase, hasSolve, taskDone }: {
+function Doc({ w, p, hidden, tabbed, base, onPhase, hasSolve, taskDone }: {
   w: Workspace;
   p: Phase;
   hidden: boolean;
+  tabbed: boolean; // a PhaseSwitch exists, so this is a tab panel
   base: BlockCtx;
   onPhase: (p: Phase) => void;
   hasSolve: boolean;
@@ -54,7 +55,7 @@ function Doc({ w, p, hidden, base, onPhase, hasSolve, taskDone }: {
   const working = p !== "learn";
 
   return (
-    <section id={`panel-${p}`} role="tabpanel" aria-labelledby={`tab-${p}`} hidden={hidden} className={styles.doc}>
+    <section id={`panel-${p}`} {...(tabbed && { role: "tabpanel", "aria-labelledby": `tab-${p}` })} hidden={hidden} className={styles.doc}>
       <h1 className={styles.title}><MdInline text={w.doc.title} /></h1>
       {w.doc.blocks.map((b) => (
         <BlockBoundary key={b.id} blockId={b.id} report={ctx.report}>
@@ -119,7 +120,7 @@ export function WorkspaceView({ workspaces, phase, onPhase, makeCtx, taskDone = 
         {present.map((p) => {
           const w = workspaces[p]!;
           return (
-            <Doc key={w.id} w={w} p={p} hidden={p !== phase} base={makeCtx(w)} onPhase={onPhase} hasSolve={!!workspaces.solve} taskDone={taskDone[w.id] ?? []} />
+            <Doc key={w.id} w={w} p={p} hidden={p !== phase} tabbed={present.length > 1} base={makeCtx(w)} onPhase={onPhase} hasSolve={!!workspaces.solve} taskDone={taskDone[w.id] ?? []} />
           );
         })}
       </div>

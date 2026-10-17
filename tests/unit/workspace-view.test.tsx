@@ -83,3 +83,16 @@ test("a single phase renders no phase switch", () => {
   render(view({ learn: ws(fixtures["learn-derivative.json"]) }, "learn"));
   expect(screen.queryByRole("tablist")).toBeNull();
 });
+
+test("a single-phase doc is not a tab panel; with a PhaseSwitch each panel is labelled by its tab", () => {
+  const solve = ws(fixtures["solve-tangent.json"]);
+  const { container, unmount } = render(view({ solve }, "solve"));
+  const panel = container.querySelector("#panel-solve")!;
+  expect(panel.getAttribute("role")).toBeNull();
+  expect(panel.getAttribute("aria-labelledby")).toBeNull();
+  unmount();
+
+  render(view({ learn: ws(fixtures["learn-derivative.json"]), solve }, "solve"));
+  const panels = screen.getAllByRole("tabpanel", { hidden: true });
+  expect(panels.map((p) => p.getAttribute("aria-labelledby"))).toEqual(["tab-learn", "tab-solve"]);
+});

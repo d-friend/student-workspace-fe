@@ -1,5 +1,6 @@
 import { IconAlertCircle, IconCheck } from "@tabler/icons-react";
 import { useEffect, useId, useRef, useState } from "react";
+import { usePetAnchorRef } from "@/components/pet/PetAnchor";
 import { copy } from "@/lib/copy";
 import { HelpBar } from "../HelpBar";
 import type { Block, BlockProps } from "../types";
@@ -16,6 +17,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [free, setFree] = useState(false);
+  const anchorRef = usePetAnchorRef(!done && !ctx.hidden);
   const inputId = useId();
   const promptId = useId();
   const group = useRef<HTMLDivElement>(null);
@@ -90,7 +92,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
         )}
       </ol>
       {!done && (
-        <div data-pet-anchor className={styles.active}>
+        <div ref={anchorRef} data-pet-anchor className={styles.active}>
           {item?.kind === "choice" ? (
             <>
               <p id={promptId} className={styles.entryLabel}>

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { usePetScrollerRef } from "@/components/pet/PetAnchor";
 import { copy } from "@/lib/copy";
 import { BlockBoundary } from "./BlockBoundary";
 import { renderBlock } from "./blocks";
@@ -54,6 +55,7 @@ function Doc({ w, p, hidden, tabbed, base, onPhase, hasSolve, taskDone }: {
     ...base,
     hintCount: presses,
     help,
+    hidden,
     onSolved: (id) => {
       base.onSolved(id);
       setSolved((f) => f ?? {});
@@ -106,13 +108,19 @@ export function WorkspaceView({ workspaces, phase, onPhase, makeCtx, taskDone = 
   const scroller = useRef<HTMLDivElement>(null);
   const tops = useRef<Partial<Record<Phase, number>>>({});
   const shown = useRef(phase);
+  const petScroller = usePetScrollerRef();
   useLayoutEffect(() => {
     shown.current = phase;
     if (scroller.current) scroller.current.scrollTop = tops.current[phase] ?? 0;
   }, [phase]);
   return (
-    <div ref={scroller} className={styles.scroll} onScroll={(e) => (tops.current[shown.current] = e.currentTarget.scrollTop)}>
-      <div className={styles.view}>
+    <div
+      ref={(el) => {
+        scroller.current = el;
+        petScroller?.(el);
+      }}
+      className={styles.scroll} onScroll={(e) => (tops.current[shown.current] = e.currentTarget.scrollTop)}>
+      <div className={styles.view} data-pet-column>
         {present.length > 1 && <PhaseSwitch phases={present} phase={phase} onPhase={onPhase} />}
         {present.map((p) => {
           const w = workspaces[p]!;

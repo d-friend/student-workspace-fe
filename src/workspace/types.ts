@@ -64,6 +64,7 @@ export type BlockCtx = {
   hintCount: number; // "Gợi ý" presses in this doc
   onSolved: (blockId: string) => void; // a steps block reached its final checkpoint
   help: { level: number; onHint: () => void; onIdea?: () => void } | null; // Doc sets it; Steps shows it in its active row
+  hidden?: boolean; // Doc sets it: this doc is not the shown phase (it stays mounted), so its blocks give up the pet anchor
 };
 
 export type BlockProps<B> = { block: B; ctx: BlockCtx };

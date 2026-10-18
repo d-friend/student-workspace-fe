@@ -3,6 +3,7 @@
 import { type ChangeEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Entry } from "@/components/Entry";
 import { Shell } from "@/components/Shell";
+import { PetAnchorProvider } from "@/components/pet/PetAnchor";
 import { PetLayer } from "@/components/pet/PetLayer";
 import { NewProblemButton } from "@/components/rail/NewProblemButton";
 import { BuildingSkeleton } from "@/components/work/BuildingSkeleton";
@@ -246,9 +247,9 @@ export default function Page() {
     />
   );
   return (
-    <>
+    <PetAnchorProvider>
       <Shell bar={!flying && bar} work={work} layer={layer} chatOpen={drawerOpen} inert={drawerOpen && !desktop} />
       <input ref={fileInput} type="file" accept="image/*" hidden onChange={onFile} />
-    </>
+    </PetAnchorProvider>
   );
 }

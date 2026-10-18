@@ -16,6 +16,19 @@
   animation: bubbleIn 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.25);
 }
 
+/* Fading away after SHOW_MS (PetBubble.tsx). */
+.leaving {
+  pointer-events: none;
+  animation: bubbleOut 0.4s ease forwards;
+}
+
+@keyframes bubbleOut {
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+}
+
 .error {
   color: var(--error-text);
   background: var(--error-bg);
@@ -124,19 +137,6 @@
   background: var(--agent);
 }
 
-.reply {
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  min-height: 44px;
-  margin-top: 4px;
-  padding: 0 4px;
-  color: var(--brand);
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-}
-
 .dots {
   display: flex;
   gap: 5px;
@@ -179,6 +179,16 @@
 
   .text {
     animation: none;
+  }
+
+  .leaving {
+    animation: fadeOut 0.15s forwards;
+  }
+
+  @keyframes fadeOut {
+    to {
+      opacity: 0;
+    }
   }
 
   .dots span {

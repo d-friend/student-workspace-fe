@@ -3,6 +3,7 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { useDesktop } from "@/hooks/useDesktop";
 import { usePet } from "@/hooks/usePet";
+import { FLY_MS } from "@/hooks/useUnfold";
 import type { WorkspaceState } from "@/hooks/useWorkspace";
 import { copy } from "@/lib/copy";
 import { OfferChips } from "@/components/rail/OfferChips";
@@ -14,7 +15,7 @@ import { Pet } from "./Pet";
 import { PetBubble, type SpokenBubble } from "./PetBubble";
 import styles from "./PetLayer.module.css";
 
-type PetSignals = Pick<WorkspaceState, "busy" | "building" | "status" | "checking" | "verdict" | "taskDone">;
+type PetSignals = Pick<WorkspaceState, "busy" | "building" | "status" | "checking" | "verdict" | "taskDone" | "newProblemCount">;
 
 // How long the closing chat column slides out before it unmounts (ChatDrawer.module.css panelOut).
 const CLOSE_MS = 350;
@@ -48,6 +49,20 @@ export function PetLayer({
   flying?: boolean;
 } & ChatActions) {
   const { mood, celebrate, celebrateKey } = usePet(state);
+  // "Bài mới": the pet hops from where it is back to its place on the entry, the way the unfold carried it away.
+  // Decided while rendering, so the first frame of the entry already has the flight on (no snap first).
+  const [seenReset, setSeenReset] = useState(state.newProblemCount);
+  const [returning, setReturning] = useState(false);
+  if (state.newProblemCount !== seenReset) {
+    setSeenReset(state.newProblemCount);
+    if (entry && !matchMedia("(prefers-reduced-motion: reduce)").matches) setReturning(true);
+  }
+  useEffect(() => {
+    if (!returning) return;
+    const t = setTimeout(() => setReturning(false), FLY_MS);
+    return () => clearTimeout(t);
+  }, [returning]);
+  const travelling = flying || returning;
   const desktop = useDesktop();
   const [open, setOpen] = useState(false);
   const [leaving, setLeaving] = useState(false); // desktop only: the column is sliding out
@@ -121,8 +136,8 @@ export function PetLayer({
   }, [entry, hasPhoto, celebrate]);
 
   useEffect(() => {
-    if (flying) celebrate();
-  }, [flying, celebrate]);
+    if (travelling) celebrate();
+  }, [travelling, celebrate]);
 
   useEffect(() => onOpenChange?.(open), [open, onOpenChange]);
 
@@ -136,14 +151,14 @@ export function PetLayer({
   const talked = state.bubbles.length > 0;
   // A build with nothing said yet (a foundation request) still shows its progress.
   const showBubble =
-    !open && !flying && (latest !== undefined || status !== null) && (key === null || key !== hiddenKey) && (!entry || talked);
+    !open && !travelling && (latest !== undefined || status !== null) && (key === null || key !== hiddenKey) && (!entry || talked);
   const chips =
     latest?.kind === "agent" && !latest.waiting && latest.id === state.bubbles.findLast((b) => b.kind === "agent")?.id;
   const docked = open && desktop && !entry;
 
   return (
     // With a photo picked the greeting is gone, so the pet docks; it is still the entry's pet.
-    <div className={styles.layer} data-place={entry && !hasPhoto ? "entry" : "dock"} data-fly={flying || undefined} data-chat={docked || undefined}>
+    <div className={styles.layer} data-place={entry && !hasPhoto ? "entry" : "dock"} data-fly={travelling || undefined} data-chat={docked || undefined}>
       <button
         ref={petRef}
         type="button"
@@ -162,7 +177,7 @@ export function PetLayer({
               : openDrawer
         }
       >
-        <Pet mood={flying ? "happy" : mood} celebrateKey={celebrateKey} />
+        <Pet mood={travelling ? "happy" : mood} celebrateKey={celebrateKey} />
         {unread && !open && !entry && (
           <span id="pet-unread" className={styles.badge}>
             <span className={styles.srOnly}>{copy.petUnread}</span>
@@ -178,7 +193,9 @@ export function PetLayer({
             setHiddenKey(key);
             if (!entry) setUnread(true);
           }}
-          onReply={entry ? () => entryInputRef.current?.focus() : openDrawer}
+          // The entry keeps its message: there it can be the only place an instruction (a retake) is shown.
+          autoHide={!entry}
+          onHide={() => setHiddenKey(key)}
         >
           {chips && state.restateChips && (
             <RestateChips onConfirm={actions.onConfirmRestate} onCorrect={actions.onCorrectRestate} />

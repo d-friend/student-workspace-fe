@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PetLayer } from "@/components/pet/PetLayer";
 import type { Bubble, WorkspaceState } from "@/hooks/useWorkspace";
+import { FLY_MS } from "@/hooks/useUnfold";
 import { copy } from "@/lib/copy";
 
 afterEach(cleanup);
@@ -122,10 +123,75 @@ describe("PetLayer", () => {
     expect(screen.getByRole("dialog").contains(chips[0])).toBe(true);
   });
 
-  it("Trả lời opens the drawer", () => {
+  it("the bubble has no reply button; the pet itself opens the conversation", () => {
     render(setup([agent(1, "Em thử bước này nhé?")]).ui);
-    fireEvent.click(screen.getByRole("button", { name: copy.reply }));
+    expect(screen.queryByRole("button", { name: "Trả lời" })).toBeNull();
+    fireEvent.click(pet());
     expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  describe("fading away", () => {
+    const FADE = 5000 + 400;
+    const bubble = () => screen.queryByRole("status");
+    const wait = (ms: number) => act(() => void vi.advanceTimersByTime(ms));
+    const timed = (fn: () => void) => () => {
+      vi.useFakeTimers();
+      try {
+        fn();
+      } finally {
+        vi.useRealTimers();
+      }
+    };
+
+    it("a finished message fades after 5 s and is gone, without an unread cue", timed(() => {
+      render(setup([agent(1, "Xin chào")]).ui);
+      wait(4900);
+      expect(bubble()).toBeTruthy();
+      wait(FADE - 4900);
+      expect(bubble()).toBeNull();
+      expect(screen.queryByText(copy.petUnread)).toBeNull();
+    }));
+
+    it("new words restart the clock and bring a faded bubble back", timed(() => {
+      const first = setup([agent(1, "Một")]);
+      const { rerender } = render(first.ui);
+      wait(4000);
+      rerender(setup([agent(1, "Một hai")]).ui);
+      wait(4000);
+      expect(bubble()).toBeTruthy();
+      wait(FADE);
+      expect(bubble()).toBeNull();
+      rerender(setup([agent(1, "Một hai"), agent(2, "Mới nữa")]).ui);
+      expect(within(screen.getByRole("status")).getByText("Mới nữa")).toBeTruthy();
+    }));
+
+    it("stays while the pointer is over it, then fades after it leaves", timed(() => {
+      render(setup([agent(1, "Xin chào")]).ui);
+      fireEvent.pointerEnter(screen.getByRole("status"));
+      wait(20000);
+      expect(bubble()).toBeTruthy();
+      fireEvent.pointerLeave(screen.getByRole("status"));
+      wait(FADE);
+      expect(bubble()).toBeNull();
+    }));
+
+    it("stays while the agent is still writing or building", timed(() => {
+      render(setup([agent(1, "đang nghĩ", { waiting: true })], { busy: true, building: true, status: copy.statusPlanning }).ui);
+      wait(20000);
+      expect(bubble()).toBeTruthy();
+    }));
+
+    it("an error stays until it is closed", timed(() => {
+      render(setup([{ id: 1, turn: 1, kind: "error", text: "Lỗi mạng" }]).ui);
+      wait(20000);
+      expect(screen.getByRole("alert")).toBeTruthy();
+    }));
+
+    it("the entry keeps its message, where it can be the only place an instruction shows", timed(() => {
+      render(setup([agent(1, "Không đọc được ảnh này")], {}, true).ui);
+      wait(20000);
+      expect(bubble()).toBeTruthy();
+    }));
   });
 
   it("a waiting bubble shows no text, only the typing dots", () => {
@@ -140,7 +206,7 @@ describe("PetLayer", () => {
     const bubble = screen.getByRole("status");
     expect(within(bubble).getByText("Mình dựng nhé.")).toBeTruthy();
     expect(within(bubble).queryByText("đang nghĩ")).toBeNull();
-    expect(within(bubble).queryByText(copy.reply)).toBeNull();
+    expect(within(bubble).queryByRole("button", { name: "Trả lời" })).toBeNull();
   });
 
   it("shows only the latest turn, not the earlier replies", () => {
@@ -149,6 +215,25 @@ describe("PetLayer", () => {
     expect(within(bubble).getByText("Mới")).toBeTruthy();
     expect(within(bubble).queryByText("Cũ một")).toBeNull();
     expect(within(bubble).queryByText("Cũ hai")).toBeNull();
+  });
+
+  it("Bài mới sends the pet hopping back to the entry, then it settles", () => {
+    vi.useFakeTimers();
+    const { container, rerender } = render(setup([agent(1, "Xin chào")], { newProblemCount: 0 }).ui);
+    const layer = () => container.querySelector<HTMLElement>("[data-place]")!;
+    expect(layer().dataset.fly).toBeUndefined();
+    rerender(setup([], { newProblemCount: 1 }, true).ui);
+    expect(layer().dataset.place).toBe("entry");
+    expect(layer().dataset.fly).toBeDefined(); // on the very first frame of the entry
+    act(() => void vi.advanceTimersByTime(FLY_MS));
+    expect(layer().dataset.fly).toBeUndefined();
+    vi.useRealTimers();
+  });
+
+  it("landing on the entry any other way (a failed first send) does not make the pet hop", () => {
+    const { container, rerender } = render(setup([agent(1, "Xin chào")], { newProblemCount: 0 }).ui);
+    rerender(setup([], { newProblemCount: 0 }, true).ui);
+    expect(container.querySelector<HTMLElement>("[data-place]")!.dataset.fly).toBeUndefined();
   });
 
   it("reports the build in the bubble, once, even before the agent has said anything", () => {

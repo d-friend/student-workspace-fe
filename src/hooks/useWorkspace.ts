@@ -84,6 +84,7 @@ export type WorkspaceState = {
   restateChips: boolean;
   offerChips: boolean;
   hasMessages: boolean;
+  newProblemCount: number; // bumps on each "Bài mới" that reset the session, so the pet can jump back to the entry
   inputDisabled: boolean;
   sendDisabled: boolean;
   verdict: { seq: number; state: "ok" | "review" | null; done: boolean }; // latest line verdict; seq never resets
@@ -127,6 +128,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let started = false;
   let nextId = 1;
   let turnNo = 0;
+  let newProblems = 0;
   let messages: Message[] = [];
   let bubbles: Bubble[] = [];
   let busy = false;
@@ -197,6 +199,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       restateChips: !busy && !!agent?.restate && restateClosedId !== agent.id,
       offerChips: !busy && !!agent?.offer && offerClosedId !== agent.id,
       hasMessages: messages.length > 0,
+      newProblemCount: newProblems,
       inputDisabled,
       sendDisabled: inputDisabled || queued !== null,
       verdict,
@@ -749,6 +752,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
     newProblem() {
       if (busy) return;
+      newProblems++;
       track("new_problem_clicked", { turns_in_session: Math.floor(messages.length / 2) }, sid());
       if (sessionId) api.endSession(sessionId, "new_problem").catch(() => {});
       clearTimer();

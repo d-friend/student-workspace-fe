@@ -362,6 +362,23 @@ describe("session lifecycle", () => {
     expect(t.api.createSession).toHaveBeenLastCalledWith("typed");
   });
 
+  it("Bài mới bumps newProblemCount only when it resets; it is ignored while a turn runs", async () => {
+    const gate = deferred();
+    const t = await boot(async () => {
+      await gate.promise;
+      return DONE;
+    });
+    expect(t.state().newProblemCount).toBe(0);
+    t.ws.actions.setInput("x");
+    const sending = t.ws.actions.submit();
+    t.ws.actions.newProblem(); // busy: no reset
+    expect(t.state().newProblemCount).toBe(0);
+    gate.resolve();
+    await sending;
+    t.ws.actions.newProblem();
+    expect(t.state().newProblemCount).toBe(1);
+  });
+
   it("Bài mới ends the session and resets, and nothing is kept in localStorage", async () => {
     const t = await boot();
     t.ws.actions.setInput("x");

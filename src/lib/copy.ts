@@ -44,7 +44,6 @@ export const copy = {
   petClose: "Đóng cuộc trò chuyện với D-Friend",
   petUnread: "Có tin nhắn chưa đọc",
   petHint: "Xem cuộc trò chuyện",
-  reply: "Trả lời",
   bubbleClose: "Thu gọn tin nhắn",
   drawerLabel: "Cuộc trò chuyện với D-Friend",
   drawerSub: "Cùng làm, không làm hộ",

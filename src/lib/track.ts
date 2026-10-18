@@ -8,7 +8,7 @@ export type TrackEvents = {
   starter_clicked: { starter: "derivative" | "geometry" };
   type_problem_clicked: NoProps;
   photo_picked: {
-    source: "snap_button" | "composer_button" | "retake" | "paste";
+    source: "snap_button" | "composer_button" | "retake" | "paste" | "drop";
     bytes: number;
     width: number;
     height: number;

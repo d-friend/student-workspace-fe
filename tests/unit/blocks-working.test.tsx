@@ -341,3 +341,23 @@ test("help bar sits in the active row", async () => {
   render(view({ solve: bare }, "solve", ctxWith()));
   expect(screen.getByRole("button", { name: copy.hint }).closest("[data-pet-anchor]")).toBeNull();
 });
+
+test("the choice prompt is visible text and still names the group", async () => {
+  showS(ctxWith([ok]));
+  gap(1, "a");
+  submit();
+  expect((await screen.findByText("Hệ số góc là")).tagName).toBe("P");
+  expect(screen.getByRole("group", { name: "Hệ số góc là" })).toBeTruthy();
+});
+
+test("focus stays in the choice group after a wrong pick", async () => {
+  const c = ctxWith([ok, bad]);
+  showS(c);
+  gap(1, "a");
+  submit();
+  fireEvent.click(await screen.findByRole("button", { name: "4" }));
+  await screen.findByText(copy.stateReview);
+  const group = screen.getByRole("group", { name: "Hệ số góc là" });
+  await waitFor(() => expect(group.contains(document.activeElement)).toBe(true));
+  expect(document.activeElement?.tagName).toBe("BUTTON");
+});

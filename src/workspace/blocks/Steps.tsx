@@ -17,6 +17,8 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const [done, setDone] = useState(false);
   const [free, setFree] = useState(false);
   const inputId = useId();
+  const promptId = useId();
+  const group = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const refocus = useRef(false); // focus the input once the next render has put it in place
   const dirty = useRef(false); // this position had a review or error
@@ -33,7 +35,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   useEffect(() => {
     if (!refocus.current) return;
     refocus.current = false;
-    input.current?.focus();
+    (input.current ?? group.current?.querySelector("button"))?.focus(); // the disabled buttons dropped focus
   });
 
   async function run(a: Attempt) {
@@ -90,13 +92,18 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
       {!done && (
         <div data-pet-anchor className={styles.active}>
           {item?.kind === "choice" ? (
-            <div role="group" aria-label={item.prompt} className={styles.options}>
-              {item.options.map((o, i) => (
-                <button key={i} type="button" className={styles.btn} disabled={busy} onClick={() => void run({ answer: String(i), text: o, input: "choice", item: pos })}>
-                  {o}
-                </button>
-              ))}
-            </div>
+            <>
+              <p id={promptId} className={styles.entryLabel}>
+                {item.prompt}
+              </p>
+              <div ref={group} role="group" aria-labelledby={promptId} className={styles.options}>
+                {item.options.map((o, i) => (
+                  <button key={i} type="button" className={styles.btn} disabled={busy} onClick={() => void run({ answer: String(i), text: o, input: "choice", item: pos })}>
+                    {o}
+                  </button>
+                ))}
+              </div>
+            </>
           ) : item ? (
             <form
               className={styles.blank}

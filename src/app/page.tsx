@@ -3,6 +3,7 @@
 import { type ChangeEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Entry } from "@/components/Entry";
 import { Shell } from "@/components/Shell";
+import { PetAnchorProvider } from "@/components/pet/PetAnchor";
 import { PetLayer } from "@/components/pet/PetLayer";
 import { NewProblemButton } from "@/components/rail/NewProblemButton";
 import { BuildingSkeleton } from "@/components/work/BuildingSkeleton";
@@ -82,10 +83,11 @@ export default function Page() {
     workspaceId: w.id,
     phase: w.doc.phase,
     report: ws.report,
-    check: (blockId, answer, previous) => ws.check(w.id, blockId, answer, previous),
+    check: (blockId, answer, previous, item) => ws.check(w.id, blockId, answer, previous, item),
     overrides: ws.overrides[w.id] ?? {},
     hintCount: 0,
     onSolved: () => {},
+    help: null,
   });
 
   // One composer at a time: the entry's until there is a conversation, then the drawer's.
@@ -240,13 +242,14 @@ export default function Page() {
       onCorrectRestate={ws.correctRestate}
       onAcceptOffer={() => void ws.answerOffer(true)}
       onOfferLater={() => void ws.answerOffer(false)}
+      onOpt={(t) => void ws.answerOpt(t)}
       composer={composer}
     />
   );
   return (
-    <>
+    <PetAnchorProvider>
       <Shell bar={!flying && bar} work={work} layer={layer} chatOpen={drawerOpen} inert={drawerOpen && !desktop} />
       <input ref={fileInput} type="file" accept="image/*" hidden onChange={onFile} />
-    </>
+    </PetAnchorProvider>
   );
 }

@@ -1,4 +1,4 @@
-.card { display: flex; flex-direction: column; gap: 16px; padding: 16px; background: var(--panel); border: 1px solid var(--hairline); border-radius: 14px; }
+.card { --g: 56px; --rule: color-mix(in srgb, var(--pet) 40%, transparent); display: flex; flex-direction: column; gap: 16px; padding: 16px; background: var(--panel); border: 1px solid var(--hairline); border-radius: 14px; }
 .label { margin: 0; font: 600 15px/1.4 var(--font-sans); color: var(--muted); }
 .prose { max-width: 65ch; font: 400 17px/1.65 var(--font-sans); color: var(--text); }
 .problem { max-width: 65ch; font: 600 20px/1.5 var(--font-sans); color: var(--text); }
@@ -9,24 +9,38 @@
 .img { display: block; max-width: 100%; height: auto; border-radius: 14px; }
 .small { font: 400 13px/1.4 var(--font-sans); color: var(--muted); margin: 0; }
 
+/* Ruled paper (Desktop .ruled/.margin-rule/.line): --g is where the 2px margin rule sits. */
+@media (max-width: 479px) { .card { --g: 40px; } }
 .lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; font-variant-numeric: tabular-nums; }
 .lines:empty { margin-top: -16px; } /* stays mounted for aria-live, takes no space */
-.line { display: flex; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--hairline); font: 500 18px/1.5 var(--font-sans); }
-.line:last-child { border-bottom: 0; }
-.line { position: relative; isolation: isolate; }
-.lineReview::before { content: ""; position: absolute; inset: 0; z-index: -1; animation: tint 160ms ease-out; }
-.lineReview { margin: 0 -16px; padding: 12px 16px; border-bottom-color: transparent; }
-.lineReview::before { background: var(--review-bg); }
-@keyframes tint { from { opacity: 0; } }
-.n { width: 24px; flex: none; font: 400 14px/1.4 var(--font-sans); color: var(--muted); }
-.lineText { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.badge { display: inline-flex; align-items: center; gap: 4px; flex: none; font: 600 14px/1.4 var(--font-sans); color: var(--brand); white-space: nowrap; }
+.lines:not(:empty) + .active { margin-top: -16px; } /* the rules and the row tint run on into the active row */
+.line, .active { background: linear-gradient(var(--rule), var(--rule)) var(--g) 0 / 2px 100% no-repeat; }
+.line { position: relative; display: flex; align-items: center; min-height: 56px; box-sizing: border-box; border-bottom: 1px solid var(--hairline); font: 500 22px/1.4 var(--font-sans); letter-spacing: 0.01em; animation: write 0.45s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes write { from { opacity: 0; transform: translateX(-14px); } }
+.n { width: calc(var(--g) - 14px); flex: none; text-align: right; font: 600 13px/1.4 var(--font-sans); letter-spacing: 0; color: var(--brand); }
+.lineText { flex: 1; min-width: 0; padding: 8px 0 8px 32px; overflow-wrap: anywhere; }
+.lineText:first-child { padding-left: calc(var(--g) + 18px); }
+.lineReview .lineText { text-decoration: underline wavy var(--review-text); text-decoration-thickness: 2px; text-underline-offset: 7px; }
+.badge { display: inline-flex; align-items: center; gap: 8px; flex: none; margin-left: 12px; font: 600 14px/1.4 var(--font-sans); letter-spacing: 0; color: var(--brand); white-space: nowrap; }
 .badgeReview { color: var(--review-text); }
+/* The mark is the icon as a 30px disc; its text stays beside it, so state is never colour alone. */
+.badge svg { box-sizing: border-box; width: 30px; height: 30px; padding: 4px; border-radius: 50%; color: #fff; background: #1e9e6a; animation: markIn 0.4s 0.25s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+.badgeReview svg { color: var(--review-text); background: var(--review-border); }
+@keyframes markIn { from { transform: scale(0); } }
 
 .entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; align-items: center; margin: 0; }
 .entryLabel { grid-column: 1 / -1; font: 600 14px/1.4 var(--font-sans); color: var(--text); }
 .entry .help { grid-column: 1 / -1; }
 .input { box-sizing: border-box; min-width: 0; height: 52px; padding: 0 16px; font: 400 18px/1.4 var(--font-sans); color: var(--text); background: var(--panel); border: 1px solid var(--control-border); border-radius: 10px; }
+.active { --tint: color-mix(in srgb, var(--pet) 6%, transparent); position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; min-height: 56px; box-sizing: border-box; padding: 8px 0 8px calc(var(--g) + 18px); border-bottom: 1px solid var(--hairline); background: linear-gradient(var(--rule), var(--rule)) var(--g) 0 / 2px 100% no-repeat, linear-gradient(90deg, transparent calc(var(--g) + 2px), var(--tint) calc(var(--g) + 2px)); }
+.active::before { content: attr(data-n); content: attr(data-n) / ""; position: absolute; left: 0; top: 14px; width: calc(var(--g) - 14px); text-align: right; font: 600 13px/1.4 var(--font-sans); color: var(--brand); }
+.active > .entry, .active > .blank { align-self: stretch; }
+.active > .entryLabel { margin: 0; }
+.options { display: flex; flex-wrap: wrap; gap: 8px; }
+.options .btn { min-height: 44px; padding: 0 14px; font: 500 16px/1.4 var(--font-sans); border-radius: 11px; border-color: var(--control-border); background: var(--agent); }
+.options .btn:hover:not(:disabled) { border-color: var(--control-border); background: var(--panel); }
+.blank { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font: 500 22px/1.4 var(--font-sans); letter-spacing: 0.01em; }
+.gap { width: 12ch; height: 44px; padding: 0 4px; font: inherit; letter-spacing: inherit; background: transparent; border: 0; border-bottom: 2px solid var(--control-border); border-radius: 0; }
 .btn, .primary { min-height: 44px; padding: 0 16px; font: 600 15px/1.4 var(--font-sans); border-radius: 10px; cursor: pointer; white-space: nowrap; }
 .btn { color: var(--text); background: var(--panel); border: 1px solid var(--control-border); }
 .primary { height: 52px; padding: 0 22px; color: var(--accent-text); background: var(--accent); border: 0; }
@@ -42,10 +56,14 @@
 .segOn { background: var(--accent); }
 .idea { min-height: 48px; padding: 0 16px; font: 600 15px/1.4 var(--font-sans); color: var(--brand); background: transparent; border: 0; border-radius: 10px; cursor: pointer; }
 
-.done { display: flex; align-items: center; gap: 12px; padding: 24px; color: var(--accent-text); background: var(--accent); border-radius: 14px; font: 800 20px/1.4 var(--font-display), var(--font-sans); }
-.done b { font-weight: 800; }
+.done { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 18px 22px; color: var(--accent-text); background: var(--accent); border-radius: 18px; animation: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.doneMain { display: flex; align-items: center; gap: 12px; font: 800 34px/1.2 var(--font-display), var(--font-sans); }
+.doneMain b { font-weight: 800; }
+/* Muted by mixing the text token, not a literal grey, so it holds 4.5:1 in both themes. */
+.doneHints { margin: 0 0 0 auto; font: 400 14px/1.4 var(--font-sans); color: color-mix(in srgb, var(--accent-text) 75%, transparent); text-align: right; }
+@keyframes rise { from { opacity: 0; transform: translateY(18px); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .lineReview::before { animation: none; }
+  .line, .badge svg, .done { animation: none; }
   .btn:active, .primary:active, .hint:active, .idea:active { transform: none; }
 }

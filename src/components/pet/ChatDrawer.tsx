@@ -8,6 +8,7 @@ import { ChatLog } from "@/components/rail/ChatLog";
 import { Composer, type ComposerProps } from "@/components/rail/Composer";
 import { NewProblemButton } from "@/components/rail/NewProblemButton";
 import { OfferChips } from "@/components/rail/OfferChips";
+import { OptChips } from "@/components/rail/OptChips";
 import { RestateChips } from "@/components/rail/RestateChips";
 import { WatchingCue } from "@/components/rail/WatchingCue";
 import { Pet } from "./Pet";
@@ -15,13 +16,14 @@ import styles from "./ChatDrawer.module.css";
 
 export const JPEG_PREFIX = "data:image/jpeg;base64,";
 
-export type ChatState = Pick<WorkspaceState, "bubbles" | "hasMessages" | "watching" | "restateChips" | "offerChips">;
+export type ChatState = Pick<WorkspaceState, "bubbles" | "hasMessages" | "watching" | "restateChips" | "offerChips" | "optChips">;
 export type ChatActions = {
   onNewProblem: () => void;
   onConfirmRestate: () => void;
   onCorrectRestate: () => void;
   onAcceptOffer: () => void;
   onOfferLater: () => void;
+  onOpt: (text: string) => void;
 };
 
 // From 800px a column beside the stage (the stage narrows, nothing is frozen); below, a modal bottom sheet over it,
@@ -123,6 +125,7 @@ export function ChatDrawer({
                 {!muted && state.offerChips && (
                   <OfferChips onAccept={actions.onAcceptOffer} onLater={actions.onOfferLater} />
                 )}
+                {!muted && state.optChips && <OptChips options={state.optChips} onPick={actions.onOpt} />}
               </div>
             );
           })}

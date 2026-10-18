@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 import { IconLoader2, IconX } from "@tabler/icons-react";
 import type { Bubble } from "@/hooks/useWorkspace";
 import { copy } from "@/lib/copy";
@@ -20,6 +20,9 @@ export function PetBubble({
   onClose,
   autoHide,
   onHide,
+  side,
+  flip,
+  style,
   children,
 }: {
   bubbles: SpokenBubble[];
@@ -27,6 +30,10 @@ export function PetBubble({
   onClose: () => void;
   autoHide: boolean;
   onHide: () => void;
+  // In the lane (PetLayer): which side of the pet it opens on, whether it opens upward, and where it stands.
+  side?: "right" | "above";
+  flip?: boolean;
+  style?: CSSProperties;
   children?: ReactNode;
 }) {
   const last = bubbles.at(-1);
@@ -55,6 +62,9 @@ export function PetBubble({
   return (
     <div
       role={error ? "alert" : "status"}
+      data-side={side}
+      data-flip={flip || undefined}
+      style={style}
       className={`${styles.bubble} ${error ? styles.error : ""} ${fading ? styles.leaving : ""}`}
       onPointerEnter={() => setHeld(true)}
       onPointerLeave={() => setHeld(false)}

@@ -3,6 +3,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { copy } from "@/lib/copy";
 import { renderBlock } from "@/workspace/blocks";
 import type { Block, BlockCtx, CheckResponse, Phase, Workspace, WorkspaceDoc } from "@/workspace/types";
+import { DoneBanner } from "@/workspace/DoneBanner";
 import { HelpBar } from "@/workspace/HelpBar";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
 
@@ -26,6 +27,7 @@ const ctxWith = (resp: (CheckResponse | Error)[] = [], extra: Partial<BlockCtx> 
     overrides: {},
     hintCount: 0,
     onSolved: vi.fn(),
+    help: null,
     ...extra,
   };
 };
@@ -47,7 +49,7 @@ test("steps ok line", async () => {
   type("x=1");
   submit();
   await screen.findByText(copy.stateOk);
-  expect(c.report).toHaveBeenCalledWith("line_checked", { block_id: "s1", line: 1, text: "x=1", ok: true, state: "ok", retried: false });
+  expect(c.report).toHaveBeenCalledWith("line_checked", { block_id: "s1", line: 1, text: "x=1", ok: true, state: "ok", retried: false, input: "free" });
   expect(screen.getByLabelText(copy.lineLabel(2))).toBeTruthy();
 });
 
@@ -94,7 +96,7 @@ test("retried after review then ok", async () => {
   type("b");
   submit();
   await screen.findByText(copy.stateOk);
-  expect(c.report).toHaveBeenLastCalledWith("line_checked", { block_id: "s1", line: 1, text: "b", ok: true, state: "ok", retried: true });
+  expect(c.report).toHaveBeenLastCalledWith("line_checked", { block_id: "s1", line: 1, text: "b", ok: true, state: "ok", retried: true, input: "free" });
 });
 
 test("retried after hint", async () => {
@@ -168,7 +170,7 @@ test("done reports task_completed once with max_hint and helped", async () => {
   expect(c.report).toHaveBeenCalledWith("help_requested", { block_id: "s_solve", level: 2 });
   type("a");
   submit();
-  await screen.findByText(copy.doneTitle);
+  await screen.findByText(copy.doneLabel);
   expect(doneCalls(c)).toEqual([["task_completed", { similar: false, helped: true, max_hint: 2 }]]);
 });
 
@@ -176,7 +178,7 @@ test("taskDone prop reports via master", () => {
   const c = ctxWith();
   const { rerender } = render(view({ solve: ws("solve") }, "solve", c));
   rerender(view({ solve: ws("solve") }, "solve", c, { taskDone: { solve: ["s_solve"] } }));
-  expect(screen.getByText(copy.doneTitle)).toBeTruthy();
+  expect(screen.getByText(copy.doneLabel)).toBeTruthy();
   rerender(view({ solve: ws("solve") }, "solve", c, { taskDone: { solve: ["s_solve"] } }));
   expect(doneCalls(c)).toEqual([["task_completed", { similar: false, helped: false, max_hint: 0, via: "master" }]]);
 });
@@ -186,7 +188,7 @@ test("practice doc reports similar true", async () => {
   render(view({ practice: ws("practice") }, "practice", c));
   type("a");
   submit();
-  await screen.findByText(copy.doneTitle);
+  await screen.findByText(copy.doneLabel);
   expect(doneCalls(c)[0][1]).toMatchObject({ similar: true });
 });
 
@@ -226,4 +228,160 @@ test("the hint level is available to assistive tech without renaming the button"
   const hint = screen.getByRole("button", { name: copy.hint });
   expect(hint.getAttribute("aria-describedby")).toBeTruthy();
   expect(screen.getByText(copy.hintLevel(2))).toBeTruthy();
+});
+
+// Scaffold mode
+const scaffolded: Block = {
+  ...(steps as Extract<Block, { type: "steps" }>),
+  scaffold: [
+    { kind: "blank", template: "y′ = ___" },
+    { kind: "choice", prompt: "Hệ số góc là", options: ["10", "4"] },
+    { kind: "blank", template: "y = ___" },
+  ],
+};
+const showS = (c: BlockCtx) => render(<>{renderBlock(scaffolded, c)}</>);
+const gap = (n: number, v: string) => fireEvent.change(screen.getByLabelText(copy.blankLabel(n)), { target: { value: v } });
+const lineCalls = (c: BlockCtx) => (c.report as ReturnType<typeof vi.fn>).mock.calls.filter((a) => a[0] === "line_checked");
+
+test("blank item sends the gap and records the filled line", async () => {
+  const c = ctxWith([ok]);
+  showS(c);
+  gap(1, "3x^2-2");
+  submit();
+  await screen.findByText("y′ = 3x^2-2");
+  expect(c.check).toHaveBeenCalledWith("s1", "3x^2-2", [], 0);
+  expect(c.report).toHaveBeenCalledWith(
+    "line_checked",
+    expect.objectContaining({ input: "blank", line: 1, text: "y′ = 3x^2-2" }),
+  );
+});
+
+test("choice item sends the index and records the option", async () => {
+  const c = ctxWith([ok, ok]);
+  showS(c);
+  gap(1, "3x^2-2");
+  submit();
+  await screen.findByRole("group", { name: "Hệ số góc là" });
+  fireEvent.click(screen.getByRole("button", { name: "10" }));
+  await screen.findByText("10");
+  expect(c.check).toHaveBeenLastCalledWith("s1", "0", ["y′ = 3x^2-2"], 1);
+  expect(lineCalls(c).at(-1)![1]).toMatchObject({ input: "choice", line: 2, text: "10" });
+});
+
+test("choice retried after a wrong pick", async () => {
+  const c = ctxWith([ok, bad, ok]);
+  showS(c);
+  gap(1, "a");
+  submit();
+  fireEvent.click(await screen.findByRole("button", { name: "4" }));
+  await screen.findByText(copy.stateReview);
+  fireEvent.click(screen.getByRole("button", { name: "10" }));
+  await waitFor(() => expect(c.check).toHaveBeenCalledTimes(3));
+  await waitFor(() => expect(lineCalls(c)).toHaveLength(3));
+  expect(lineCalls(c).at(-1)![1]).toMatchObject({ retried: true, input: "choice" });
+});
+
+test("override advances the scaffold", async () => {
+  const c = ctxWith([bad]);
+  const { rerender } = showS(c);
+  gap(1, "a");
+  submit();
+  await screen.findByText(copy.stateReview);
+  expect(screen.queryByRole("group")).toBeNull();
+  rerender(<>{renderBlock(scaffolded, { ...c, overrides: { s1: { 1: "ok" } } })}</>);
+  expect(screen.getByRole("group", { name: "Hệ số góc là" })).toBeTruthy();
+});
+
+test("last item overridden falls back to free", async () => {
+  const c = ctxWith([ok, ok, bad]);
+  const { rerender } = showS(c);
+  gap(1, "a");
+  submit();
+  fireEvent.click(await screen.findByRole("button", { name: "10" }));
+  await screen.findByLabelText(copy.blankLabel(3));
+  gap(3, "b");
+  submit();
+  await screen.findByText(copy.stateReview);
+  rerender(<>{renderBlock(scaffolded, { ...c, overrides: { s1: { 3: "ok" } } })}</>);
+  expect(screen.getByLabelText(copy.lineLabel(4))).toBeTruthy();
+});
+
+test("other way switches to free typing for good", async () => {
+  const c = ctxWith([ok, ok]);
+  showS(c);
+  fireEvent.click(screen.getByRole("button", { name: copy.otherWay }));
+  expect(c.report).toHaveBeenCalledWith("other_way_chosen", { block_id: "s1", line: 1 });
+  const free = screen.getByLabelText(copy.lineLabel(1));
+  expect(document.activeElement).toBe(free);
+  fireEvent.change(free, { target: { value: "x" } });
+  submit();
+  await screen.findByText(copy.stateOk);
+  expect(vi.mocked(c.check).mock.calls.at(-1)![3]).toBeUndefined();
+  expect(lineCalls(c).at(-1)![1]).toMatchObject({ input: "free" });
+  expect(screen.getByLabelText(copy.lineLabel(2))).toBeTruthy();
+  expect(screen.queryByRole("group")).toBeNull();
+  expect(screen.queryByRole("button", { name: copy.otherWay })).toBeNull();
+});
+
+test("help bar sits in the active row", async () => {
+  const c = ctxWith([fin]);
+  const sc = (extra: Partial<Workspace["doc"]> = {}): Workspace => ({
+    id: "solve",
+    doc: { ...doc("solve"), blocks: [{ type: "problem", id: "p1", md: "Đề thử" }, scaffolded], ...extra },
+  });
+  const { unmount } = render(view({ solve: sc() }, "solve", c));
+  const hint = screen.getByRole("button", { name: copy.hint });
+  expect(hint.closest("[data-pet-anchor]")).toBeTruthy();
+  expect(screen.getAllByRole("button", { name: copy.hint })).toHaveLength(1);
+  gap(1, "a");
+  submit();
+  await screen.findByText(copy.doneLabel);
+  expect(screen.queryByRole("button", { name: copy.hint })).toBeNull();
+  unmount();
+  const bare: Workspace = { id: "solve", doc: { ...doc("solve"), blocks: [{ type: "problem", id: "p1", md: "Đề thử" }] } };
+  render(view({ solve: bare }, "solve", ctxWith()));
+  expect(screen.getByRole("button", { name: copy.hint }).closest("[data-pet-anchor]")).toBeNull();
+});
+
+test("the choice prompt is visible text and still names the group", async () => {
+  showS(ctxWith([ok]));
+  gap(1, "a");
+  submit();
+  expect((await screen.findByText("Hệ số góc là")).tagName).toBe("P");
+  expect(screen.getByRole("group", { name: "Hệ số góc là" })).toBeTruthy();
+});
+
+test("focus stays in the choice group after a wrong pick", async () => {
+  const c = ctxWith([ok, bad]);
+  showS(c);
+  gap(1, "a");
+  submit();
+  fireEvent.click(await screen.findByRole("button", { name: "4" }));
+  await screen.findByText(copy.stateReview);
+  const group = screen.getByRole("group", { name: "Hệ số góc là" });
+  await waitFor(() => expect(group.contains(document.activeElement)).toBe(true));
+  expect(document.activeElement?.tagName).toBe("BUTTON");
+});
+
+test("done banner shows the label and the hints used", () => {
+  render(<DoneBanner hints={2} />);
+  expect(screen.getByRole("status")).toBeTruthy();
+  expect(screen.getByText("Xong bài")).toBeTruthy();
+  expect(screen.getByText(copy.doneHints(2))).toBeTruthy();
+});
+
+test("done banner omits the hint line when no hint was used", () => {
+  render(<DoneBanner hints={0} />);
+  expect(screen.getByText("Xong bài")).toBeTruthy();
+  expect(screen.queryByText(/Gợi ý đã dùng/)).toBeNull();
+});
+
+test("done banner counts the hints pressed", async () => {
+  const c = ctxWith([fin]);
+  render(view({ solve: ws("solve") }, "solve", c));
+  fireEvent.click(screen.getByRole("button", { name: copy.hint }));
+  type("a");
+  submit();
+  await screen.findByText("Xong bài");
+  expect(screen.getByText(copy.doneHints(1))).toBeTruthy();
 });

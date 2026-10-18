@@ -35,8 +35,15 @@
 .unfold[data-unfold="flying"] .stage {
   position: absolute;
   inset: 0;
-  background: var(--bg);
+  background: var(--panel);
   animation: reveal 1s cubic-bezier(0.7, 0, 0.2, 1) 0.1s both;
+}
+
+/* From 800px the stage is the desk, so the reveal reads against the entry's page (A8: both used to be --bg). */
+@media (min-width: 800px) {
+  .unfold[data-unfold="flying"] .stage {
+    background: var(--desk);
+  }
 }
 
 @keyframes reveal {

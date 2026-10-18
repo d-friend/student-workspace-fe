@@ -1,25 +1,53 @@
 "use client";
 
-import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { useDesktop } from "@/hooks/useDesktop";
 import { usePet } from "@/hooks/usePet";
 import { FLY_MS } from "@/hooks/useUnfold";
 import type { WorkspaceState } from "@/hooks/useWorkspace";
 import { copy } from "@/lib/copy";
+import { placePet, type Place, type Rect } from "@/lib/pet-place";
 import { OfferChips } from "@/components/rail/OfferChips";
+import { OptChips } from "@/components/rail/OptChips";
 import { RestateChips } from "@/components/rail/RestateChips";
 import type { Bubble } from "@/hooks/useWorkspace";
+import { usePetAnchor } from "./PetAnchor";
 import { ChatDrawer, type ChatActions, type ChatState } from "./ChatDrawer";
 import type { ComposerProps } from "@/components/rail/Composer";
 import { Pet } from "./Pet";
 import { PetBubble, type SpokenBubble } from "./PetBubble";
 import styles from "./PetLayer.module.css";
 
-type PetSignals = Pick<WorkspaceState, "busy" | "building" | "status" | "checking" | "verdict" | "taskDone" | "newProblemCount">;
+type PetSignals = Pick<WorkspaceState, "busy" | "building" | "status" | "checking" | "verdict" | "taskDone" | "newProblemCount" | "optChips">;
 
 // How long the closing chat column slides out before it unmounts (ChatDrawer.module.css panelOut).
 const CLOSE_MS = 350;
 const MAX_SPOKEN = 3;
+const PET = 88; // --pet-size at the docked place (PetLayer.module.css); the lane only exists on a wide stage
+const SCROLL_MS = 120; // after the last scroll event the pet is no longer "moving with the scroll"
+const BUBBLE_GAP = 12; // pet to bubble, beside it
+const BUBBLE_W = 300; // PetBubble.module.css max-width
+const ABOVE_MIN = 200; // above the pet needs this much room over it, else the bubble opens below
+
+type Lane = Extract<Place, { mode: "lane" }>;
+
+const relTo = (r: DOMRect, o: DOMRect): Rect => ({ left: r.left - o.left, top: r.top - o.top, right: r.right - o.left, bottom: r.bottom - o.top });
+
+// Where the bubble goes in the lane, in the layer's coordinates. It never leaves the lane: its left edge stays 8px
+// right of the doc column (the lane starts 24px right of it) and its right edge 16px inside the stage. Beside the
+// pet, or over it (below when there is no room above) with its left edge at the column.
+function bubbleStyle(lane: Lane, w: number, h: number): { style: CSSProperties; up: boolean } {
+  const fit = (left: number) => `min(${BUBBLE_W}px, calc(100vw - 32px), ${Math.max(0, w - 16 - left)}px)`;
+  if (lane.side === "right") {
+    const left = lane.left + PET + BUBBLE_GAP;
+    const style: CSSProperties = { left, maxWidth: fit(left) };
+    return lane.flip ? { style: { ...style, bottom: h - lane.top - PET }, up: true } : { style: { ...style, top: lane.top }, up: false };
+  }
+  const left = lane.left - 16;
+  const style: CSSProperties = { left, maxWidth: fit(left) };
+  const up = lane.flip || lane.top >= ABOVE_MIN;
+  return up ? { style: { ...style, bottom: h - lane.top + 8 }, up } : { style: { ...style, top: lane.top + PET + 8 }, up };
+}
 
 // Always mounted, over the stage. Holds the drawer's open state and which bubble the student has put away.
 // From 800px the drawer is a column beside the stage and the pet moves to the seam between them.
@@ -69,6 +97,7 @@ export function PetLayer({
   const [hiddenKey, setHiddenKey] = useState<string | null>(null);
   const [unread, setUnread] = useState(false);
   const petRef = useRef<HTMLButtonElement>(null);
+  const layerRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const wasOpen = useRef(false);
   const wantFocus = useRef<boolean | null>(null); // a focus request waiting for the render that shows the right composer
@@ -156,11 +185,82 @@ export function PetLayer({
     latest?.kind === "agent" && !latest.waiting && latest.id === state.bubbles.findLast((b) => b.kind === "agent")?.id;
   const docked = open && desktop && !entry;
 
+  // The lane: beside the active line of the doc, only when nothing else has a claim on the pet.
+  const { anchor, scroller } = usePetAnchor();
+  const laneOn = !entry && !open && !leaving && !travelling && anchor !== null && scroller !== null;
+  const [place, setPlace] = useState<Place>({ mode: "dock" });
+  const [stageSize, setStageSize] = useState({ w: 0, h: 0 });
+  const [scrolling, setScrolling] = useState(false);
+  useEffect(() => {
+    const layer = layerRef.current;
+    if (!laneOn || !layer || !anchor || !scroller) return;
+    let raf = 0;
+    let idle: ReturnType<typeof setTimeout> | undefined;
+    const measure = () => {
+      raf = 0;
+      const column = anchor.closest("[data-pet-column]");
+      const L = layer.getBoundingClientRect();
+      // Everything in the layer's own coordinates, so the result is the pet's left/top. The scroller is the box the
+      // pet stays inside: it does not climb over the top bar.
+      const next = column
+        ? placePet({
+            anchor: relTo(anchor.getBoundingClientRect(), L),
+            column: relTo(column.getBoundingClientRect(), L),
+            stage: relTo(scroller.getBoundingClientRect(), L),
+            pet: PET,
+            bubbleW: BUBBLE_W,
+          })
+        : ({ mode: "dock" } as const);
+      setStageSize((s) => (s.w === L.width && s.h === L.height ? s : { w: L.width, h: L.height }));
+      setPlace((p) => (p.mode === "lane" && next.mode === "lane" && p.left === next.left && p.top === next.top && p.side === next.side && p.flip === next.flip ? p : next));
+    };
+    const schedule = () => {
+      raf ||= requestAnimationFrame(measure);
+    };
+    const onScroll = () => {
+      setScrolling(true);
+      clearTimeout(idle);
+      idle = setTimeout(() => setScrolling(false), SCROLL_MS);
+      schedule();
+    };
+    measure();
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
+    for (const el of [layer, scroller, anchor.closest("[data-pet-column]"), anchor]) if (el) ro?.observe(el);
+    return () => {
+      scroller.removeEventListener("scroll", onScroll);
+      ro?.disconnect();
+      cancelAnimationFrame(raf);
+      clearTimeout(idle);
+      setScrolling(false);
+      setPlace({ mode: "dock" }); // re-entry must not start from the old spot
+    };
+  }, [laneOn, anchor, scroller]);
+  const lane = laneOn && place.mode === "lane" ? place : null;
+  // The doc's bottom padding keeps its last line clear of the docked pet; in the lane the pet is beside it.
+  const inLane = lane !== null;
+  useEffect(() => {
+    if (!inLane || !scroller) return;
+    scroller.style.setProperty("--pet-clear", "0px");
+    return () => void scroller.style.removeProperty("--pet-clear");
+  }, [inLane, scroller]);
+  const laneBubble = lane ? bubbleStyle(lane, stageSize.w, stageSize.h) : null;
+
   return (
     // With a photo picked the greeting is gone, so the pet docks; it is still the entry's pet.
-    <div className={styles.layer} data-place={entry && !hasPhoto ? "entry" : "dock"} data-fly={travelling || undefined} data-chat={docked || undefined}>
+    <div
+      ref={layerRef}
+      className={styles.layer}
+      data-place={entry && !hasPhoto ? "entry" : "dock"}
+      data-fly={travelling || undefined}
+      data-chat={docked || undefined}
+      data-lane={lane ? "" : undefined}
+    >
       <button
         ref={petRef}
+        data-moving={lane && scrolling ? "scroll" : undefined}
+        // The reduced-motion stylesheet rule covers a change mid-session; this one is what a teleport looks like at once.
+        style={lane ? { top: lane.top, left: lane.left, transition: matchMedia("(prefers-reduced-motion: reduce)").matches ? "none" : undefined } : undefined}
         type="button"
         className={styles.pet}
         aria-label={entry ? copy.brand : open ? copy.petClose : copy.petOpen}
@@ -194,14 +294,24 @@ export function PetLayer({
             if (!entry) setUnread(true);
           }}
           // The entry keeps its message: there it can be the only place an instruction (a retake) is shown. So does
-          // a bubble that is asking the student to choose (its chips): it stays until they answer or close it.
-          autoHide={!entry && !(chips && (state.restateChips || state.offerChips))}
+          // a bubble that is asking the student to choose (its chips) or a question: it stays until they answer or close it.
+          autoHide={
+            !entry &&
+            !(chips && (state.restateChips || state.offerChips || state.optChips)) &&
+            !(latest?.kind === "agent" && latest.ask !== null)
+          }
           onHide={() => setHiddenKey(key)}
+          side={lane?.side}
+          flip={laneBubble?.up}
+          style={laneBubble?.style}
         >
           {chips && state.restateChips && (
             <RestateChips onConfirm={actions.onConfirmRestate} onCorrect={actions.onCorrectRestate} />
           )}
           {chips && state.offerChips && <OfferChips onAccept={actions.onAcceptOffer} onLater={actions.onOfferLater} />}
+          {chips && state.optChips && (
+            <OptChips options={state.optChips} onPick={actions.onOpt} onWriteOwn={() => inputRef.current?.focus(true)} />
+          )}
         </PetBubble>
       )}
       {(open || leaving) && !entry && (

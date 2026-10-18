@@ -51,6 +51,8 @@ export type Bubble =
       line: number | null;
       offer: boolean;
       restate: boolean;
+      opts: string[] | null;
+      ask: "how" | "why" | null;
     }
   | { id: number; turn: number; kind: "error" | "note"; text: string };
 
@@ -83,6 +85,7 @@ export type WorkspaceState = {
   watching: boolean;
   restateChips: boolean;
   offerChips: boolean;
+  optChips: string[] | null;
   hasMessages: boolean;
   newProblemCount: number; // bumps on each "Bài mới" that reset the session, so the pet can jump back to the entry
   inputDisabled: boolean;
@@ -155,6 +158,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let sessionConfirmed = false;
   let restateClosedId: number | null = null;
   let offerClosedId: number | null = null;
+  let optsClosedId: number | null = null;
   let checking = 0;
   let verdictSeq = 0;
   let verdict: WorkspaceState["verdict"] = { seq: 0, state: null, done: false };
@@ -198,6 +202,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       watching: shown && !busy && watching(messages),
       restateChips: !busy && !!agent?.restate && restateClosedId !== agent.id,
       offerChips: !busy && !!agent?.offer && offerClosedId !== agent.id,
+      optChips: !busy && agent?.opts && optsClosedId !== agent.id ? agent.opts : null,
       hasMessages: messages.length > 0,
       newProblemCount: newProblems,
       inputDisabled,
@@ -251,6 +256,8 @@ export function createWorkspace(deps: WorkspaceDeps) {
     line: view.line,
     offer: view.offer,
     restate: view.restate,
+    opts: view.opts,
+    ask: view.ask,
   });
 
   const lastAgentId = () => [...bubbles].reverse().find((b) => b.kind === "agent")?.id ?? null;
@@ -312,6 +319,8 @@ export function createWorkspace(deps: WorkspaceDeps) {
           line: null,
           offer: false,
           restate: false,
+          opts: null,
+          ask: null,
         })
       : null;
     publish();
@@ -348,7 +357,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       if (e.event === "announce") {
         announceText = e.text;
         announceRestate = e.text.startsWith(RESTATE);
-        const b: NewBubble = { kind: "agent", text: e.text, waiting: false, line: null, offer: false, restate: announceRestate };
+        const b: NewBubble = { kind: "agent", text: e.text, waiting: false, line: null, offer: false, restate: announceRestate, opts: null, ask: null };
         // Its own bubble, before the waiting one, which keeps "thinking" until the reply text arrives.
         announceId = agentId === null ? addBubble(b) : insertBubbleBefore(agentId, b);
       } else if (e.event === "status") {
@@ -493,6 +502,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   // One typed message: runs now, or waits behind a workspace turn. Ignored while another is waiting.
   function dispatch(text: string, shot: string | null, via?: StartedVia): Promise<void> {
     if (queued || (busy && typedTurn)) return Promise.resolve();
+    optsClosedId = lastAgentId();
     if (busy) {
       queued = { text, photo: shot, bubbleId: addBubble({ kind: "student", text, photo: shot }) };
       publish();
@@ -550,6 +560,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     bubbles = [];
     restateClosedId = null;
     offerClosedId = null;
+    optsClosedId = null;
     // By role, not by index: an announce and its reply are two assistant messages, and a code-routed
     // workspace batch is a user message with no reply.
     let said: string | null = null; // the previous assistant line, to drop an announce repeated as the reply
@@ -570,6 +581,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     if (last && (last.role === "user" || parse(last.content as string).chat === "")) {
       closeRestate();
       offerClosedId = lastAgentId();
+      optsClosedId = lastAgentId();
     }
   }
 
@@ -711,6 +723,10 @@ export function createWorkspace(deps: WorkspaceDeps) {
       return accepted ? dispatch(copy.offerYesMessage, null) : Promise.resolve();
     },
 
+    answerOpt(text: string): Promise<void> {
+      return dispatch(text, null);
+    },
+
     // From WorkspaceView. Same event shape as the iframe bridge; a master completion is not a student gesture.
     report(type: string, data?: unknown, byStudent = true) {
       if (type === "task_completed" && (data as { via?: string } | null | undefined)?.via === "master") byStudent = false;
@@ -722,12 +738,12 @@ export function createWorkspace(deps: WorkspaceDeps) {
       actions.report("phase_viewed", { phase: p });
     },
 
-    check(workspaceId: string, blockId: string, answer: string, previous: string[]): Promise<CheckResponse> {
+    check(workspaceId: string, blockId: string, answer: string, previous: string[], item?: number): Promise<CheckResponse> {
       const w = Object.values(workspaces).find((x) => x.id === workspaceId);
       if (!w || sessionId === null) return Promise.reject(new Error(`no workspace ${workspaceId}`));
       checking++;
       publish();
-      return api.check(sessionId, { workspaceId, blockId, answer, previous }).then((r) => {
+      return api.check(sessionId, { workspaceId, blockId, answer, previous, ...(item !== undefined && { item }) }).then((r) => {
         verdict = { seq: ++verdictSeq, state: r.state, done: r.done };
         // A master line_state judged the attempt it was issued for, not the next one at that line.
         // shortcut: the line is previous.length + 1, which is Steps' contract; other blocks hold no overrides.
@@ -774,6 +790,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       sessionConfirmed = false;
       restateClosedId = null;
       offerClosedId = null;
+    optsClosedId = null;
       publish();
     },
   };

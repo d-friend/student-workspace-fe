@@ -9,6 +9,7 @@ const empty: Parsed = {
   ask: null,
   line: null,
   offer: false,
+  opts: null,
   restate: false,
   mode: null,
 };
@@ -63,6 +64,42 @@ const CASES: [string, Partial<Parsed>][] = [
   ["[mode:other] hi", { chat: "[mode:other] hi" }],
   ["[why] [mode:learn] x", { ask: "why", chat: "[mode:learn] x" }],
   ["[mode:solve] [silent]", { mode: "solve", silent: true }],
+  // spec_v2 3.1: options tag
+  [
+    "[why] [line 2] [opts: Vì A | Vì B | Mình cũng không chắc] Vì sao?",
+    { ask: "why", line: 2, opts: ["Vì A", "Vì B", "Mình cũng không chắc"], chat: "Vì sao?" },
+  ],
+  ["[opts: a | | b | " + "x".repeat(61) + " | c | d] hi", { opts: ["a", "b", "c"], chat: "hi" }],
+  ["[opts: Vì A | Vì", {}],
+  ["[opts", {}],
+  ["Chào", { chat: "Chào" }],
+  // V12: trailing options tag
+  [
+    "Vì sao? [opts: A | B | Mình cũng không chắc]",
+    { opts: ["A", "B", "Mình cũng không chắc"], chat: "Vì sao?" },
+  ],
+  [
+    "[why] Vì sao từ t = √x lại có dx = 2t dt? [opts: Vì x = t² | Vì √x = t² | Mình cũng không chắc]",
+    {
+      ask: "why",
+      opts: ["Vì x = t²", "Vì √x = t²", "Mình cũng không chắc"],
+      chat: "Vì sao từ t = √x lại có dx = 2t dt?",
+    },
+  ],
+  ["[opts: a] Vì sao? [opts: b]", { opts: ["a"], chat: "Vì sao? [opts: b]" }],
+  ["Vì sao? [opts: a | | b | " + "x".repeat(61) + " | c | d]\n", { opts: ["a", "b", "c"], chat: "Vì sao?" }],
+  ["Vì sao? [opts: A | B", { chat: "Vì sao?" }],
+  ["Vì sao? [opt", { chat: "Vì sao?" }],
+  ["Vì sao? [o", { chat: "Vì sao?" }],
+  ["Vì sao? [", { chat: "Vì sao? [" }],
+  ["Dùng [opt giữa câu rồi nói tiếp", { chat: "Dùng [opt giữa câu rồi nói tiếp" }],
+  ["Xem [opts: x] rồi làm tiếp.", { chat: "Xem [opts: x] rồi làm tiếp." }],
+  ["[silent] [opts: a]", { opts: ["a"], silent: true }],
+  ["Mình đọc đề là: x. [opts: a | b]", { opts: ["a", "b"], restate: true, chat: "Mình đọc đề là: x." }],
+  [
+    "Hi\n```html\n<p>x</p>\n```\nVì sao? [opts: a | b]",
+    { opts: ["a", "b"], chat: "Hi\n\nVì sao?", html: "<p>x</p>" },
+  ],
 ];
 
 test.each(CASES)("parse(%j)", (raw, expected) => {

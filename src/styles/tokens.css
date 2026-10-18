@@ -7,6 +7,8 @@
   --border: #d9dee6;
   --control-border: #7d8696;
   --hairline: #e3e6ec;
+  --desk: #e9ecf0;
+  --desk-dot: #d3d8df;
   --accent: #15171c;
   --accent-text: #ffffff;
   --brand: #b4461a;
@@ -30,6 +32,8 @@
   --border: #343a46;
   --control-border: #6b7486;
   --hairline: #262b35;
+  --desk: #0f1217;
+  --desk-dot: #222833;
   --accent: #e7e9ee;
   --accent-text: #12151b;
   --brand: #f7b48c;

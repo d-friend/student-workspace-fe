@@ -13,6 +13,7 @@ import problem from "./problem.json";
 import quiz from "./quiz.json";
 import solve_tangent from "./solve-tangent.json";
 import steps from "./steps.json";
+import steps_scaffold from "./steps-scaffold.json";
 import text from "./text.json";
 
 // JSON imports widen literals ("learn" becomes string), so the cast is unchecked here; fixtures.test.ts enforces the schema rules.
@@ -30,6 +31,7 @@ const raw: Record<string, unknown> = {
   "problem.json": problem,
   "quiz.json": quiz,
   "solve-tangent.json": solve_tangent,
+  "steps-scaffold.json": steps_scaffold,
   "steps.json": steps,
   "text.json": text,
 };

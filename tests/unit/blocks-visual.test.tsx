@@ -32,6 +32,7 @@ const ctx: BlockCtx = {
   overrides: {},
   hintCount: 0,
   onSolved: vi.fn(),
+  help: null,
 };
 const graph = (over: Partial<Extract<Block, { type: "graph" }>> = {}): Block => ({
   type: "graph",

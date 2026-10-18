@@ -20,6 +20,7 @@ const ctxWith = (resp: CheckResponse[] = []): BlockCtx => {
     overrides: {},
     hintCount: 0,
     onSolved: vi.fn(),
+    help: null,
   };
 };
 const show = (b: Block, c: BlockCtx) => render(<>{renderBlock(b, c)}</>);

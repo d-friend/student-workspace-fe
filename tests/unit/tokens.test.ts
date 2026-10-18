@@ -39,6 +39,7 @@ describe("tokens", () => {
       "--bg": "#f3f5f7", "--panel": "#ffffff", "--text": "#15171c", "--muted": "#4a4f5c",
       "--border": "#d9dee6", "--hairline": "#e3e6ec", "--accent": "#15171c", "--accent-text": "#ffffff",
       "--brand": "#b4461a", "--pet": "#f27a3d", "--student": "#15171c", "--student-text": "#ffffff", "--agent": "#f1f3f6",
+      "--desk": "#e9ecf0", "--desk-dot": "#d3d8df",
     });
   });
 
@@ -48,6 +49,7 @@ describe("tokens", () => {
       "--hairline": "#262b35", "--border": "#343a46", "--accent": "#e7e9ee", "--accent-text": "#12151b",
       "--brand": "#f7b48c", "--pet": "#f27a3d", "--student": "#2a3142", "--student-text": "#e7e9ee", "--agent": "#222833",
       "--review-bg": "#2b1d10", "--review-text": "#ffb27a", "--error-bg": "#3a1717", "--error-text": "#ffb4b4",
+      "--desk": "#0f1217", "--desk-dot": "#222833",
     });
   });
 });

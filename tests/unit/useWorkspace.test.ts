@@ -585,6 +585,45 @@ describe("chips", () => {
   });
 });
 
+describe("answer options", () => {
+  it("optChips shows the latest agent opts until the student sends", async () => {
+    const t = await boot(reply("[opts: Có | Không] Bạn chắc chưa?"));
+    t.ws.actions.setInput("x");
+    await t.ws.actions.submit();
+    expect(t.state().optChips).toEqual(["Có", "Không"]);
+
+    t.api.turn.mockImplementationOnce(reply("Ok."));
+    await t.ws.actions.answerOpt("Có");
+    expect(t.state().bubbles.filter((b) => b.kind === "student").at(-1)).toMatchObject({ text: "Có" });
+    expect(lastContent(t.api)).toBe("Có");
+    expect(t.state().optChips).toBeNull();
+  });
+
+  it("optChips is null while busy", async () => {
+    const gate = deferred();
+    const t = await boot(async (_s, _m, onDelta) => {
+      onDelta("[opts: Có | Không] Bạn chắc chưa?");
+      await gate.promise;
+      return DONE;
+    });
+    t.ws.actions.setInput("x");
+    const sent = t.ws.actions.submit();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.state().busy).toBe(true);
+    expect(t.state().optChips).toBeNull();
+    gate.resolve();
+    await sent;
+    expect(t.state().optChips).toEqual(["Có", "Không"]);
+  });
+
+  it("agent bubble carries ask", async () => {
+    const t = await boot(reply("[why] Vì sao?"));
+    t.ws.actions.setInput("x");
+    await t.ws.actions.submit();
+    expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "agent", ask: "why", opts: null });
+  });
+});
+
 describe("tracking", () => {
   it("fires the catalog events at their moments", async () => {
     const t = await boot();
@@ -852,6 +891,17 @@ describe("structured workspace", () => {
     await typed(t);
     await expect(t.ws.actions.check("S1", "s1", "y", ["a"])).resolves.toMatchObject({ ok: true });
     expect(check).toHaveBeenCalledWith("s1", { workspaceId: "S1", blockId: "s1", answer: "y", previous: ["a"] });
+  });
+
+  it("check passes item through", async () => {
+    const t = await boot(stream([shown("L1", LEARN), shown("S1"), "ok"]));
+    const check = vi.fn().mockResolvedValue({ ok: true, state: "ok", done: false });
+    Object.assign(t.api, { check });
+    await typed(t);
+    await t.ws.actions.check("S1", "s1", "1", [], 1);
+    expect(check).toHaveBeenLastCalledWith("s1", { workspaceId: "S1", blockId: "s1", answer: "1", previous: [], item: 1 });
+    await t.ws.actions.check("S1", "s1", "y", []);
+    expect(check.mock.calls.at(-1)![1]).not.toHaveProperty("item");
   });
 
   it("check binds to the given workspace even when another phase repeats the block id", async () => {

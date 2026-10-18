@@ -1,6 +1,9 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { PetAnchorProvider, usePetAnchorRef, usePetScrollerRef } from "@/components/pet/PetAnchor";
 import { PetLayer } from "@/components/pet/PetLayer";
+import type { Rect } from "@/lib/pet-place";
 import type { Bubble, WorkspaceState } from "@/hooks/useWorkspace";
 import { FLY_MS } from "@/hooks/useUnfold";
 import { copy } from "@/lib/copy";
@@ -16,6 +19,8 @@ const agent = (id: number, text: string, extra: Partial<Extract<Bubble, { kind: 
   line: null,
   offer: false,
   restate: false,
+  opts: null,
+  ask: null,
   ...extra,
 });
 
@@ -29,6 +34,7 @@ function setup(bubbles: Bubble[], extra: Partial<WorkspaceState> = {}, entry = f
     taskDone: {},
     restateChips: false,
     offerChips: false,
+    optChips: null,
     watching: false,
     hasMessages: bubbles.length > 0,
     ...extra,
@@ -43,6 +49,7 @@ function setup(bubbles: Bubble[], extra: Partial<WorkspaceState> = {}, entry = f
     onCorrectRestate: vi.fn(),
     onAcceptOffer: vi.fn(),
     onOfferLater: vi.fn(),
+    onOpt: vi.fn(),
     composer: {
       value: "",
       onChange: vi.fn(),
@@ -207,6 +214,55 @@ describe("PetLayer", () => {
       wait(20000);
       expect(bubble()).toBeTruthy();
     }));
+  });
+
+  describe("answer choices", () => {
+    const opts = (extra: Partial<Extract<Bubble, { kind: "agent" }>> = {}) =>
+      setup([agent(1, "Em chọn nhé", { opts: ["A", "B"], ...extra })], { optChips: ["A", "B"] });
+
+    it("bubble shows opts and Tự nhắn", () => {
+      const s = opts();
+      render(s.ui);
+      const bubble = screen.getByRole("status");
+      expect(within(bubble).getByRole("button", { name: "B" })).toBeTruthy();
+      expect(within(bubble).getByRole("button", { name: copy.writeOwn })).toBeTruthy();
+      fireEvent.click(within(bubble).getByRole("button", { name: "A" }));
+      expect(s.props.onOpt).toHaveBeenCalledWith("A");
+    });
+
+    it("Tự nhắn opens the drawer with the composer focused", () => {
+      const s = opts();
+      render(s.ui);
+      fireEvent.click(screen.getByRole("button", { name: copy.writeOwn }));
+      expect(screen.getByRole("dialog")).toBeTruthy();
+      expect(document.activeElement).toBe(screen.getByLabelText(copy.inputLabel));
+      expect(s.props.onChatOpened).toHaveBeenCalledTimes(1);
+    });
+
+    it("drawer shows opts without Tự nhắn and the bubble is gone", () => {
+      render(opts().ui);
+      fireEvent.click(pet());
+      const chips = screen.getAllByRole("button", { name: "A" });
+      expect(chips).toHaveLength(1);
+      expect(screen.getByRole("dialog").contains(chips[0])).toBe(true);
+      expect(screen.queryByRole("button", { name: copy.writeOwn })).toBeNull();
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+
+    it("a why question does not fade; a plain message does", () => {
+      vi.useFakeTimers();
+      try {
+        const q = render(setup([agent(1, "Vì sao em chọn bước này?", { ask: "why" })]).ui);
+        act(() => void vi.advanceTimersByTime(10000));
+        expect(screen.queryByRole("status")).toBeTruthy();
+        q.unmount();
+        render(setup([agent(1, "Xin chào", { ask: null })]).ui);
+        act(() => void vi.advanceTimersByTime(10000));
+        expect(screen.queryByRole("status")).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   it("a waiting bubble shows no text, only the typing dots", () => {
@@ -413,5 +469,270 @@ describe("PetLayer chat_opened", () => {
     render(e.ui);
     fireEvent.click(screen.getByRole("button", { name: copy.brand }));
     expect(e.props.onChatOpened).not.toHaveBeenCalled();
+  });
+});
+
+describe("PetLayer in the lane", () => {
+  const rect = (r: Rect) => ({ ...r, x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top, toJSON() {} }) as DOMRect;
+  const R: Record<"layer" | "scroller" | "column" | "anchor", Rect> = {
+    layer: { left: 0, top: 0, right: 1700, bottom: 900 },
+    scroller: { left: 0, top: 0, right: 1700, bottom: 900 },
+    column: { left: 312, top: 0, right: 1128, bottom: 900 },
+    anchor: { left: 400, top: 300, right: 1000, bottom: 340 },
+  };
+  const rects = () => structuredClone(R);
+  let live = rects();
+  let queue: FrameRequestCallback[] = [];
+  const frame = () => act(() => void queue.splice(0).forEach((cb) => cb(0)));
+
+  const mockRects = (setup: () => void) => {
+    live = rects();
+    setup();
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const key = this.hasAttribute("data-place")
+        ? "layer"
+        : this.hasAttribute("data-testid")
+          ? "scroller"
+          : this.hasAttribute("data-pet-column")
+            ? "column"
+            : this.hasAttribute("data-pet-anchor")
+              ? "anchor"
+              : null;
+      return rect(key ? live[key] : { left: 0, top: 0, right: 0, bottom: 0 });
+    });
+    queue = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => queue.push(cb));
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+  };
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  function Doc({ active, scroller }: { active: boolean; scroller: boolean }) {
+    const setScroller = usePetScrollerRef();
+    const anchorRef = usePetAnchorRef(active);
+    return (
+      <div data-testid="scroller" ref={scroller ? (el) => setScroller?.(el) : undefined}>
+        <div data-pet-column>
+          <div ref={anchorRef} data-pet-anchor />
+        </div>
+      </div>
+    );
+  }
+  function ui(extra: Partial<WorkspaceState> = {}, bubbles: Bubble[] = [], o: { active?: boolean; scroller?: boolean; flying?: boolean } = {}) {
+    const s = setup(bubbles, extra);
+    return (
+      <PetAnchorProvider>
+        <Doc active={o.active ?? true} scroller={o.scroller ?? true} />
+        <PetLayer state={s.state} {...s.props} flying={o.flying} />
+      </PetAnchorProvider>
+    );
+  }
+  const layer = (c: HTMLElement) => c.querySelector<HTMLElement>("[data-place]")!;
+  const scroller = () => screen.getByTestId("scroller");
+
+  it("(a) with an anchor and a wide stage the pet is placed beside the line, right of the column", () => {
+    mockRects(() => {});
+    const { container } = render(ui());
+    expect(layer(container).hasAttribute("data-lane")).toBe(true);
+    expect(pet().style.left).toBe("1152px"); // column.right 1128 + 24
+    expect(pet().style.top).toBe("276px"); // level with the line's middle (320) minus half the pet
+    expect(parseFloat(pet().style.left)).toBeGreaterThan(R.column.right); // never over the doc column, so never over the input or Kiểm tra
+  });
+
+  it("(b) without an anchor, or a scroller, or room in the lane, it keeps the dock styles", () => {
+    mockRects(() => {});
+    const a = render(ui({}, [], { active: false }));
+    expect(pet().style.top).toBe("");
+    expect(pet().style.left).toBe("");
+    expect(layer(a.container).hasAttribute("data-lane")).toBe(false);
+    a.unmount();
+    const b = render(ui({}, [], { scroller: false }));
+    expect(pet().style.top).toBe("");
+    b.unmount();
+    mockRects(() => (live.column.right = 1600));
+    render(ui());
+    expect(pet().style.top).toBe("");
+  });
+
+  it("(c) scrolling moves the pet on the next frame, with the spring off until the scroll stops", () => {
+    vi.useFakeTimers();
+    mockRects(() => {});
+    render(ui());
+    expect(pet().dataset.moving).toBeUndefined();
+    live.anchor = { ...live.anchor, top: 500, bottom: 540 };
+    fireEvent.scroll(scroller());
+    expect(pet().style.top).toBe("276px"); // not before the frame
+    expect(pet().dataset.moving).toBe("scroll");
+    frame();
+    expect(pet().style.top).toBe("476px");
+    act(() => void vi.advanceTimersByTime(119));
+    expect(pet().dataset.moving).toBe("scroll");
+    act(() => void vi.advanceTimersByTime(2));
+    expect(pet().dataset.moving).toBeUndefined();
+  });
+
+  it("an anchor scrolled out of sight clamps to the edge of the scroller", () => {
+    mockRects(() => {});
+    render(ui());
+    live.anchor = { ...live.anchor, top: -900, bottom: -860 };
+    fireEvent.scroll(scroller());
+    frame();
+    expect(pet().style.top).toBe("8px");
+    live.anchor = { ...live.anchor, top: 4000, bottom: 4040 };
+    fireEvent.scroll(scroller());
+    frame();
+    expect(pet().style.top).toBe(`${900 - 88 - 8}px`);
+  });
+
+  it("(d) losing the anchor (another phase tab) docks the pet again and gives the scroller its padding back", () => {
+    mockRects(() => {});
+    const { rerender, container } = render(ui());
+    expect(pet().style.top).toBe("276px");
+    expect(scroller().style.getPropertyValue("--pet-clear")).toBe("0px");
+    rerender(ui({}, [], { active: false }));
+    expect(pet().style.top).toBe("");
+    expect(layer(container).hasAttribute("data-lane")).toBe(false);
+    expect(scroller().style.getPropertyValue("--pet-clear")).toBe("");
+  });
+
+  it("(e) under reduced motion the lane sets no transition; otherwise the stylesheet's applies", () => {
+    mockRects(() => {});
+    const a = render(ui());
+    expect(pet().style.transition).toBe("");
+    a.unmount();
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("reduce"), media: q, addEventListener() {}, removeEventListener() {} }) as unknown as MediaQueryList);
+    render(ui());
+    expect(pet().style.top).toBe("276px");
+    expect(pet().style.transition).toBe("none");
+  });
+
+  it("the lane is ignored while the drawer is open, on the entry and during the flight", () => {
+    mockRects(() => {});
+    const a = render(ui());
+    const petNow = () => layer(a.container).querySelector<HTMLElement>("button")!;
+    expect(pet().style.top).toBe("276px");
+    fireEvent.click(pet());
+    expect(petNow().style.top).toBe("");
+    expect(scroller().style.getPropertyValue("--pet-clear")).toBe("");
+    a.unmount();
+    render(ui({}, [], { flying: true }));
+    expect(pet().style.top).toBe("");
+  });
+
+  it("a resize of the stage re-places the pet", () => {
+    mockRects(() => {});
+    const resizes: ResizeObserverCallback[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(cb: ResizeObserverCallback) {
+          resizes.push(cb);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    render(ui());
+    live.column = { ...live.column, right: 1650 }; // the lane is now too narrow
+    act(() => resizes.forEach((cb) => cb([], null as never)));
+    frame();
+    expect(pet().style.top).toBe("");
+  });
+
+  it("on re-entry (the drawer closes) the first position is the fresh one, never the old spot", () => {
+    mockRects(() => {});
+    render(ui());
+    expect(pet().style.top).toBe("276px");
+    fireEvent.click(pet());
+    live.anchor = { ...live.anchor, top: 500, bottom: 540 }; // the doc moved while the drawer was open
+    const node = layer(document.body).querySelector("button")!;
+    const seen: string[] = [];
+    const mo = new MutationObserver(() => {});
+    mo.observe(node, { attributes: true, attributeFilter: ["style"], attributeOldValue: true });
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    seen.push(...mo.takeRecords().map((r) => r.oldValue ?? ""));
+    mo.disconnect();
+    expect(node.style.top).toBe("476px");
+    expect(seen.join("|")).not.toContain("276px");
+  });
+
+  describe("bubble side", () => {
+    const say = [agent(1, "Em thử bước này nhé?")];
+    const bubble = () => screen.getByRole("status");
+
+    it("with room (lane >= 316) the bubble opens to the right of the pet, aligned to its top", () => {
+      mockRects(() => {});
+      render(ui({}, say));
+      expect(bubble().dataset.side).toBe("right");
+      expect(bubble().dataset.flip).toBeUndefined();
+      expect(bubble().style.left).toBe(`${1152 + 88 + 12}px`);
+      expect(bubble().style.top).toBe("276px");
+    });
+
+    it("in the lower part of the stage the bubble opens upward, aligned to the pet's bottom", () => {
+      mockRects(() => (live.anchor = { ...live.anchor, top: 700, bottom: 740 }));
+      render(ui({}, say));
+      expect(bubble().dataset.flip).toBeDefined();
+      expect(bubble().style.bottom).toBe(`${900 - (720 - 44 + 88)}px`);
+      expect(bubble().style.top).toBe("");
+    });
+
+    // The bubble's box in layer coordinates, from its inline left and max-width (it is max-content wide, up to 300px).
+    const box = () => {
+      const left = parseFloat(bubble().style.left);
+      const avail = Number(/, (\d+(?:\.\d+)?)px\)$/.exec(bubble().style.maxWidth)?.[1]);
+      return { left, right: left + Math.min(300, avail) };
+    };
+
+    it("in a narrow lane (stage 1440) the bubble sits above the pet and stays right of the doc column", () => {
+      mockRects(() => (live.layer = live.scroller = { left: 0, top: 0, right: 1440, bottom: 900 }));
+      render(ui({}, say));
+      expect(bubble().dataset.side).toBe("above");
+      expect(bubble().style.bottom).toBe(`${900 - 276 + 8}px`);
+      expect(bubble().style.right).toBe("");
+      const b = box();
+      expect(b.left).toBeGreaterThanOrEqual(R.column.right + 8);
+      expect(b.right).toBeLessThanOrEqual(1440 - 16);
+      expect(b.right - b.left).toBeGreaterThanOrEqual(200); // the narrowest lane still leaves a readable bubble
+    });
+
+    it("beside the pet (stage 1700) the bubble is also right of the column and inside the stage", () => {
+      mockRects(() => {});
+      render(ui({}, say));
+      const b = box();
+      expect(b.left).toBeGreaterThanOrEqual(R.column.right + 8);
+      expect(b.right).toBeLessThanOrEqual(1700 - 16);
+    });
+
+    it("without a lane the bubble keeps its docked place", () => {
+      mockRects(() => {});
+      render(ui({}, say, { active: false }));
+      expect(bubble().dataset.side).toBeUndefined();
+      expect(bubble().style.left).toBe("");
+    });
+
+    it("the answer chips and Tự nhắn are inside the bubble and its right edge stays in the stage", () => {
+      mockRects(() => {});
+      render(ui({ optChips: ["A", "B"] }, [agent(1, "Em chọn nhé", { opts: ["A", "B"] })]));
+      expect(bubble().dataset.side).toBe("right");
+      expect(within(bubble()).getByRole("button", { name: "A" })).toBeTruthy();
+      expect(within(bubble()).getByRole("button", { name: copy.writeOwn })).toBeTruthy();
+      expect(box().right).toBeLessThanOrEqual(R.layer.right - 16);
+    });
+  });
+});
+
+describe("PetBubble.module.css cascade", () => {
+  const css = readFileSync("src/components/pet/PetBubble.module.css", "utf8");
+  it("the lane entrance is scoped away from .leaving, so the fade-out still plays", () => {
+    expect(css).toMatch(/\.bubble\[data-side\]:not\(\.leaving\)\s*\{[^}]*animation-name:\s*bubbleInSide/);
+    expect(css).not.toMatch(/\.bubble\[data-side="[a-z]+"\][^{]*\{[^}]*animation-name/);
+  });
+  it("under reduced motion the lane bubble uses the short fade, not the entrance", () => {
+    const reduced = css.slice(css.indexOf("prefers-reduced-motion"));
+    expect(reduced).toMatch(/\.bubble\[data-side\]:not\(\.leaving\)\s*\{[^}]*animation-name:\s*fadeIn/);
   });
 });

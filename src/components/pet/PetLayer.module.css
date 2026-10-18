@@ -56,6 +56,20 @@
   }
 }
 
+/* In the lane (PetLayer.tsx sets left/top inline): the pet steps to the next line with a spring and follows a scroll
+   without easing (data-moving is on while the doc scrolls). */
+@media (min-width: 800px) {
+  .layer[data-place="dock"][data-lane] .pet {
+    transition:
+      top 0.6s cubic-bezier(0.3, 1.35, 0.5, 1),
+      left 0.4s var(--ease);
+  }
+
+  .layer[data-place="dock"][data-lane] .pet[data-moving="scroll"] {
+    transition: none;
+  }
+}
+
 /* The unfold (spec §6): the same button travels from the entry place to the dock and hops on the way. */
 .layer[data-fly] .pet {
   --fly-ease: cubic-bezier(0.6, 0, 0.3, 1);
@@ -129,6 +143,10 @@
 @media (prefers-reduced-motion: reduce) {
   .layer[data-place="dock"] .pet {
     animation: petIn 0.15s ease-out;
+    transition: none;
+  }
+
+  .layer[data-place="dock"][data-lane] .pet {
     transition: none;
   }
 }

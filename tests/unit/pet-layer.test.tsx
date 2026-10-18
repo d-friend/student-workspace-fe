@@ -1,6 +1,8 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { PetAnchorProvider, usePetAnchorRef, usePetScrollerRef } from "@/components/pet/PetAnchor";
 import { PetLayer } from "@/components/pet/PetLayer";
+import type { Rect } from "@/lib/pet-place";
 import type { Bubble, WorkspaceState } from "@/hooks/useWorkspace";
 import { FLY_MS } from "@/hooks/useUnfold";
 import { copy } from "@/lib/copy";
@@ -466,5 +468,176 @@ describe("PetLayer chat_opened", () => {
     render(e.ui);
     fireEvent.click(screen.getByRole("button", { name: copy.brand }));
     expect(e.props.onChatOpened).not.toHaveBeenCalled();
+  });
+});
+
+describe("PetLayer in the lane", () => {
+  const rect = (r: Rect) => ({ ...r, x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top, toJSON() {} }) as DOMRect;
+  const R: Record<"layer" | "scroller" | "column" | "anchor", Rect> = {
+    layer: { left: 0, top: 0, right: 1700, bottom: 900 },
+    scroller: { left: 0, top: 0, right: 1700, bottom: 900 },
+    column: { left: 312, top: 0, right: 1128, bottom: 900 },
+    anchor: { left: 400, top: 300, right: 1000, bottom: 340 },
+  };
+  const rects = () => structuredClone(R);
+  let live = rects();
+  let queue: FrameRequestCallback[] = [];
+  const frame = () => act(() => void queue.splice(0).forEach((cb) => cb(0)));
+
+  const mockRects = (setup: () => void) => {
+    live = rects();
+    setup();
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const key = this.hasAttribute("data-place")
+        ? "layer"
+        : this.hasAttribute("data-testid")
+          ? "scroller"
+          : this.hasAttribute("data-pet-column")
+            ? "column"
+            : this.hasAttribute("data-pet-anchor")
+              ? "anchor"
+              : null;
+      return rect(key ? live[key] : { left: 0, top: 0, right: 0, bottom: 0 });
+    });
+    queue = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => queue.push(cb));
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+  };
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  function Doc({ active, scroller }: { active: boolean; scroller: boolean }) {
+    const setScroller = usePetScrollerRef();
+    const anchorRef = usePetAnchorRef(active);
+    return (
+      <div data-testid="scroller" ref={scroller ? (el) => setScroller?.(el) : undefined}>
+        <div data-pet-column>
+          <div ref={anchorRef} data-pet-anchor />
+        </div>
+      </div>
+    );
+  }
+  function ui(extra: Partial<WorkspaceState> = {}, bubbles: Bubble[] = [], o: { active?: boolean; scroller?: boolean; flying?: boolean } = {}) {
+    const s = setup(bubbles, extra);
+    return (
+      <PetAnchorProvider>
+        <Doc active={o.active ?? true} scroller={o.scroller ?? true} />
+        <PetLayer state={s.state} {...s.props} flying={o.flying} />
+      </PetAnchorProvider>
+    );
+  }
+  const layer = (c: HTMLElement) => c.querySelector<HTMLElement>("[data-place]")!;
+  const scroller = () => screen.getByTestId("scroller");
+
+  it("(a) with an anchor and a wide stage the pet is placed beside the line, right of the column", () => {
+    mockRects(() => {});
+    const { container } = render(ui());
+    expect(layer(container).hasAttribute("data-lane")).toBe(true);
+    expect(pet().style.left).toBe("1152px"); // column.right 1128 + 24
+    expect(pet().style.top).toBe("276px"); // level with the line's middle (320) minus half the pet
+    expect(parseFloat(pet().style.left)).toBeGreaterThan(R.column.right); // never over the doc column, so never over the input or Kiểm tra
+  });
+
+  it("(b) without an anchor, or a scroller, or room in the lane, it keeps the dock styles", () => {
+    mockRects(() => {});
+    const a = render(ui({}, [], { active: false }));
+    expect(pet().style.top).toBe("");
+    expect(pet().style.left).toBe("");
+    expect(layer(a.container).hasAttribute("data-lane")).toBe(false);
+    a.unmount();
+    const b = render(ui({}, [], { scroller: false }));
+    expect(pet().style.top).toBe("");
+    b.unmount();
+    mockRects(() => (live.column.right = 1600));
+    render(ui());
+    expect(pet().style.top).toBe("");
+  });
+
+  it("(c) scrolling moves the pet on the next frame, with the spring off until the scroll stops", () => {
+    vi.useFakeTimers();
+    mockRects(() => {});
+    render(ui());
+    expect(pet().dataset.moving).toBeUndefined();
+    live.anchor = { ...live.anchor, top: 500, bottom: 540 };
+    fireEvent.scroll(scroller());
+    expect(pet().style.top).toBe("276px"); // not before the frame
+    expect(pet().dataset.moving).toBe("scroll");
+    frame();
+    expect(pet().style.top).toBe("476px");
+    act(() => void vi.advanceTimersByTime(119));
+    expect(pet().dataset.moving).toBe("scroll");
+    act(() => void vi.advanceTimersByTime(2));
+    expect(pet().dataset.moving).toBeUndefined();
+  });
+
+  it("an anchor scrolled out of sight clamps to the edge of the scroller", () => {
+    mockRects(() => {});
+    render(ui());
+    live.anchor = { ...live.anchor, top: -900, bottom: -860 };
+    fireEvent.scroll(scroller());
+    frame();
+    expect(pet().style.top).toBe("8px");
+    live.anchor = { ...live.anchor, top: 4000, bottom: 4040 };
+    fireEvent.scroll(scroller());
+    frame();
+    expect(pet().style.top).toBe(`${900 - 88 - 8}px`);
+  });
+
+  it("(d) losing the anchor (another phase tab) docks the pet again and gives the scroller its padding back", () => {
+    mockRects(() => {});
+    const { rerender, container } = render(ui());
+    expect(pet().style.top).toBe("276px");
+    expect(scroller().style.getPropertyValue("--pet-clear")).toBe("0px");
+    rerender(ui({}, [], { active: false }));
+    expect(pet().style.top).toBe("");
+    expect(layer(container).hasAttribute("data-lane")).toBe(false);
+    expect(scroller().style.getPropertyValue("--pet-clear")).toBe("");
+  });
+
+  it("(e) under reduced motion the lane sets no transition; otherwise the stylesheet's applies", () => {
+    mockRects(() => {});
+    const a = render(ui());
+    expect(pet().style.transition).toBe("");
+    a.unmount();
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("reduce"), media: q, addEventListener() {}, removeEventListener() {} }) as unknown as MediaQueryList);
+    render(ui());
+    expect(pet().style.top).toBe("276px");
+    expect(pet().style.transition).toBe("none");
+  });
+
+  it("the lane is ignored while the drawer is open, on the entry and during the flight", () => {
+    mockRects(() => {});
+    const a = render(ui());
+    const petNow = () => layer(a.container).querySelector<HTMLElement>("button")!;
+    expect(pet().style.top).toBe("276px");
+    fireEvent.click(pet());
+    expect(petNow().style.top).toBe("");
+    expect(scroller().style.getPropertyValue("--pet-clear")).toBe("");
+    a.unmount();
+    render(ui({}, [], { flying: true }));
+    expect(pet().style.top).toBe("");
+  });
+
+  it("a resize of the stage re-places the pet", () => {
+    mockRects(() => {});
+    const resizes: ResizeObserverCallback[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(cb: ResizeObserverCallback) {
+          resizes.push(cb);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    render(ui());
+    live.column = { ...live.column, right: 1650 }; // the lane is now too narrow
+    act(() => resizes.forEach((cb) => cb([], null as never)));
+    frame();
+    expect(pet().style.top).toBe("");
   });
 });

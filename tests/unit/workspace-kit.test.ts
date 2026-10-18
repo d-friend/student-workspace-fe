@@ -22,6 +22,7 @@ test("every class in the demo fixture has a rule", () => {
 test("the kit carries its own light and dark tokens, since the iframe cannot read the app's", () => {
   expect(KIT_CSS).toContain(":root");
   expect(KIT_CSS).toContain("--accent: #15171c");
-  expect(KIT_CSS).toContain("@media (prefers-color-scheme: dark)");
+  expect(KIT_CSS).toContain('[data-theme="dark"]');
+  expect(KIT_CSS).not.toContain("prefers-color-scheme"); // light unless the student chose dark
   expect(KIT_CSS).toContain("--accent: #e7e9ee");
 });

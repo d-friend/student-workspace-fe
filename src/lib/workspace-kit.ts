@@ -24,14 +24,6 @@ export const KIT_CSS = `
   --student: #15171c; --student-text: #ffffff; --agent: #f1f3f6; --idea-bg: #eef3ff; --review-bg: #fff5ec; --review-border: #f3d3b8;
   --review-text: #a14400; --error-bg: #fde8e8; --error-text: #8a1c1c;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #12151b; --panel: #1a1e26; --text: #e7e9ee; --muted: #a3abb8;
-    --border: #343a46; --control-border: #6b7486; --hairline: #262b35; --accent: #e7e9ee; --accent-text: #12151b; --brand: #f7b48c; --pet: #f27a3d;
-    --student: #2a3142; --student-text: #e7e9ee; --agent: #222833; --idea-bg: #1c2640; --review-bg: #2b1d10; --review-border: #5a3b22;
-    --review-text: #ffb27a; --error-bg: #3a1717; --error-text: #ffb4b4;
-  }
-}
 :root[data-theme="dark"] {
   --bg: #12151b; --panel: #1a1e26; --text: #e7e9ee; --muted: #a3abb8;
   --border: #343a46; --control-border: #6b7486; --hairline: #262b35; --accent: #e7e9ee; --accent-text: #12151b; --brand: #f7b48c; --pet: #f27a3d;

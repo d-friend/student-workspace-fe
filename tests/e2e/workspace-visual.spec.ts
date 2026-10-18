@@ -24,6 +24,8 @@ for (const name of names) {
       test(`${name} ${w} ${scheme}`, async ({ page }) => {
         await page.setViewportSize({ width: w, height: h });
         await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+        // Light is the default; dark is the saved choice, read by THEME_INIT before first paint.
+        await page.addInitScript((t) => localStorage.setItem("df-theme", t), scheme);
         await open(page, name);
         const main = page.locator("main");
         expect(await main.evaluate((m) => m.scrollWidth <= m.clientWidth)).toBe(true);

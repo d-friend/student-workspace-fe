@@ -11,10 +11,10 @@ function vars(block: string): Record<string, string> {
   return Object.fromEntries([...block.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
 }
 
-// The light :root and the :root under prefers-color-scheme: dark, from one stylesheet.
+// The light :root and the :root[data-theme="dark"] block, from one stylesheet.
 function tokens(css: string) {
   const light = css.match(/:root\s*\{([^}]*)\}/)?.[1] ?? "";
-  const dark = css.match(/@media \(prefers-color-scheme: dark\)\s*\{\s*:root:not\(\[data-theme="light"\]\)\s*\{([^}]*)\}/)?.[1] ?? "";
+  const dark = css.match(/:root\[data-theme="dark"\]\s*\{([^}]*)\}/)?.[1] ?? "";
   return { light: vars(light), dark: vars(dark) };
 }
 

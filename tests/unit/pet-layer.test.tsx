@@ -640,4 +640,52 @@ describe("PetLayer in the lane", () => {
     frame();
     expect(pet().style.top).toBe("");
   });
+
+  describe("bubble side", () => {
+    const say = [agent(1, "Em thử bước này nhé?")];
+    const bubble = () => screen.getByRole("status");
+
+    it("with room (lane >= 316) the bubble opens to the right of the pet, aligned to its top", () => {
+      mockRects(() => {});
+      render(ui({}, say));
+      expect(bubble().dataset.side).toBe("right");
+      expect(bubble().dataset.flip).toBeUndefined();
+      expect(bubble().style.left).toBe(`${1152 + 88 + 12}px`);
+      expect(bubble().style.top).toBe("276px");
+    });
+
+    it("in the lower part of the stage the bubble opens upward, aligned to the pet's bottom", () => {
+      mockRects(() => (live.anchor = { ...live.anchor, top: 700, bottom: 740 }));
+      render(ui({}, say));
+      expect(bubble().dataset.flip).toBeDefined();
+      expect(bubble().style.bottom).toBe(`${900 - (720 - 44 + 88)}px`);
+      expect(bubble().style.top).toBe("");
+    });
+
+    it("in a narrow lane the bubble sits above the pet, right-aligned, within the viewport width", () => {
+      mockRects(() => (live.layer = live.scroller = { left: 0, top: 0, right: 1440, bottom: 900 }));
+      render(ui({}, say));
+      expect(bubble().dataset.side).toBe("above");
+      expect(bubble().style.right).toBe(`${1440 - (1152 + 88)}px`);
+      expect(bubble().style.bottom).toBe(`${900 - 276 + 8}px`);
+    });
+
+    it("without a lane the bubble keeps its docked place", () => {
+      mockRects(() => {});
+      render(ui({}, say, { active: false }));
+      expect(bubble().dataset.side).toBeUndefined();
+      expect(bubble().style.left).toBe("");
+    });
+
+    it("the answer chips and Tự nhắn are inside the bubble and its right edge stays in the stage", () => {
+      mockRects(() => {});
+      render(ui({ optChips: ["A", "B"] }, [agent(1, "Em chọn nhé", { opts: ["A", "B"] })]));
+      expect(bubble().dataset.side).toBe("right");
+      expect(within(bubble()).getByRole("button", { name: "A" })).toBeTruthy();
+      expect(within(bubble()).getByRole("button", { name: copy.writeOwn })).toBeTruthy();
+      const max = /min\(300px, [^,]*, (\d+)px\)/.exec(bubble().style.maxWidth);
+      const width = Math.min(300, Number(max?.[1] ?? 300));
+      expect(parseFloat(bubble().style.left) + width).toBeLessThanOrEqual(R.layer.right);
+    });
+  });
 });

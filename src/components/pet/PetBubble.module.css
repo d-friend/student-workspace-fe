@@ -16,6 +16,45 @@
   animation: bubbleIn 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.25);
 }
 
+/* In the lane (PetLayer.tsx gives it left/top/right/bottom inline): beside the pet or over it. The corner nearest the
+   pet is the small one and the entrance grows from it. */
+.bubble[data-side] {
+  right: auto;
+  bottom: auto;
+}
+
+.bubble[data-side="right"] {
+  border-radius: 6px 20px 20px 20px;
+  transform-origin: 0 0;
+  animation-name: bubbleInSide;
+}
+
+.bubble[data-side="right"][data-flip] {
+  border-radius: 20px 20px 20px 6px;
+  transform-origin: 0 100%;
+}
+
+.bubble[data-side="above"] {
+  border-radius: 20px 6px 20px 20px;
+  transform-origin: 100% 0;
+}
+
+.bubble[data-side="above"][data-flip] {
+  border-radius: 20px 20px 6px 20px;
+  transform-origin: 100% 100%;
+}
+
+@keyframes bubbleInSide {
+  from {
+    opacity: 0;
+    transform: translateX(-10px) scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Fading away after SHOW_MS (PetBubble.tsx). */
 .leaving {
   pointer-events: none;

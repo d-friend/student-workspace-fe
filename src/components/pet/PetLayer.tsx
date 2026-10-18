@@ -1,6 +1,6 @@
 "use client";
 
-import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { useDesktop } from "@/hooks/useDesktop";
 import { usePet } from "@/hooks/usePet";
 import { FLY_MS } from "@/hooks/useUnfold";
@@ -25,9 +25,26 @@ const CLOSE_MS = 350;
 const MAX_SPOKEN = 3;
 const PET = 88; // --pet-size at the docked place (PetLayer.module.css); the lane only exists on a wide stage
 const SCROLL_MS = 120; // after the last scroll event the pet is no longer "moving with the scroll"
+const BUBBLE_GAP = 12; // pet to bubble, beside it
 const BUBBLE_W = 300; // PetBubble.module.css max-width
+const ABOVE_MIN = 200; // above the pet needs this much room over it, else the bubble opens below
+
+type Lane = Extract<Place, { mode: "lane" }>;
 
 const relTo = (r: DOMRect, o: DOMRect): Rect => ({ left: r.left - o.left, top: r.top - o.top, right: r.right - o.left, bottom: r.bottom - o.top });
+
+// Where the bubble goes in the lane, in the layer's coordinates: beside the pet, or above (below when there is no
+// room above) with its right edge on the pet's.
+function bubbleStyle(lane: Lane, w: number, h: number): { style: CSSProperties; up: boolean } {
+  if (lane.side === "right") {
+    const left = lane.left + PET + BUBBLE_GAP;
+    const style: CSSProperties = { left, maxWidth: `min(${BUBBLE_W}px, calc(100vw - 32px), ${Math.max(0, w - left - 8)}px)` };
+    return lane.flip ? { style: { ...style, bottom: h - lane.top - PET }, up: true } : { style: { ...style, top: lane.top }, up: false };
+  }
+  const style: CSSProperties = { right: w - lane.left - PET };
+  const up = lane.flip || lane.top >= ABOVE_MIN;
+  return up ? { style: { ...style, bottom: h - lane.top + 8 }, up } : { style: { ...style, top: lane.top + PET + 8 }, up };
+}
 
 // Always mounted, over the stage. Holds the drawer's open state and which bubble the student has put away.
 // From 800px the drawer is a column beside the stage and the pet moves to the seam between them.
@@ -169,6 +186,7 @@ export function PetLayer({
   const { anchor, scroller } = usePetAnchor();
   const laneOn = !entry && !open && !leaving && !travelling && anchor !== null && scroller !== null;
   const [place, setPlace] = useState<Place>({ mode: "dock" });
+  const [stageSize, setStageSize] = useState({ w: 0, h: 0 });
   const [scrolling, setScrolling] = useState(false);
   useEffect(() => {
     const layer = layerRef.current;
@@ -190,6 +208,7 @@ export function PetLayer({
             bubbleW: BUBBLE_W,
           })
         : ({ mode: "dock" } as const);
+      setStageSize((s) => (s.w === L.width && s.h === L.height ? s : { w: L.width, h: L.height }));
       setPlace((p) => (p.mode === "lane" && next.mode === "lane" && p.left === next.left && p.top === next.top && p.side === next.side && p.flip === next.flip ? p : next));
     };
     const schedule = () => {
@@ -221,6 +240,7 @@ export function PetLayer({
     scroller.style.setProperty("--pet-clear", "0px");
     return () => void scroller.style.removeProperty("--pet-clear");
   }, [inLane, scroller]);
+  const laneBubble = lane ? bubbleStyle(lane, stageSize.w, stageSize.h) : null;
 
   return (
     // With a photo picked the greeting is gone, so the pet docks; it is still the entry's pet.
@@ -277,6 +297,9 @@ export function PetLayer({
             !(latest?.kind === "agent" && latest.ask !== null)
           }
           onHide={() => setHiddenKey(key)}
+          side={lane?.side}
+          flip={laneBubble?.up}
+          style={laneBubble?.style}
         >
           {chips && state.restateChips && (
             <RestateChips onConfirm={actions.onConfirmRestate} onCorrect={actions.onCorrectRestate} />

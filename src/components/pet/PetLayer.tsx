@@ -193,8 +193,9 @@ export function PetLayer({
             setHiddenKey(key);
             if (!entry) setUnread(true);
           }}
-          // The entry keeps its message: there it can be the only place an instruction (a retake) is shown.
-          autoHide={!entry}
+          // The entry keeps its message: there it can be the only place an instruction (a retake) is shown. So does
+          // a bubble that is asking the student to choose (its chips): it stays until they answer or close it.
+          autoHide={!entry && !(chips && (state.restateChips || state.offerChips))}
           onHide={() => setHiddenKey(key)}
         >
           {chips && state.restateChips && (

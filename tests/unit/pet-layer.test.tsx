@@ -187,6 +187,21 @@ describe("PetLayer", () => {
       expect(screen.getByRole("alert")).toBeTruthy();
     }));
 
+    it("a bubble asking the student to choose (chips) stays until answered", timed(() => {
+      render(setup([agent(1, "Mình đọc đề là: x", { restate: true })], { restateChips: true }).ui);
+      wait(20000);
+      expect(screen.getByRole("button", { name: copy.restateYes })).toBeTruthy();
+    }));
+
+    it("an offer's chips keep the bubble too, and it fades once they are gone", timed(() => {
+      const { rerender } = render(setup([agent(1, "Thử bài tương tự?", { offer: true })], { offerChips: true }).ui);
+      wait(20000);
+      expect(screen.getByRole("button", { name: copy.offerYes })).toBeTruthy();
+      rerender(setup([agent(1, "Thử bài tương tự?", { offer: true })], { offerChips: false }).ui);
+      wait(FADE);
+      expect(bubble()).toBeNull();
+    }));
+
     it("the entry keeps its message, where it can be the only place an instruction shows", timed(() => {
       render(setup([agent(1, "Không đọc được ảnh này")], {}, true).ui);
       wait(20000);

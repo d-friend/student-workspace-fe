@@ -12,7 +12,7 @@ const FADE_MS = 400; // keep in step with bubbleOut in PetBubble.module.css
 // What D-Friend said this turn, next to the pet, one paragraph per message. `status` is the build's progress, shown
 // under the words. `children` are the chips that apply to the last message. With `autoHide`, a finished message
 // fades away after SHOW_MS and calls `onHide`; an error, a message still being written, a build in progress, and a
-// bubble the student is pointing at or has focus in all stay. The words keep streaming in place, and each change
+// bubble the student is pointing at or has focus in all stay (the caller turns it off for a bubble with choices). The words keep streaming in place, and each change
 // restarts the clock.
 export function PetBubble({
   bubbles,

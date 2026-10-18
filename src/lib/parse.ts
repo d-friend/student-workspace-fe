@@ -8,6 +8,7 @@ export type Parsed = {
   ask: "how" | "why" | null;
   line: number | null;
   offer: boolean;
+  opts: string[] | null;
   restate: boolean;
   mode: "learn" | "solve" | "practice" | null;
 };
@@ -17,12 +18,13 @@ const CLOSE = "\n```";
 const SILENT = "[silent]";
 export const RESTATE = "Mình đọc đề là:";
 
-// Leading tags, in this order: [mode:X], then [how]|[why], then [line N] (N >= 1), then [offer].
+// Leading tags, in this order: [mode:X], then [how]|[why], then [line N] (N >= 1), then [offer], then [opts: A | B].
 // Whitespace may separate them.
 const MODE_TAG = /^\s*\[mode:(learn|solve|practice)\]/;
 const ASK_TAG = /^\s*\[(how|why)\]/;
 const LINE_TAG = /^\s*\[line ([1-9]\d*)\]/;
 const OFFER_TAG = /^\s*\[offer\]/;
+const OPTS_TAG = /^\s*\[opts: ([^\]\n]{1,200})\]/;
 
 // While streaming, a chat that is still a prefix of one of these tags is hidden.
 const PARTIAL_MARKERS = [
@@ -30,17 +32,19 @@ const PARTIAL_MARKERS = [
   "[how]",
   "[why]",
   "[offer]",
+  "[opts:",
   "[line ",
   "[mode:learn]",
   "[mode:solve]",
   "[mode:practice]",
 ];
 const PARTIAL_LINE = /^\[line \d+$/;
+const PARTIAL_OPTS = /^\[opts:[^\]]*$/;
 // Line-start anchor: a closing inline-code backtick ("Try `h`") is not a fence.
 const TRAILING_FENCE = /(^|\n)`{1,3}[a-z]*$/;
 
 function hidePartial(chat: string): string {
-  if (chat && (PARTIAL_MARKERS.some((m) => m.startsWith(chat)) || PARTIAL_LINE.test(chat))) return "";
+  if (chat && (PARTIAL_MARKERS.some((m) => m.startsWith(chat)) || PARTIAL_LINE.test(chat) || PARTIAL_OPTS.test(chat))) return "";
   return chat;
 }
 
@@ -49,6 +53,7 @@ export function parse(raw: string): Parsed {
   let ask: Parsed["ask"] = null;
   let line: number | null = null;
   let offer = false;
+  let opts: string[] | null = null;
   let body = raw;
 
   const modeTag = MODE_TAG.exec(body);
@@ -71,8 +76,14 @@ export function parse(raw: string): Parsed {
     offer = true;
     body = body.slice(offerTag[0].length);
   }
+  const optsTag = OPTS_TAG.exec(body);
+  if (optsTag) {
+    const parts = optsTag[1].split("|").map((x) => x.trim()).filter((x) => x && x.length <= 60);
+    opts = parts.length ? parts.slice(0, 3) : null;
+    body = body.slice(optsTag[0].length);
+  }
 
-  const common = { mode, ask, line, offer };
+  const common = { mode, ask, line, offer, opts };
   const open = body.indexOf(OPEN);
   if (open === -1) {
     const chat = body.replace(TRAILING_FENCE, "").trim();

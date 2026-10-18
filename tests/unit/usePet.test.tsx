@@ -24,6 +24,8 @@ const agent = (id: number, waiting = false, text = "Chào bạn."): Bubble => ({
   line: null,
   offer: false,
   restate: false,
+  opts: null,
+  ask: null,
 });
 const verdict = (seq: number, state: WorkspaceState["verdict"]["state"], done = false) => ({ seq, state, done });
 

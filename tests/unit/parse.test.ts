@@ -9,6 +9,7 @@ const empty: Parsed = {
   ask: null,
   line: null,
   offer: false,
+  opts: null,
   restate: false,
   mode: null,
 };
@@ -63,6 +64,15 @@ const CASES: [string, Partial<Parsed>][] = [
   ["[mode:other] hi", { chat: "[mode:other] hi" }],
   ["[why] [mode:learn] x", { ask: "why", chat: "[mode:learn] x" }],
   ["[mode:solve] [silent]", { mode: "solve", silent: true }],
+  // spec_v2 3.1: options tag
+  [
+    "[why] [line 2] [opts: Vì A | Vì B | Mình cũng không chắc] Vì sao?",
+    { ask: "why", line: 2, opts: ["Vì A", "Vì B", "Mình cũng không chắc"], chat: "Vì sao?" },
+  ],
+  ["[opts: a | | b | " + "x".repeat(61) + " | c | d] hi", { opts: ["a", "b", "c"], chat: "hi" }],
+  ["[opts: Vì A | Vì", {}],
+  ["[opts", {}],
+  ["Chào", { chat: "Chào" }],
 ];
 
 test.each(CASES)("parse(%j)", (raw, expected) => {

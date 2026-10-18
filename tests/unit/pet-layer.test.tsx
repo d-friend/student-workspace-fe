@@ -16,6 +16,8 @@ const agent = (id: number, text: string, extra: Partial<Extract<Bubble, { kind: 
   line: null,
   offer: false,
   restate: false,
+  opts: null,
+  ask: null,
   ...extra,
 });
 

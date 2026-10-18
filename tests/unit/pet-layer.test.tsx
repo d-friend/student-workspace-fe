@@ -17,7 +17,7 @@ const agent = (id: number, text: string, extra: Partial<Extract<Bubble, { kind: 
   ...extra,
 });
 
-function setup(bubbles: Bubble[], extra: Partial<WorkspaceState> = {}) {
+function setup(bubbles: Bubble[], extra: Partial<WorkspaceState> = {}, entry = false) {
   const state = {
     bubbles,
     busy: false,
@@ -32,7 +32,9 @@ function setup(bubbles: Bubble[], extra: Partial<WorkspaceState> = {}) {
     ...extra,
   } as WorkspaceState;
   const props = {
-    inputRef: { current: null } as { current: HTMLTextAreaElement | null },
+    inputRef: { current: null } as { current: { focus: (reveal?: boolean) => void } | null },
+    entryInputRef: { current: null } as { current: HTMLTextAreaElement | null },
+    entry,
     onNewProblem: vi.fn(),
     onConfirmRestate: vi.fn(),
     onCorrectRestate: vi.fn(),
@@ -130,12 +132,106 @@ describe("PetLayer", () => {
     expect(screen.getByRole("status")).toBeTruthy();
   });
 
-  it("focusInput (the store's inputRef) opens the drawer and focuses the composer", () => {
-    const s = setup([]);
+  it("focusInput without reveal leaves a closed drawer closed (the bubble keeps the reply)", () => {
+    const s = setup([agent(1, "Xin chào")]);
     render(s.ui);
     act(() => s.props.inputRef.current!.focus());
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(within(screen.getByRole("status")).getByText("Xin chào")).toBeTruthy();
+  });
+
+  it("focusInput(true) opens a closed drawer and focuses its composer", () => {
+    const s = setup([]);
+    render(s.ui);
+    act(() => s.props.inputRef.current!.focus(true));
     expect(screen.getByRole("dialog")).toBeTruthy();
     expect(document.activeElement).toBe(screen.getByLabelText(copy.inputLabel));
+  });
+
+  it("focusInput with the drawer open focuses the drawer composer", () => {
+    const s = setup([]);
+    render(s.ui);
+    fireEvent.click(pet());
+    (document.activeElement as HTMLElement).blur();
+    act(() => s.props.inputRef.current!.focus());
+    expect(document.activeElement).toBe(screen.getByLabelText(copy.inputLabel));
+  });
+
+  describe("on the entry", () => {
+    const withEntry = (extra: Partial<WorkspaceState> = {}, bubbles: Bubble[] = []) => {
+      const s = setup(bubbles, extra, true);
+      const ui = (
+        <>
+          <textarea aria-label="entry" ref={s.props.entryInputRef as never} />
+          <PetLayer state={s.state} {...s.props} />
+        </>
+      );
+      return { ...s, ui };
+    };
+    const entryPet = () => screen.getByRole("button", { name: "D-Friend" });
+
+    it("focusInput focuses the entry composer, with or without reveal, and opens no drawer", () => {
+      const s = withEntry();
+      render(s.ui);
+      act(() => s.props.inputRef.current!.focus());
+      expect(document.activeElement).toBe(screen.getByLabelText("entry"));
+      (document.activeElement as HTMLElement).blur();
+      act(() => s.props.inputRef.current!.focus(true));
+      expect(document.activeElement).toBe(screen.getByLabelText("entry"));
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("the pet is labelled D-Friend, tapping it celebrates and opens nothing", () => {
+      render(withEntry().ui);
+      expect(screen.queryByRole("button", { name: copy.petOpen })).toBeNull();
+      expect(entryPet().querySelector("[data-state]")?.getAttribute("data-state")).toBe("idle");
+      fireEvent.click(entryPet());
+      expect(entryPet().querySelector("[data-state]")?.getAttribute("data-state")).toBe("happy");
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("picking a photo celebrates", () => {
+      const s = withEntry();
+      const { rerender } = render(s.ui);
+      expect(entryPet().querySelector("[data-state]")?.getAttribute("data-state")).toBe("idle");
+      const next = withEntry();
+      next.props.composer.photo = { src: "data:x", onRemove: vi.fn() } as never;
+      rerender(
+        <>
+          <textarea aria-label="entry" ref={next.props.entryInputRef as never} />
+          <PetLayer state={next.state} {...next.props} />
+        </>,
+      );
+      expect(entryPet().querySelector("[data-state]")?.getAttribute("data-state")).toBe("happy");
+    });
+
+    it("shows no bubble and no unread badge for an agent line, but shows an error as an alert", () => {
+      const a = withEntry({}, [agent(1, "Xin chào")]);
+      const { unmount } = render(a.ui);
+      expect(screen.queryByRole("status")).toBeNull();
+      unmount();
+      render(withEntry({}, [{ id: 1, kind: "error", text: "Lỗi mạng" }]).ui);
+      expect(within(screen.getByRole("alert")).getByText("Lỗi mạng")).toBeTruthy();
+    });
+
+    it("closing an error bubble on the entry leaves no unread badge", () => {
+      render(withEntry({}, [{ id: 1, kind: "error", text: "Lỗi mạng" }]).ui);
+      fireEvent.click(screen.getByRole("button", { name: copy.bubbleClose }));
+      expect(screen.queryByText(copy.petUnread)).toBeNull();
+    });
+
+    it("the pet element is the same node when the entry gives way to the workspace", () => {
+      const s = withEntry();
+      const { rerender } = render(s.ui);
+      const node = entryPet();
+      rerender(
+        <>
+          <textarea aria-label="entry" ref={s.props.entryInputRef as never} />
+          <PetLayer state={s.state} {...s.props} entry={false} />
+        </>,
+      );
+      expect(pet()).toBe(node);
+    });
   });
 
   it("shows the problem recap from the restatement and Bài mới only once there are messages", () => {

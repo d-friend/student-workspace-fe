@@ -48,8 +48,8 @@ it("wires the controller into React: input, a typed turn, and the screen", async
 
 const DONE = { turnId: "t", stopReason: "end_turn" };
 const send = async (text: string) => {
-  // The composer lives in the chat drawer, which opens from the pet.
-  if (!screen.queryByRole("dialog")) fireEvent.click(screen.getByRole("button", { name: copy.petOpen }));
+  // The entry has its own composer; once there is a workspace the composer lives in the chat drawer, which opens from the pet.
+  if (!screen.queryByRole("textbox", { name: copy.inputLabel })) fireEvent.click(screen.getByRole("button", { name: copy.petOpen }));
   fireEvent.change(screen.getByRole("textbox", { name: copy.inputLabel }), { target: { value: text } });
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: copy.send }));
@@ -71,13 +71,17 @@ it("keeps input across phase switch", async () => {
 
   const line = screen.getByRole("textbox", { name: copy.lineLabel(1) });
   fireEvent.change(line, { target: { value: "y' = 3x^2" } });
+  // The turn ended with the drawer closed (the reply is in the bubble), so open it to type.
+  fireEvent.click(screen.getByRole("button", { name: copy.petOpen }));
   fireEvent.change(screen.getByRole("textbox", { name: copy.inputLabel }), { target: { value: "đang gõ" } });
+  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
   fireEvent.click(screen.getByRole("tab", { name: copy.phaseLearn }));
   expect(screen.getByRole("tab", { name: copy.phaseLearn }).getAttribute("aria-selected")).toBe("true");
   fireEvent.click(screen.getByRole("tab", { name: copy.phaseSolve }));
 
   expect(screen.getByRole("textbox", { name: copy.lineLabel(1) })).toBe(line);
   expect((line as HTMLInputElement).value).toBe("y' = 3x^2");
+  fireEvent.click(screen.getByRole("button", { name: copy.petOpen }));
   expect((screen.getByRole("textbox", { name: copy.inputLabel }) as HTMLTextAreaElement).value).toBe("đang gõ");
 });
 

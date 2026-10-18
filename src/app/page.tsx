@@ -1,12 +1,11 @@
 "use client";
 
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Entry } from "@/components/Entry";
 import { Shell } from "@/components/Shell";
 import { PetLayer } from "@/components/pet/PetLayer";
 import { NewProblemButton } from "@/components/rail/NewProblemButton";
 import { BuildingSkeleton } from "@/components/work/BuildingSkeleton";
-import { EmptyState } from "@/components/work/EmptyState";
-import { PhotoCheck } from "@/components/work/PhotoCheck";
 import { StatusPill } from "@/components/work/StatusPill";
 import { WorkspaceFrame } from "@/components/work/WorkspaceFrame";
 import { useWorkspace } from "@/hooks/useWorkspace";
@@ -23,6 +22,7 @@ type PhotoSource = "snap_button" | "composer_button" | "retake" | "paste" | "dro
 export default function Page() {
   const ws = useWorkspace();
   const fileInput = useRef<HTMLInputElement>(null);
+  const entryInput = useRef<HTMLTextAreaElement>(null);
   const source = useRef<PhotoSource>("snap_button");
 
   const pick = (from: PhotoSource) => {
@@ -87,7 +87,19 @@ export default function Page() {
     onSolved: () => {},
   });
 
+  // One composer at a time: the entry's until there is a conversation, then the drawer's.
+  const composer = {
+    value: ws.input,
+    onChange: ws.setInput,
+    onSend: () => void ws.submit(),
+    onPickPhoto: () => pick("composer_button"),
+    placeholder: ws.hasMessages ? copy.placeholderWorking : copy.placeholderEmpty,
+    sendDisabled: ws.sendDisabled,
+    photo: photoSrc ? { src: photoSrc, onRemove: ws.removePhoto } : null,
+  };
+
   let work;
+  let entry = false;
   if (ws.phase !== null) {
     work = (
       // The pill sits on the non-scrolling wrapper, so it stays pinned while the doc (WorkspaceView's scroller) scrolls.
@@ -108,24 +120,26 @@ export default function Page() {
     work = (
       <BuildingSkeleton status={pill ?? copy.thinking} variant={ws.buildingPhase === "learn" ? "learn" : "solve"} />
     );
-  } else if (photoSrc) {
-    work = (
-      <PhotoCheck
-        src={photoSrc}
-        onSend={() => void ws.submit()}
-        onRetake={() => {
-          ws.retake();
-          pick("retake");
-        }}
-      />
-    );
   } else {
+    entry = true;
     work = (
-      <EmptyState
-        onSnap={() => pick("snap_button")}
-        onType={ws.typeProblemClicked}
+      <Entry
+        composer={composer}
+        inputRef={entryInput}
         onStarter={(s) => void ws.startStarter(s)}
         onRetry={ws.buildFailed ? () => void ws.rebuild() : undefined}
+        photoCheck={
+          photoSrc
+            ? {
+                src: photoSrc,
+                onSend: () => void ws.submit(),
+                onRetake: () => {
+                  ws.retake();
+                  pick("retake");
+                },
+              }
+            : null
+        }
       />
     );
   }
@@ -134,24 +148,18 @@ export default function Page() {
     <PetLayer
       state={ws}
       inputRef={ws.inputRef}
+      entry={entry}
+      entryInputRef={entryInput}
       onOpenChange={setDrawerOpen}
       onNewProblem={ws.newProblem}
       onConfirmRestate={ws.confirmRestate}
       onCorrectRestate={ws.correctRestate}
       onAcceptOffer={() => void ws.answerOffer(true)}
       onOfferLater={() => void ws.answerOffer(false)}
-      composer={{
-        value: ws.input,
-        onChange: ws.setInput,
-        onSend: () => void ws.submit(),
-        onPickPhoto: () => pick("composer_button"),
-        placeholder: ws.hasMessages ? copy.placeholderWorking : copy.placeholderEmpty,
-        sendDisabled: ws.sendDisabled,
-        photo: photoSrc ? { src: photoSrc, onRemove: ws.removePhoto } : null,
-      }}
+      composer={composer}
     />
   );
-  const bar = ws.hasMessages && (
+  const bar = ws.hasMessages && !entry && (
     <div className={styles.topBar}>
       <NewProblemButton onClick={ws.newProblem} />
     </div>

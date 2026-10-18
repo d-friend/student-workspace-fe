@@ -15,6 +15,8 @@ export type ComposerProps = {
   photo?: { src: string; onRemove: () => void } | null;
   // The page uses it to focus the field (after a failed send, a correction, or a removed photo).
   inputRef?: Ref<HTMLTextAreaElement>;
+  // The entry's pill: same form, own look.
+  entry?: boolean;
 };
 
 const MIN_HEIGHT = 44;
@@ -29,6 +31,7 @@ export function Composer({
   sendDisabled = false,
   photo,
   inputRef,
+  entry = false,
 }: ComposerProps) {
   const id = useId();
   const field = useRef<HTMLTextAreaElement>(null);
@@ -54,7 +57,7 @@ export function Composer({
 
   return (
     <form
-      className={styles.composer}
+      className={`${styles.composer} ${entry ? styles.entry : ""}`}
       onSubmit={(e) => {
         e.preventDefault();
         if (!sendDisabled) onSend();

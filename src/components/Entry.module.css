@@ -1,0 +1,248 @@
+/* Desktop geometry is shared with the pet (PetLayer.module.css): the composer's top edge is at 44dvh. */
+.entry {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.head {
+  position: absolute;
+  top: 24px;
+  left: 40px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-display), var(--font-sans);
+  font-weight: 700;
+  font-size: 22px;
+}
+
+.mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 19px;
+}
+
+.stack {
+  position: absolute;
+  top: 44dvh;
+  left: 50%;
+  width: min(640px, calc(100% - 32px));
+  transform: translateX(-50%);
+}
+
+.hello {
+  position: absolute;
+  bottom: calc(100% + 92px);
+  left: -80px;
+  right: -80px;
+  text-align: center;
+}
+
+.title {
+  margin: 0 0 14px;
+  font-family: var(--font-display), var(--font-sans);
+  font-weight: 800;
+  font-size: 52px;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.sub {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.try {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.label {
+  margin: 0 0 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.card {
+  font: inherit;
+  min-height: 44px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  text-align: left;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    transform 0.2s;
+}
+
+.card:hover {
+  border-color: var(--control-border);
+  transform: translateY(-2px);
+}
+
+.cardText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cardTitle {
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.cardSub {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.arrow {
+  flex: none;
+  color: var(--muted);
+}
+
+.retry {
+  font: inherit;
+  align-self: flex-start;
+  height: 44px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.foot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 24px;
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* The photo check is a normal page here, with the composer under it for a note. */
+.entry[data-photo] {
+  padding-bottom: 72px;
+}
+
+/* The pet docks bottom-right here, so the composer keeps clear of it. */
+.entry[data-photo] .stack {
+  position: static;
+  transform: none;
+  margin: 0 auto;
+  width: min(640px, calc(100% - 2 * 128px));
+}
+
+@media (max-width: 799px) {
+  .entry {
+    box-sizing: border-box;
+    padding: 37dvh 16px 0;
+  }
+
+  .head {
+    top: 16px;
+    left: 16px;
+    font-size: 20px;
+  }
+
+  .stack {
+    display: contents;
+  }
+
+  .hello {
+    position: static;
+    order: 1;
+  }
+
+  .title {
+    font-size: 31px;
+    line-height: 1.12;
+    letter-spacing: -0.01em;
+    margin-bottom: 10px;
+  }
+
+  .sub {
+    font-size: 15px;
+  }
+
+  .try {
+    order: 2;
+    margin-top: 24px;
+  }
+
+  .cards {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .card {
+    padding: 14px 16px;
+    border-radius: 16px;
+  }
+
+  .stack > form {
+    order: 3;
+    margin: auto 0 calc(34px + env(safe-area-inset-bottom));
+  }
+
+  .foot {
+    bottom: calc(6px + env(safe-area-inset-bottom));
+    font-size: 12px;
+  }
+
+  .entry[data-photo] {
+    padding: 72px 16px 0;
+  }
+
+  .entry[data-photo] .stack {
+    display: contents;
+  }
+
+  .entry[data-photo] .stack > form {
+    margin-bottom: calc(100px + env(safe-area-inset-bottom));
+  }
+}

@@ -4,7 +4,6 @@ import { Bubble } from "@/components/rail/Bubble";
 import { Composer } from "@/components/rail/Composer";
 import { RestateChips } from "@/components/rail/RestateChips";
 import { BuildingSkeleton } from "@/components/work/BuildingSkeleton";
-import { EmptyState } from "@/components/work/EmptyState";
 import { copy } from "@/lib/copy";
 
 afterEach(cleanup);
@@ -52,13 +51,6 @@ test("restate chips call confirm and correct", () => {
   expect(onCorrect).toHaveBeenCalledTimes(1);
 });
 
-test("a sample row starts its sample", () => {
-  const onStarter = vi.fn();
-  render(<EmptyState onSnap={vi.fn()} onType={vi.fn()} onStarter={onStarter} />);
-  fireEvent.click(screen.getByText(copy.starter2));
-  expect(onStarter).toHaveBeenCalledWith("geometry");
-});
-
 test("the building skeleton shows its status pill", () => {
   render(<BuildingSkeleton />);
   expect(screen.getByRole("status").textContent).toBe(copy.thinking);
@@ -71,11 +63,3 @@ test("the building skeleton takes the shape of the target phase", () => {
   expect(container.querySelector("section")?.dataset.variant).toBe("solve");
 });
 
-test("the empty state offers Thử lại only after a failed build", () => {
-  const onRetry = vi.fn();
-  const { rerender } = render(<EmptyState onSnap={vi.fn()} onType={vi.fn()} onStarter={vi.fn()} />);
-  expect(screen.queryByRole("button", { name: copy.retry })).toBeNull();
-  rerender(<EmptyState onSnap={vi.fn()} onType={vi.fn()} onStarter={vi.fn()} onRetry={onRetry} />);
-  fireEvent.click(screen.getByRole("button", { name: copy.retry }));
-  expect(onRetry).toHaveBeenCalledTimes(1);
-});

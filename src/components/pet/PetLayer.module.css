@@ -12,10 +12,11 @@
   pointer-events: auto;
 }
 
+/* Every place is left/top/width/height, so a move between places can be a transition. */
 .pet {
   position: absolute;
-  right: calc(var(--pet-edge) + env(safe-area-inset-right));
-  bottom: calc(var(--pet-edge) + env(safe-area-inset-bottom));
+  left: calc(100% - var(--pet-size) - var(--pet-edge) - env(safe-area-inset-right));
+  top: calc(100% - var(--pet-size) - var(--pet-edge) - env(safe-area-inset-bottom));
   width: var(--pet-size);
   height: var(--pet-size);
   padding: 0;
@@ -23,6 +24,20 @@
   border: 0;
   border-radius: 50%;
   cursor: pointer;
+}
+
+/* Entry: 96px on the composer's right end, its bottom 14px into the composer. Entry.module.css puts the composer's
+   top edge at 44dvh and 640px wide. Under 800px: 112px, centred above the greeting (which starts at 37dvh). */
+.layer[data-place="entry"] {
+  --pet-size: 96px;
+  /* The bubble (errors only) sits above the pet, right-aligned to it. */
+  --bubble-right: calc(50% - 276px);
+  --bubble-bottom: calc(56dvh + 90px);
+}
+
+.layer[data-place="entry"] .pet {
+  left: calc(50% + 180px);
+  top: calc(44dvh - 82px);
 }
 
 .pet:focus-visible {
@@ -53,5 +68,16 @@
   .layer {
     --pet-size: 72px;
     --pet-edge: 16px;
+  }
+
+  .layer[data-place="entry"] {
+    --pet-size: 112px;
+    --bubble-right: 16px;
+    --bubble-bottom: calc(63dvh + 142px);
+  }
+
+  .layer[data-place="entry"] .pet {
+    left: calc(50% - 56px);
+    top: calc(37dvh - 134px);
   }
 }

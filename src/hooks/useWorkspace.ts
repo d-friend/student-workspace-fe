@@ -114,7 +114,8 @@ export function createWorkspace(deps: WorkspaceDeps) {
   const { api, track, readPhoto } = deps;
   const now = deps.now ?? Date.now;
   // Set by the hook once the iframe and the composer exist.
-  const dom = { frameWindow: (): Window | null => null, focusInput: (): void => {} };
+  // reveal: the student must see the composer (a failed send, a correction), so a closed drawer opens for it.
+  const dom = { frameWindow: (): Window | null => null, focusInput: ((): void => {}) as (reveal?: boolean) => void };
 
   let ready = false;
   let started = false;
@@ -370,6 +371,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     };
 
     let keepEvents = false;
+    let failed = false;
     try {
       if (sessionId === null) {
         sessionId = (await api.createSession(via ?? (shot ? "photo" : "typed"))).sessionId;
@@ -404,6 +406,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       removeBubble(agentId);
       removeBubble(announceId);
       const info = describeError(e);
+      failed = true;
       if (typed) {
         removeBubble(studentId);
         addBubble({ kind: "error", text: info.text });
@@ -448,7 +451,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       status = null;
       buildingPhase = null;
       publish();
-      if (typed) dom.focusInput();
+      if (typed) dom.focusInput(failed);
       if (!keepEvents) flush();
     }
   }
@@ -650,7 +653,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
     typeProblemClicked() {
       track("type_problem_clicked", {}, sid());
-      dom.focusInput();
+      dom.focusInput(true);
     },
 
     startStarter(starter: "derivative" | "geometry"): Promise<void> {
@@ -670,7 +673,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       closeRestate();
       input = copy.restatePrefill;
       publish();
-      dom.focusInput();
+      dom.focusInput(true);
     },
 
     answerOffer(accepted: boolean): Promise<void> {
@@ -748,7 +751,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
   return {
     // Gives the controller the iframe's window (to filter messages) and a way to focus the composer.
-    bind(d: { frameWindow: () => Window | null; focusInput: () => void }) {
+    bind(d: { frameWindow: () => Window | null; focusInput: (reveal?: boolean) => void }) {
       dom.frameWindow = d.frameWindow;
       dom.focusInput = d.focusInput;
     },
@@ -769,12 +772,13 @@ export function useWorkspace(deps: Partial<WorkspaceDeps> = {}) {
   const state = useSyncExternalStore(ws.subscribe, ws.getState, ws.getState);
 
   const frameRef = useRef<HTMLIFrameElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Set by PetLayer, which knows which composer is on screen.
+  const inputRef = useRef<{ focus: (reveal?: boolean) => void } | null>(null);
 
   useEffect(() => {
     ws.bind({
       frameWindow: () => frameRef.current?.contentWindow ?? null,
-      focusInput: () => inputRef.current?.focus(),
+      focusInput: (reveal) => inputRef.current?.focus(reveal),
     });
     const detach = ws.attach();
     ws.init();

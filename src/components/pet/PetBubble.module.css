@@ -1,8 +1,8 @@
 /* Docked: up-left of the pet, tail at the bottom-right corner. Sizes come from PetLayer's custom properties. */
 .bubble {
   position: absolute;
-  right: calc(var(--pet-edge) + env(safe-area-inset-right));
-  bottom: calc(var(--pet-edge) + var(--pet-size) + 8px + env(safe-area-inset-bottom));
+  right: var(--bubble-right, calc(var(--pet-edge) + env(safe-area-inset-right)));
+  bottom: var(--bubble-bottom, calc(var(--pet-edge) + var(--pet-size) + 8px + env(safe-area-inset-bottom)));
   width: max-content;
   max-width: min(300px, calc(100vw - 32px));
   box-sizing: border-box;

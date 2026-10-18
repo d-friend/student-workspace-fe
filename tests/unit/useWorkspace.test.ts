@@ -47,6 +47,7 @@ function setup(turn: Turn = reply(HTML_REPLY), current: CurrentArg = null) {
     turn: vi.fn(turn),
   };
   const track = vi.fn();
+  const focus = vi.fn();
   const readPhoto = vi.fn().mockResolvedValue({ data: "PHOTO", bytes: 9, width: 4, height: 3, processMs: 2 });
   let clock = 1000;
   const make = () => {
@@ -56,13 +57,13 @@ function setup(turn: Turn = reply(HTML_REPLY), current: CurrentArg = null) {
       readPhoto,
       now: () => (clock += 100),
     });
-    ws.bind({ frameWindow: () => window, focusInput: () => {} });
+    ws.bind({ frameWindow: () => window, focusInput: focus });
     const detach = ws.attach();
     ws.init();
     return { ws, detach };
   };
   const { ws, detach } = make();
-  return { ws, api, track, readPhoto, make, detach, state: () => ws.getState() };
+  return { ws, api, track, focus, readPhoto, make, detach, state: () => ws.getState() };
 }
 
 const post = (event: Record<string, unknown>, source: unknown = window) =>
@@ -308,6 +309,36 @@ describe("failure of a typed turn", () => {
     await t.ws.actions.submit();
     expect(t.state().bubbles.at(-1)).toEqual(expect.objectContaining({ kind: "error", text }));
     expect(t.track).toHaveBeenCalledWith("turn_failed", props, expect.anything());
+  });
+});
+
+describe("focusInput", () => {
+  it("a successful typed turn asks for focus without revealing", async () => {
+    const t = await boot();
+    t.ws.actions.setInput("x");
+    await t.ws.actions.submit();
+    expect(t.focus).toHaveBeenCalledTimes(1);
+    expect(t.focus.mock.calls[0][0]).toBeFalsy();
+  });
+
+  it("a failed typed turn reveals the composer", async () => {
+    const t = await boot();
+    t.api.turn.mockRejectedValueOnce(new TurnError("upstream", "boom"));
+    t.ws.actions.setInput("x");
+    await t.ws.actions.submit();
+    expect(t.focus).toHaveBeenLastCalledWith(true);
+  });
+
+  it("Sửa lại đề and Gõ đề bài reveal; removing the photo does not", async () => {
+    const t = await boot();
+    t.ws.actions.correctRestate();
+    expect(t.focus).toHaveBeenLastCalledWith(true);
+    t.focus.mockClear();
+    t.ws.actions.typeProblemClicked();
+    expect(t.focus).toHaveBeenLastCalledWith(true);
+    t.focus.mockClear();
+    t.ws.actions.removePhoto();
+    expect(t.focus.mock.calls[0][0]).toBeFalsy();
   });
 });
 

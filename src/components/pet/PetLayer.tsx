@@ -18,23 +18,31 @@ type PetSignals = Pick<WorkspaceState, "busy" | "building" | "checking" | "verdi
 export function PetLayer({
   state,
   inputRef,
+  entry,
+  entryInputRef,
   composer,
   onOpenChange,
   ...actions
 }: {
   state: ChatState & PetSignals;
-  // The store's focusInput() calls inputRef.current.focus(); here that opens the drawer, because the composer lives in it.
-  inputRef: RefObject<HTMLTextAreaElement | null>;
-  composer: Omit<ComposerProps, "inputRef">;
+  // The store's focusInput(reveal) calls inputRef.current.focus(reveal). Whichever composer is on screen takes it:
+  // the entry's, else the drawer's. A closed drawer opens only when reveal is set (a failed send, a correction).
+  inputRef: RefObject<{ focus: (reveal?: boolean) => void } | null>;
+  // The entry screen is showing: no conversation yet, so the pet greets instead of opening the drawer.
+  entry: boolean;
+  entryInputRef: RefObject<HTMLTextAreaElement | null>;
+  composer: Omit<ComposerProps, "inputRef" | "entry">;
   onOpenChange?: (open: boolean) => void;
 } & ChatActions) {
-  const { mood, celebrateKey } = usePet(state);
+  const { mood, celebrate, celebrateKey } = usePet(state);
   const [open, setOpen] = useState(false);
   const [hiddenKey, setHiddenKey] = useState<string | null>(null);
   const [unread, setUnread] = useState(false);
   const petRef = useRef<HTMLButtonElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const wasOpen = useRef(false);
+  const wantFocus = useRef<boolean | null>(null); // a focus request waiting for the render that shows the right composer
+  const [focusTick, setFocusTick] = useState(0);
 
   const latest = state.bubbles.findLast((b): b is SpokenBubble => b.kind !== "student");
   // A waiting bubble that gets its words is a new key, so it comes back if it was put away while thinking.
@@ -45,22 +53,42 @@ export function PetLayer({
     setOpen(true);
   }, []);
   // Whatever was said while the drawer was open has been seen, so it does not pop back as a bubble.
+  // The drawer has no place on the entry (Bài mới from the drawer lands there).
+  if (entry && open) setOpen(false);
   const closeDrawer = () => {
     setHiddenKey(key);
     setOpen(false);
   };
 
   useEffect(() => {
+    // Deferred to an effect: the store asks right after publishing, before React has rendered the new screen.
     inputRef.current = {
-      focus: () => {
-        openDrawer();
-        composerRef.current?.focus();
+      focus: (reveal = false) => {
+        wantFocus.current = reveal;
+        setFocusTick((t) => t + 1);
       },
-    } as HTMLTextAreaElement;
+    };
     return () => {
       inputRef.current = null;
     };
-  }, [inputRef, openDrawer]);
+  }, [inputRef]);
+
+  useEffect(() => {
+    const reveal = wantFocus.current;
+    if (reveal === null) return;
+    wantFocus.current = null;
+    if (entry) entryInputRef.current?.focus();
+    else if (open) composerRef.current?.focus();
+    else if (reveal) openDrawer();
+  }, [focusTick, entry, open, entryInputRef, openDrawer]);
+
+  // Picking a photo on the entry is something to be glad about.
+  const hasPhoto = Boolean(composer.photo);
+  const hadPhoto = useRef(hasPhoto);
+  useEffect(() => {
+    if (entry && hasPhoto && !hadPhoto.current) celebrate();
+    hadPhoto.current = hasPhoto;
+  }, [entry, hasPhoto, celebrate]);
 
   useEffect(() => onOpenChange?.(open), [open, onOpenChange]);
 
@@ -69,23 +97,25 @@ export function PetLayer({
     wasOpen.current = open;
   }, [open]);
 
-  const showBubble = !open && latest !== undefined && key !== hiddenKey;
+  // The entry has nobody to talk to yet, except to say that something failed.
+  const showBubble = !open && latest !== undefined && key !== hiddenKey && (!entry || latest.kind === "error");
   const chips =
     latest?.kind === "agent" && !latest.waiting && latest.id === state.bubbles.findLast((b) => b.kind === "agent")?.id;
 
   return (
-    <div className={styles.layer}>
+    // With a photo picked the greeting is gone, so the pet docks; it is still the entry's pet.
+    <div className={styles.layer} data-place={entry && !hasPhoto ? "entry" : "dock"}>
       <button
         ref={petRef}
         type="button"
         className={styles.pet}
-        aria-label={copy.petOpen}
-        aria-describedby={unread ? "pet-unread" : undefined}
+        aria-label={entry ? copy.brand : copy.petOpen}
+        aria-describedby={unread && !entry ? "pet-unread" : undefined}
         inert={open}
-        onClick={openDrawer}
+        onClick={entry ? celebrate : openDrawer}
       >
         <Pet mood={mood} celebrateKey={celebrateKey} />
-        {unread && !open && (
+        {unread && !open && !entry && (
           <span id="pet-unread" className={styles.badge}>
             <span className={styles.srOnly}>{copy.petUnread}</span>
           </span>
@@ -97,9 +127,9 @@ export function PetLayer({
           bubble={latest}
           onClose={() => {
             setHiddenKey(key);
-            setUnread(true);
+            if (!entry) setUnread(true);
           }}
-          onReply={openDrawer}
+          onReply={entry ? () => entryInputRef.current?.focus() : openDrawer}
         >
           {chips && state.restateChips && (
             <RestateChips onConfirm={actions.onConfirmRestate} onCorrect={actions.onCorrectRestate} />
@@ -107,7 +137,7 @@ export function PetLayer({
           {chips && state.offerChips && <OfferChips onAccept={actions.onAcceptOffer} onLater={actions.onOfferLater} />}
         </PetBubble>
       )}
-      {open && (
+      {open && !entry && (
         <ChatDrawer state={state} actions={actions} composer={composer} composerRef={composerRef} onClose={closeDrawer} />
       )}
     </div>

@@ -3,7 +3,7 @@ export const copy = {
   emptyTitle: "Kẹt bài nào? Chụp lên, mình gỡ cùng bạn.",
   emptySub: "Mình đọc lại đề trước, rồi dựng chỗ để bạn tự làm từng bước.",
   entryTitle: "Hôm nay mình làm bài gì?",
-  entrySub: "Dán đề, tải ảnh vở, hoặc nói chủ đề bạn đang kẹt. Mình làm cùng bạn, không làm hộ.",
+  entrySub: "Bạn có vấn đề, hay bất kỳ chủ đề nào muốn giải quyết? Ở đây, mình sẽ giúp bạn.",
   entryFoot: "Không cần đăng nhập",
   brand: "D-Friend",
   snap: "Chụp đề bài",

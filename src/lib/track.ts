@@ -7,6 +7,7 @@ export type TrackEvents = {
   empty_state_shown: NoProps;
   starter_clicked: { starter: "derivative" | "geometry" };
   type_problem_clicked: NoProps;
+  chat_opened: { unread: boolean };
   photo_picked: {
     source: "snap_button" | "composer_button" | "retake" | "paste" | "drop";
     bytes: number;

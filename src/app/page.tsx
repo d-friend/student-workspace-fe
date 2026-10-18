@@ -237,6 +237,7 @@ export default function Page() {
       flying={flying}
       entryInputRef={entryInput}
       onOpenChange={setDrawerOpen}
+      onChatOpened={ws.chatOpened}
       onNewProblem={ws.newProblem}
       onConfirmRestate={ws.confirmRestate}
       onCorrectRestate={ws.correctRestate}

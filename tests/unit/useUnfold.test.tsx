@@ -92,6 +92,7 @@ describe("the pet's flight", () => {
     state,
     inputRef: { current: null },
     entryInputRef: { current: null },
+    onChatOpened: vi.fn(),
     onNewProblem: vi.fn(),
     onConfirmRestate: vi.fn(),
     onCorrectRestate: vi.fn(),

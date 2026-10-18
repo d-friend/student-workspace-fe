@@ -22,6 +22,7 @@ export function PetLayer({
   entryInputRef,
   composer,
   onOpenChange,
+  onChatOpened,
   flying = false,
   ...actions
 }: {
@@ -34,6 +35,8 @@ export function PetLayer({
   entryInputRef: RefObject<HTMLTextAreaElement | null>;
   composer: Omit<ComposerProps, "inputRef" | "entry">;
   onOpenChange?: (open: boolean) => void;
+  // Called once per closed-to-open, with whether the unread badge was showing.
+  onChatOpened: (unread: boolean) => void;
   // The unfold is carrying the pet from the entry to its dock (spec §6): it travels, hops, and is happy about it.
   flying?: boolean;
 } & ChatActions) {
@@ -52,9 +55,10 @@ export function PetLayer({
   const key = latest ? `${latest.id}:${latest.kind === "agent" && latest.waiting}` : null;
 
   const openDrawer = useCallback(() => {
+    onChatOpened(unread);
     setUnread(false);
     setOpen(true);
-  }, []);
+  }, [onChatOpened, unread]);
   // Whatever was said while the drawer was open has been seen, so it does not pop back as a bubble.
   // The drawer has no place on the entry (Bài mới from the drawer lands there).
   if (entry && open) setOpen(false);

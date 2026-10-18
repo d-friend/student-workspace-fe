@@ -656,6 +656,10 @@ export function createWorkspace(deps: WorkspaceDeps) {
       dom.focusInput(true);
     },
 
+    chatOpened(unread: boolean) {
+      track("chat_opened", { unread }, sid());
+    },
+
     startStarter(starter: "derivative" | "geometry"): Promise<void> {
       if (busy) return Promise.resolve();
       track("starter_clicked", { starter }, sid());

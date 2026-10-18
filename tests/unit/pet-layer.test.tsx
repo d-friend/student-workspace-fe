@@ -35,6 +35,7 @@ function setup(bubbles: Bubble[], extra: Partial<WorkspaceState> = {}, entry = f
     inputRef: { current: null } as { current: { focus: (reveal?: boolean) => void } | null },
     entryInputRef: { current: null } as { current: HTMLTextAreaElement | null },
     entry,
+    onChatOpened: vi.fn(),
     onNewProblem: vi.fn(),
     onConfirmRestate: vi.fn(),
     onCorrectRestate: vi.fn(),
@@ -241,5 +242,32 @@ describe("PetLayer", () => {
     expect(within(screen.getByRole("dialog")).getByText(copy.problemRecap)).toBeTruthy();
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: copy.newProblem }));
     expect(s.props.onNewProblem).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("PetLayer chat_opened", () => {
+  it("fires once per open with the unread flag, and not on the entry's pet tap", () => {
+    const s = setup([agent(1, "Chào em")]);
+    render(s.ui);
+    fireEvent.click(pet());
+    expect(s.props.onChatOpened).toHaveBeenCalledTimes(1);
+    expect(s.props.onChatOpened).toHaveBeenLastCalledWith(false);
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    fireEvent.click(pet());
+    expect(s.props.onChatOpened).toHaveBeenCalledTimes(2);
+    cleanup();
+
+    const u = setup([agent(1, "Chào em")]);
+    render(u.ui);
+    fireEvent.click(screen.getByRole("button", { name: copy.bubbleClose }));
+    fireEvent.click(pet());
+    expect(u.props.onChatOpened).toHaveBeenCalledTimes(1);
+    expect(u.props.onChatOpened).toHaveBeenLastCalledWith(true);
+    cleanup();
+
+    const e = setup([], {}, true);
+    render(e.ui);
+    fireEvent.click(screen.getByRole("button", { name: copy.brand }));
+    expect(e.props.onChatOpened).not.toHaveBeenCalled();
   });
 });

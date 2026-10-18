@@ -607,6 +607,12 @@ describe("tracking", () => {
     expect(find("visibility_changed")).toEqual([{ visible: expect.any(Boolean) }]);
   });
 
+  it("chatOpened tracks chat_opened with the unread flag and the session id", async () => {
+    const t = await boot();
+    t.ws.actions.chatOpened(true);
+    expect(t.track).toHaveBeenCalledWith("chat_opened", { unread: true }, null);
+  });
+
   it("tracks the watching cue when it goes from hidden to shown", async () => {
     const t = await boot();
     t.ws.actions.setInput("x");

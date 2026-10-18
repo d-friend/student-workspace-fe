@@ -37,7 +37,7 @@
 .active > .entry, .active > .blank { align-self: stretch; }
 .active > .entryLabel { margin: 0; }
 .options { display: flex; flex-wrap: wrap; gap: 8px; }
-.options .btn { min-height: 44px; padding: 0 14px; font: 500 16px/1.4 var(--font-sans); border-radius: 11px; border-color: var(--border); background: var(--agent); }
+.options .btn { min-height: 44px; padding: 0 14px; font: 500 16px/1.4 var(--font-sans); border-radius: 11px; border-color: var(--control-border); background: var(--agent); }
 .options .btn:hover:not(:disabled) { border-color: var(--control-border); background: var(--panel); }
 .blank { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font: 500 22px/1.4 var(--font-sans); letter-spacing: 0.01em; }
 .gap { width: 12ch; height: 44px; padding: 0 4px; font: inherit; letter-spacing: inherit; background: transparent; border: 0; border-bottom: 2px solid var(--control-border); border-radius: 0; }

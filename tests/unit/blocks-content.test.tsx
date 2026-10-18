@@ -33,7 +33,8 @@ test("quiz choice ok shows explanation and reports", async () => {
   expect(screen.queryByText("Vì sao đúng")).toBeNull();
   fireEvent.click(screen.getByRole("radio", { name: "B" }));
   await screen.findByText("Vì sao đúng");
-  expect(c.check).toHaveBeenCalledWith("q1", "B", []);
+  // The key judges a choice by index, so the check gets "1", while the event keeps the option's text.
+  expect(c.check).toHaveBeenCalledWith("q1", "1", []);
   expect(c.report).toHaveBeenCalledWith("quiz_answered", { block_id: "q1", answer: "B", ok: true, tries: 1 });
 });
 
@@ -93,8 +94,8 @@ test("quiz option answers on Enter and Space", async () => {
   await screen.findByText(copy.stateReview);
   fireEvent.keyDown(screen.getByRole("radio", { name: /B/ }), { key: " " });
   await screen.findByText(copy.stateOk);
-  expect(c.check).toHaveBeenNthCalledWith(1, "q1", "A", []);
-  expect(c.check).toHaveBeenNthCalledWith(2, "q1", "B", []);
+  expect(c.check).toHaveBeenNthCalledWith(1, "q1", "0", []); // option indices, as the key expects
+  expect(c.check).toHaveBeenNthCalledWith(2, "q1", "1", []);
 });
 
 test("example reveal", () => {

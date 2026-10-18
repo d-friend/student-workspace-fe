@@ -34,7 +34,9 @@ export function Quiz({ block, ctx }: BlockProps<Quiz>) {
     setSelected(answer);
     setFailed(false);
     try {
-      const r = await ctx.check(block.id, answer, []);
+      // The key judges a choice by the option's index (its `correct` list), not its text.
+      const sent = block.answer === "choice" ? String((block.options ?? []).indexOf(answer)) : answer;
+      const r = await ctx.check(block.id, sent, []);
       setTries(n);
       setAnswered({ option: answer, ok: r.ok });
       if (r.ok || n >= 2) setDone(true);

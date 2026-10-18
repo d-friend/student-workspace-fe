@@ -15,6 +15,14 @@ function psql(sql: string): string {
 }
 
 const composer = (page: Page) => page.getByLabel(copy.inputLabel);
+const chat = async (page: Page) => {
+  await page.getByRole("button", { name: copy.petOpen }).click();
+  await expect(page.getByRole("dialog", { name: copy.drawerLabel })).toBeVisible();
+};
+const closeChat = async (page: Page) => {
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: copy.drawerLabel })).toHaveCount(0);
+};
 const send = async (page: Page, text: string) => {
   await composer(page).fill(text);
   await composer(page).press("Enter");
@@ -22,10 +30,9 @@ const send = async (page: Page, text: string) => {
 
 test("build, check a line, add a learn phase, switch keeping input, reload", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: copy.emptyTitle })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.entryTitle })).toBeVisible();
 
   await send(page, "__build");
-  await expect(page.getByText("Mình dựng nhé.")).toBeVisible();
   await expect(page.getByText("Viết phương trình tiếp tuyến")).toBeVisible();
   const line = page.getByLabel(copy.lineLabel(1));
   await line.fill("f'(x)=3x^2-2");
@@ -34,7 +41,11 @@ test("build, check a line, add a learn phase, switch keeping input, reload", asy
 
   // Type the next line without sending it, then add the learn phase.
   await page.getByLabel(copy.lineLabel(2)).fill("f'(2)=1");
+  await chat(page);
+  // The bubble only holds the latest line; the drawer's log keeps the announce.
+  await expect(page.getByText("Mình dựng nhé.")).toBeVisible();
   await send(page, "__learn");
+  await closeChat(page);
   await expect(page.getByRole("tab")).toHaveCount(2);
   await page.getByRole("tab", { name: copy.phaseLearn }).click();
   await expect(page.getByRole("heading", { name: "Ý tưởng" })).toBeVisible();
@@ -67,11 +78,13 @@ test("a student gesture starts a turn, new problem, photo, tracking rows without
   await expect(page.getByText(/I saw this from the workspace/)).toBeVisible();
 
   // A quiz answer in the learn phase.
+  await chat(page);
   await send(page, "__learn");
+  await closeChat(page);
   await page.getByRole("tab", { name: copy.phaseLearn }).click();
   await page.getByLabel(copy.answer).fill(ANSWER);
   const checked = page.waitForResponse((r) => r.url().includes("/check"));
-  await page.getByRole("button", { name: copy.answer }).click();
+  await page.getByRole("tabpanel").getByRole("button", { name: copy.answer }).click(); // the bubble has a "Trả lời" too
   await checked;
 
   // The server stores a turn when its stream ends: wait for it before leaving the session.
@@ -81,7 +94,7 @@ test("a student gesture starts a turn, new problem, photo, tracking rows without
 
   // "Bài mới" brings back the empty state.
   await page.getByRole("button", { name: copy.newProblem }).click();
-  await expect(page.getByRole("heading", { name: copy.emptyTitle })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.entryTitle })).toBeVisible();
   await expect(page.getByRole("tab")).toHaveCount(0);
 
   // Photo flow: PhotoCheck, send, the restatement with its chips.

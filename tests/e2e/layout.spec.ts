@@ -96,3 +96,21 @@ test("each phase keeps its own scroll position", async ({ page }) => {
   await page.getByRole("tab", { name: copy.phaseLearn }).click();
   await expect.poll(top).toBe(120);
 });
+
+for (const width of [1440, 1024, 360]) {
+  test(`the pet does not cover the focused Steps input or Kiểm tra at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 360 ? 740 : 800 });
+    await restore(page);
+    const input = page.getByLabel(copy.lineLabel(1));
+    await input.focus(); // scrolls the field into view, at the bottom of the doc
+    const pet = await page.getByRole("button", { name: copy.petOpen }).boundingBox();
+    expect(pet).not.toBeNull();
+    for (const target of [input, page.getByRole("button", { name: copy.check })]) {
+      await expect(target).toBeInViewport();
+      const box = (await target.boundingBox())!;
+      const apart =
+        pet!.x + pet!.width <= box.x || box.x + box.width <= pet!.x || pet!.y + pet!.height <= box.y || box.y + box.height <= pet!.y;
+      expect(apart).toBe(true);
+    }
+  });
+}

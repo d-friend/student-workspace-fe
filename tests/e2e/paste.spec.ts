@@ -13,7 +13,7 @@ test("a pasted image becomes the photo; pasted text is left alone", async ({ pag
     return route.fulfill({ status: 404, json: { error: { code: "unmocked", message: path } } });
   });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: copy.emptyTitle })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.entryTitle })).toBeVisible();
 
   const paste = (kind: "text" | "image") =>
     page.evaluate(async (k) => {

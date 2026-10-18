@@ -15,19 +15,27 @@ export function Entry({
   onStarter,
   onRetry,
   photoCheck,
+  leaving = false,
 }: {
   composer: Omit<ComposerProps, "inputRef" | "entry">;
   inputRef?: Ref<HTMLTextAreaElement>;
   onStarter: (starter: Starter) => void;
   onRetry?: () => void; // set after a build failed with nothing to show
   photoCheck?: { src: string; onSend: () => void; onRetake: () => void } | null;
+  leaving?: boolean; // the unfold has started: everything fades out and the fly card takes the composer's place
 }) {
   const cards: { id: Starter; title: string; sub: string }[] = [
     { id: "derivative", title: copy.starter1, sub: copy.starter1Sub },
     { id: "geometry", title: copy.starter2, sub: copy.starter2Sub },
   ];
   return (
-    <section className={styles.entry} data-photo={photoCheck ? "" : undefined}>
+    <section
+      className={styles.entry}
+      data-photo={photoCheck ? "" : undefined}
+      data-leaving={leaving || undefined}
+      inert={leaving}
+      aria-hidden={leaving || undefined}
+    >
       <header className={styles.head}>
         <span className={styles.mark} aria-hidden="true">
           D

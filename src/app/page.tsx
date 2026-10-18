@@ -1,6 +1,6 @@
 "use client";
 
-import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Entry } from "@/components/Entry";
 import { Shell } from "@/components/Shell";
 import { PetLayer } from "@/components/pet/PetLayer";
@@ -8,6 +8,7 @@ import { NewProblemButton } from "@/components/rail/NewProblemButton";
 import { BuildingSkeleton } from "@/components/work/BuildingSkeleton";
 import { StatusPill } from "@/components/work/StatusPill";
 import { WorkspaceFrame } from "@/components/work/WorkspaceFrame";
+import { useUnfold } from "@/hooks/useUnfold";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { copy } from "@/lib/copy";
 import { frameDoc } from "@/lib/frame";
@@ -98,10 +99,9 @@ export default function Page() {
     photo: photoSrc ? { src: photoSrc, onRemove: ws.removePhoto } : null,
   };
 
-  let work;
-  let entry = false;
+  let stage;
   if (ws.phase !== null) {
-    work = (
+    stage = (
       // The pill sits on the non-scrolling wrapper, so it stays pinned while the doc (WorkspaceView's scroller) scrolls.
       <div className={styles.viewWrap}>
         <WorkspaceView
@@ -115,40 +115,126 @@ export default function Page() {
       </div>
     );
   } else if (srcDoc !== null) {
-    work = <WorkspaceFrame srcDoc={srcDoc} status={pill} iframeRef={ws.frameRef} />;
+    stage = <WorkspaceFrame srcDoc={srcDoc} status={pill} iframeRef={ws.frameRef} />;
   } else if (ws.screen === "building") {
-    work = (
-      <BuildingSkeleton status={pill ?? copy.thinking} variant={ws.buildingPhase === "learn" ? "learn" : "solve"} />
-    );
-  } else {
-    entry = true;
-    work = (
-      <Entry
-        composer={composer}
-        inputRef={entryInput}
-        onStarter={(s) => void ws.startStarter(s)}
-        onRetry={ws.buildFailed ? () => void ws.rebuild() : undefined}
-        photoCheck={
-          photoSrc
-            ? {
-                src: photoSrc,
-                onSend: () => void ws.submit(),
-                onRetake: () => {
-                  ws.retake();
-                  pick("retake");
-                },
-              }
-            : null
-        }
+    const firstSent = ws.bubbles.find((b) => b.kind === "student");
+    stage = (
+      <BuildingSkeleton
+        status={pill ?? copy.thinking}
+        variant={ws.buildingPhase === "learn" ? "learn" : "solve"}
+        problem={firstSent?.kind === "student" ? firstSent.text : undefined}
       />
     );
   }
+  const entry = stage === undefined;
+
+  // The unfold (spec §6): for about a second after the first send the entry stays under the stage, fading out, while
+  // the stage opens over it from the composer and a card carries the problem to the top of the doc column.
+  const unfold = useUnfold(ws.screen, ws.phase !== null || ws.html !== null);
+  const flying = unfold === "flying";
+  // The store has already cleared the input and the photo; the problem is the first thing the student sent.
+  const sent = ws.bubbles.find((b) => b.kind === "student");
+  const sentPhoto = sent?.kind === "student" && sent.photo ? JPEG_PREFIX + sent.photo : null;
+  const unfoldRef = useRef<HTMLDivElement>(null);
+
+  // The fly card's start and end and the reveal's origin are measured, not taken from the design's one viewport.
+  // Before paint: the entry is still laid out under the stage, and the skeleton has just mounted.
+  useLayoutEffect(() => {
+    const box = unfoldRef.current;
+    if (!flying || !box) return;
+    const o = box.getBoundingClientRect();
+    const field = entryInput.current;
+    const form = field?.closest("form");
+    const from = form?.getBoundingClientRect() ?? new DOMRect(o.left + o.width / 2 - 160, o.top + o.height / 2, 320, 64);
+    const stack = box.querySelector("[data-unfold-target]");
+    const first = stack?.querySelector("[data-variant='solve'] [data-unfold-target] > :first-child");
+    let to: DOMRect;
+    if (stack) {
+      const r = stack.getBoundingClientRect();
+      to = new DOMRect(r.left, r.top, r.width, first?.getBoundingClientRect().height ?? 104);
+    } else {
+      const w = Math.min(624, o.width - 32);
+      to = new DOMRect(o.left + (o.width - w) / 2, o.top + 72, w, 104);
+    }
+    const f = field?.getBoundingClientRect();
+    const fieldStyle = field ? getComputedStyle(field) : null;
+    const px = (n: number) => `${Math.round(n)}px`;
+    const vars: Record<string, string> = {
+      "--from-x": px(from.left - o.left),
+      "--from-y": px(from.top - o.top),
+      "--from-w": px(from.width),
+      "--from-h": px(from.height),
+      "--from-r": form ? getComputedStyle(form).borderRadius : "32px",
+      // The card's text starts where the composer's text was.
+      "--from-px": f && fieldStyle ? px(f.left - from.left + parseFloat(fieldStyle.paddingLeft)) : "28px",
+      "--from-py": f && fieldStyle ? px(f.top - from.top + parseFloat(fieldStyle.paddingTop)) : "20px",
+      "--to-x": px(to.left - o.left),
+      "--to-y": px(to.top - o.top),
+      "--to-w": px(to.width),
+      "--to-h": px(to.height),
+      "--reveal-x": px(from.left - o.left + from.width / 2),
+      "--reveal-y": px(from.top - o.top + from.height / 2),
+    };
+    for (const [k, v] of Object.entries(vars)) box.style.setProperty(k, v);
+  }, [flying]);
+
+  const bar = ws.hasMessages && !entry && (
+    <div className={styles.topBar}>
+      <NewProblemButton onClick={ws.newProblem} />
+    </div>
+  );
+
+  const work = (
+    <div ref={unfoldRef} className={styles.unfold} data-unfold={unfold}>
+      {(entry || flying) && (
+        <Entry
+          composer={composer}
+          inputRef={entryInput}
+          onStarter={(s) => void ws.startStarter(s)}
+          onRetry={ws.buildFailed ? () => void ws.rebuild() : undefined}
+          leaving={flying}
+          photoCheck={
+            photoSrc
+              ? {
+                  src: photoSrc,
+                  onSend: () => void ws.submit(),
+                  onRetake: () => {
+                    ws.retake();
+                    pick("retake");
+                  },
+                }
+              : flying && sentPhoto
+                ? { src: sentPhoto, onSend: () => {}, onRetake: () => {} } // fading out with the rest
+                : null
+          }
+        />
+      )}
+      {/* The same element before, during and after the flight, so a doc that arrives mid-flight is not remounted. */}
+      {stage !== undefined && (
+        <div className={styles.stage}>
+          {flying && bar}
+          {stage}
+        </div>
+      )}
+      {flying && sent?.kind === "student" && (
+        <div className={styles.fly} aria-hidden="true">
+          <div className={styles.flyIn}>
+            <span className={styles.flyLabel}>{copy.problemLabel}</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {sentPhoto && <img className={styles.flyPhoto} src={sentPhoto} alt="" />}
+            {sent.text && <p className={styles.flyText}>{sent.text}</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   const layer = (
     <PetLayer
       state={ws}
       inputRef={ws.inputRef}
       entry={entry}
+      flying={flying}
       entryInputRef={entryInput}
       onOpenChange={setDrawerOpen}
       onNewProblem={ws.newProblem}
@@ -159,15 +245,9 @@ export default function Page() {
       composer={composer}
     />
   );
-  const bar = ws.hasMessages && !entry && (
-    <div className={styles.topBar}>
-      <NewProblemButton onClick={ws.newProblem} />
-    </div>
-  );
-
   return (
     <>
-      <Shell bar={bar} work={work} layer={layer} inert={drawerOpen} />
+      <Shell bar={!flying && bar} work={work} layer={layer} inert={drawerOpen} />
       <input ref={fileInput} type="file" accept="image/*" hidden onChange={onFile} />
     </>
   );

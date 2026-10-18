@@ -13,3 +13,139 @@
   align-items: center;
   padding: 8px 68px 8px clamp(16px, 4vw, 48px);
 }
+
+/* Holds the entry and the stage. Transparent to layout, except during the unfold (spec §6), when the stage lies over
+   the fading entry and opens as a circle from the composer. The custom properties are set by page.tsx. */
+.unfold {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.stage {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.unfold[data-unfold="flying"] .stage {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  animation: reveal 1s cubic-bezier(0.7, 0, 0.2, 1) 0.1s both;
+}
+
+@keyframes reveal {
+  from {
+    clip-path: circle(0 at var(--reveal-x) var(--reveal-y));
+  }
+  to {
+    clip-path: circle(150vmax at var(--reveal-x) var(--reveal-y));
+  }
+}
+
+.unfold[data-unfold="flying"] .topBar {
+  animation: rise 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) 0.5s both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+
+/* The problem, carried from the composer to the problem card's place. */
+.fly {
+  position: absolute;
+  z-index: 2;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 44px color-mix(in srgb, var(--text) 12%, transparent);
+  animation: fly 1.05s cubic-bezier(0.75, 0, 0.2, 1) forwards;
+}
+
+@keyframes fly {
+  from {
+    left: var(--from-x);
+    top: var(--from-y);
+    width: var(--from-w);
+    height: var(--from-h);
+    border-radius: var(--from-r);
+  }
+  to {
+    left: var(--to-x);
+    top: var(--to-y);
+    width: var(--to-w);
+    height: var(--to-h);
+    border-radius: 14px;
+  }
+}
+
+.flyIn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: flyPad 1.05s cubic-bezier(0.75, 0, 0.2, 1) forwards;
+}
+
+@keyframes flyPad {
+  from {
+    padding: var(--from-py) 24px 0 var(--from-px);
+  }
+  to {
+    padding: 44px 24px 14px 24px;
+  }
+}
+
+.flyLabel {
+  position: absolute;
+  top: 18px;
+  left: 24px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0;
+  animation: labelIn 0.35s 0.7s forwards;
+}
+
+@keyframes labelIn {
+  to {
+    opacity: 1;
+  }
+}
+
+.flyText {
+  margin: 0;
+  min-width: 0;
+  font-size: 17px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.flyPhoto {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+@media (max-width: 799px) {
+  .unfold[data-unfold="flying"] .topBar {
+    animation-delay: 0.55s;
+  }
+}

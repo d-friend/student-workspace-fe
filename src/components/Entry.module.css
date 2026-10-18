@@ -177,6 +177,25 @@
   width: min(640px, calc(100% - 2 * 128px));
 }
 
+/* The unfold (spec §6): the composer goes at once, the fly card takes its place; the rest fades up and out. */
+.entry[data-leaving] .stack > form {
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.entry[data-leaving] > :not(.stack),
+.entry[data-leaving] .stack > :not(form) {
+  animation: fadeOut 0.38s ease-in forwards;
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    transform: translateY(-18px);
+    filter: blur(6px);
+  }
+}
+
 @media (max-width: 799px) {
   .entry {
     box-sizing: border-box;

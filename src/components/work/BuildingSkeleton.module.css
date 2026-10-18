@@ -47,6 +47,25 @@
   height: 12px;
 }
 
+.problemLabel {
+  margin: 0;
+  font: 700 12px/1.4 var(--font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.problem {
+  margin: 0;
+  font: 600 17px/1.45 var(--font-sans);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
 .line {
   width: 78%;
   height: 20px;
@@ -95,8 +114,52 @@
   }
 }
 
+/* The unfold (page.tsx, spec §6): the fly card becomes the problem card, so that card waits under it; the rest rises
+   in after the reveal. */
+:global([data-unfold="flying"]) .wrap[data-variant="solve"] .stack > :first-child {
+  opacity: 0;
+}
+
+:global([data-unfold="flying"]) .wrap > [role="status"] {
+  animation: rise 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) 0.68s both;
+}
+
+:global([data-unfold="flying"]) .wrap[data-variant="solve"] .stack > :last-child,
+:global([data-unfold="flying"]) .wrap[data-variant="learn"] .stack > * {
+  animation: rise 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) 0.84s both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+
+@media (max-width: 799px) {
+  :global([data-unfold="flying"]) .wrap > [role="status"] {
+    animation-delay: 0.72s;
+  }
+
+  :global([data-unfold="flying"]) .wrap[data-variant="solve"] .stack > :last-child,
+  :global([data-unfold="flying"]) .wrap[data-variant="learn"] .stack > * {
+    animation-delay: 0.88s;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .block {
     animation: none;
+  }
+
+  /* No unfold: the skeleton cross-fades in. */
+  .wrap {
+    animation: fadeIn 0.15s ease-out;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
   }
 }

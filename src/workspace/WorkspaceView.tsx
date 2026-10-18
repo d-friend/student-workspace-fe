@@ -55,7 +55,7 @@ function Doc({ w, p, hidden, tabbed, base, onPhase, hasSolve, taskDone }: {
   const working = p !== "learn";
 
   return (
-    <section id={`panel-${p}`} {...(tabbed && { role: "tabpanel", "aria-labelledby": `tab-${p}` })} hidden={hidden} className={styles.doc}>
+    <section id={`panel-${p}`} {...(tabbed && { role: "tabpanel", "aria-labelledby": `tab-${p}` })} hidden={hidden} className={styles.doc} data-phase={p}>
       <h1 className={styles.title}><MdInline text={w.doc.title} /></h1>
       {w.doc.blocks.map((b) => (
         <BlockBoundary key={b.id} blockId={b.id} report={ctx.report}>

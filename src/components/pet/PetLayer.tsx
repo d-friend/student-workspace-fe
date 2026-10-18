@@ -22,6 +22,7 @@ export function PetLayer({
   entryInputRef,
   composer,
   onOpenChange,
+  flying = false,
   ...actions
 }: {
   state: ChatState & PetSignals;
@@ -33,6 +34,8 @@ export function PetLayer({
   entryInputRef: RefObject<HTMLTextAreaElement | null>;
   composer: Omit<ComposerProps, "inputRef" | "entry">;
   onOpenChange?: (open: boolean) => void;
+  // The unfold is carrying the pet from the entry to its dock (spec §6): it travels, hops, and is happy about it.
+  flying?: boolean;
 } & ChatActions) {
   const { mood, celebrate, celebrateKey } = usePet(state);
   const [open, setOpen] = useState(false);
@@ -90,6 +93,10 @@ export function PetLayer({
     hadPhoto.current = hasPhoto;
   }, [entry, hasPhoto, celebrate]);
 
+  useEffect(() => {
+    if (flying) celebrate();
+  }, [flying, celebrate]);
+
   useEffect(() => onOpenChange?.(open), [open, onOpenChange]);
 
   useEffect(() => {
@@ -98,13 +105,13 @@ export function PetLayer({
   }, [open]);
 
   // The entry has nobody to talk to yet, except to say that something failed.
-  const showBubble = !open && latest !== undefined && key !== hiddenKey && (!entry || latest.kind === "error");
+  const showBubble = !open && !flying && latest !== undefined && key !== hiddenKey && (!entry || latest.kind === "error");
   const chips =
     latest?.kind === "agent" && !latest.waiting && latest.id === state.bubbles.findLast((b) => b.kind === "agent")?.id;
 
   return (
     // With a photo picked the greeting is gone, so the pet docks; it is still the entry's pet.
-    <div className={styles.layer} data-place={entry && !hasPhoto ? "entry" : "dock"}>
+    <div className={styles.layer} data-place={entry && !hasPhoto ? "entry" : "dock"} data-fly={flying || undefined}>
       <button
         ref={petRef}
         type="button"
@@ -114,7 +121,7 @@ export function PetLayer({
         inert={open}
         onClick={entry ? celebrate : openDrawer}
       >
-        <Pet mood={mood} celebrateKey={celebrateKey} />
+        <Pet mood={flying ? "happy" : mood} celebrateKey={celebrateKey} />
         {unread && !open && !entry && (
           <span id="pet-unread" className={styles.badge}>
             <span className={styles.srOnly}>{copy.petUnread}</span>

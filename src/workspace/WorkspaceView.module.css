@@ -56,8 +56,23 @@
   }
 }
 
+/* A similar problem arrives as a new practice doc (spec §6): its problem card, the first block, pulses once. */
+.doc[data-phase="practice"] > section:first-of-type {
+  animation: swap 0.7s ease;
+}
+
+@keyframes swap {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--pet) 55%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 18px transparent;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .doc {
+  .doc,
+  .doc[data-phase="practice"] > section:first-of-type {
     animation: none;
   }
 }

@@ -40,6 +40,29 @@
   top: calc(44dvh - 82px);
 }
 
+/* The unfold (spec §6): the same button travels from the entry place to the dock and hops on the way. */
+.layer[data-fly] .pet {
+  --fly-ease: cubic-bezier(0.6, 0, 0.3, 1);
+  transition:
+    left 0.95s var(--fly-ease),
+    top 0.95s var(--fly-ease),
+    width 0.95s var(--fly-ease),
+    height 0.95s var(--fly-ease);
+  animation: hop 0.95s cubic-bezier(0.45, 0, 0.55, 1);
+}
+
+@keyframes hop {
+  50% {
+    transform: translateY(-120px) rotate(14deg);
+  }
+}
+
+@keyframes hopNarrow {
+  50% {
+    transform: translateY(-96px) rotate(-14deg);
+  }
+}
+
 .pet:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 4px;
@@ -79,5 +102,22 @@
   .layer[data-place="entry"] .pet {
     left: calc(50% - 56px);
     top: calc(37dvh - 134px);
+  }
+
+  .layer[data-fly] .pet {
+    animation-name: hopNarrow;
+  }
+}
+
+/* No travel: the pet fades in at its new place (the entry has no animation, so arriving at the dock starts one). */
+@media (prefers-reduced-motion: reduce) {
+  .layer[data-place="dock"] .pet {
+    animation: petIn 0.15s ease-out;
+  }
+}
+
+@keyframes petIn {
+  from {
+    opacity: 0;
   }
 }

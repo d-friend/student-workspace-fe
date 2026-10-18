@@ -2,6 +2,11 @@
   flex: 1 1 auto;
   min-width: 0;
   overflow: auto;
+  /* Under 800px there is no desk: the page is the paper, on the design's square grid. */
+  background-color: var(--panel);
+  background-image: linear-gradient(color-mix(in srgb, var(--hairline) 70%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--hairline) 70%, transparent) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: -1px -1px;
 }
 
 .view {
@@ -12,6 +17,25 @@
   color: var(--text);
   font-family: var(--font-sans);
   overflow-wrap: anywhere; /* a long URL or term wraps instead of widening the column */
+}
+
+/* From 800px the work area is a desk (dot grid) and the doc column is the sheet lying on it. */
+@media (min-width: 800px) {
+  .scroll {
+    background-color: var(--desk);
+    background-image: radial-gradient(var(--desk-dot) 1px, transparent 1.4px);
+    background-size: 22px 22px;
+    background-position: 0 0;
+  }
+
+  .view {
+    min-height: calc(100% - 24px);
+    margin-top: 24px;
+    padding-top: 32px;
+    background: var(--panel);
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 1px 0 var(--border), 0 20px 50px color-mix(in srgb, var(--text) 10%, transparent);
+  }
 }
 
 .doc {

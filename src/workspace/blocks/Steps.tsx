@@ -92,7 +92,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
         )}
       </ol>
       {!done && (
-        <div ref={anchorRef} data-pet-anchor className={styles.active}>
+        <div ref={anchorRef} data-pet-anchor data-n={pos + 1} className={styles.active}>
           {item?.kind === "choice" ? (
             <>
               <p id={promptId} className={styles.entryLabel}>

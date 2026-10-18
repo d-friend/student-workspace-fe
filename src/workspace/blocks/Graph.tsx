@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTheme } from "@/hooks/useTheme";
 import { copy } from "@/lib/copy";
 import type { Block, BlockProps } from "../types";
 import styles from "./Board.module.css";
@@ -48,6 +49,7 @@ export function Graph({ block }: BlockProps<GraphBlock>) {
   const [error, setError] = useState<Error | null>(null);
   const [vals, setVals] = useState(() => Object.fromEntries((block.sliders ?? []).map((s) => [s.name, s.value])));
   const valsRef = useRef(vals); // latest slider values, so a re-run of the effect keeps what the student set
+  const theme = useTheme(); // the colours are read when the board is built, so a theme switch rebuilds it
   checkTerms(block); // throws during render, so BlockBoundary handles it
   if (error) throw error; // BlockBoundary reports render_error
 
@@ -88,7 +90,7 @@ export function Graph({ block }: BlockProps<GraphBlock>) {
       if (b && freeBoard) freeBoard(b);
       board.current = null;
     };
-  }, [block]);
+  }, [block, theme]);
 
   return (
     <div className={styles.wrap}>

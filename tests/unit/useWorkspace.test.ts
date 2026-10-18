@@ -671,6 +671,41 @@ describe("structured workspace", () => {
     ]);
   });
 
+  it("a reply that repeats the announce is dropped, so the student reads it once", async () => {
+    const t = await boot(
+      stream([{ event: "announce", text: "Mình cùng gỡ ý tưởng chính nhé." }, shown("w1"), "Mình cùng gỡ ý tưởng chính nhé"]),
+    );
+    await typed(t);
+    expect(t.state().bubbles.map((b) => [b.kind, b.text])).toEqual([
+      ["student", "x"],
+      ["agent", "Mình cùng gỡ ý tưởng chính nhé."],
+    ]);
+  });
+
+  it("a photo's restatement in the announce carries the restate chips, with or without a reply", async () => {
+    const restate = "Mình đọc đề là: tìm x.";
+    const silent = await boot(stream([{ event: "announce", text: restate }, shown("w1"), "[silent]"]));
+    await typed(silent);
+    expect(silent.state().bubbles.map((b) => b.kind === "agent" && b.restate)).toEqual([false, true]);
+    expect(silent.state().restateChips).toBe(true);
+
+    const spoken = await boot(stream([{ event: "announce", text: restate }, shown("w1"), "Bạn tự làm trước nhé."]));
+    await typed(spoken);
+    expect(spoken.state().restateChips).toBe(true);
+  });
+
+  it("each turn stamps its bubbles, and a workspace-event reply is a new turn", async () => {
+    const t = await boot(reply("Chào."));
+    await typed(t);
+    const first = t.state().bubbles.map((b) => b.turn);
+    expect(new Set(first).size).toBe(1);
+    await typed(t, "tiếp");
+    const turns = t.state().bubbles.map((b) => b.turn);
+    expect(turns[0]).toBe(turns[1]);
+    expect(turns[2]).toBeGreaterThan(turns[1]);
+    expect(turns[3]).toBe(turns[2]);
+  });
+
   it("workspace event shows the view and clears building", async () => {
     const seen: unknown[] = [];
     const snap = () => {

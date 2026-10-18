@@ -8,6 +8,7 @@ afterEach(cleanup);
 
 const agent = (id: number, text: string, extra: Partial<Extract<Bubble, { kind: "agent" }>> = {}): Bubble => ({
   id,
+  turn: 1,
   kind: "agent",
   text,
   waiting: false,
@@ -104,7 +105,7 @@ describe("PetLayer", () => {
   });
 
   it("(e) an error bubble is an alert", () => {
-    render(setup([{ id: 1, kind: "error", text: "Lỗi mạng" }]).ui);
+    render(setup([{ id: 1, turn: 1, kind: "error", text: "Lỗi mạng" }]).ui);
     expect(within(screen.getByRole("alert")).getByText("Lỗi mạng")).toBeTruthy();
   });
 
@@ -134,12 +135,20 @@ describe("PetLayer", () => {
   });
 
   it("shows every message of the turn, with the dots under the announce while the reply is awaited", () => {
-    const student: Bubble = { id: 1, kind: "student", text: "x", photo: null };
+    const student: Bubble = { id: 1, turn: 1, kind: "student", text: "x", photo: null };
     render(setup([student, agent(3, "Mình dựng nhé."), agent(2, "đang nghĩ", { waiting: true })], { busy: true }).ui);
     const bubble = screen.getByRole("status");
     expect(within(bubble).getByText("Mình dựng nhé.")).toBeTruthy();
     expect(within(bubble).queryByText("đang nghĩ")).toBeNull();
     expect(within(bubble).queryByText(copy.reply)).toBeNull();
+  });
+
+  it("shows only the latest turn, not the earlier replies", () => {
+    render(setup([agent(1, "Cũ một", { turn: 1 }), agent(2, "Cũ hai", { turn: 2 }), agent(3, "Mới", { turn: 3 })]).ui);
+    const bubble = screen.getByRole("status");
+    expect(within(bubble).getByText("Mới")).toBeTruthy();
+    expect(within(bubble).queryByText("Cũ một")).toBeNull();
+    expect(within(bubble).queryByText("Cũ hai")).toBeNull();
   });
 
   it("reports the build in the bubble, once, even before the agent has said anything", () => {
@@ -233,7 +242,7 @@ describe("PetLayer", () => {
       expect(within(screen.getByRole("status")).getByText("Xin chào")).toBeTruthy();
       expect(screen.queryByText(copy.petUnread)).toBeNull();
       unmount();
-      render(withEntry({}, [{ id: 1, kind: "error", text: "Lỗi mạng" }]).ui);
+      render(withEntry({}, [{ id: 1, turn: 1, kind: "error", text: "Lỗi mạng" }]).ui);
       expect(within(screen.getByRole("alert")).getByText("Lỗi mạng")).toBeTruthy();
     });
 
@@ -251,7 +260,7 @@ describe("PetLayer", () => {
     });
 
     it("closing an error bubble on the entry leaves no unread badge", () => {
-      render(withEntry({}, [{ id: 1, kind: "error", text: "Lỗi mạng" }]).ui);
+      render(withEntry({}, [{ id: 1, turn: 1, kind: "error", text: "Lỗi mạng" }]).ui);
       fireEvent.click(screen.getByRole("button", { name: copy.bubbleClose }));
       expect(screen.queryByText(copy.petUnread)).toBeNull();
     });

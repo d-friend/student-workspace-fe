@@ -16,7 +16,7 @@ import {
   withPhoto,
   type WorkspaceEvent,
 } from "@/lib/frame";
-import { parse, type Parsed } from "@/lib/parse";
+import { parse, RESTATE, type Parsed } from "@/lib/parse";
 import { readPhoto as realReadPhoto, type PhotoResult } from "@/lib/photo";
 import { track as realTrack, type TrackFn } from "@/lib/track";
 import type { BlockCtx, CheckResponse, Phase, Workspace } from "@/workspace/types";
@@ -38,10 +38,13 @@ const STATUS_LABEL = {
 const FLUSH_DELAY_MS = 800;
 const MAX_PENDING = 20;
 
+// `turn` numbers the exchanges (a typed message, or a batch of workspace events, and what comes back), so the pet
+// bubble can show only the latest one.
 export type Bubble =
-  | { id: number; kind: "student"; text: string; photo: string | null }
+  | { id: number; turn: number; kind: "student"; text: string; photo: string | null }
   | {
       id: number;
+      turn: number;
       kind: "agent";
       text: string;
       waiting: boolean;
@@ -49,9 +52,12 @@ export type Bubble =
       offer: boolean;
       restate: boolean;
     }
-  | { id: number; kind: "error" | "note"; text: string };
+  | { id: number; turn: number; kind: "error" | "note"; text: string };
 
-type NewBubble = Bubble extends infer B ? (B extends Bubble ? Omit<B, "id"> : never) : never;
+type NewBubble = Bubble extends infer B ? (B extends Bubble ? Omit<B, "id" | "turn"> : never) : never;
+
+// The same words, ignoring case, spacing and end punctuation.
+const norm = (s: string) => s.toLowerCase().replace(/[\s.!?…]+/g, " ").trim();
 
 export type Screen = "workspace" | "building" | "photo" | "empty";
 
@@ -120,6 +126,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let ready = false;
   let started = false;
   let nextId = 1;
+  let turnNo = 0;
   let messages: Message[] = [];
   let bubbles: Bubble[] = [];
   let busy = false;
@@ -215,18 +222,18 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
   function addBubble(b: NewBubble): number {
     const id = nextId++;
-    bubbles = [...bubbles, { ...b, id } as Bubble];
+    bubbles = [...bubbles, { ...b, id, turn: turnNo } as Bubble];
     return id;
   }
 
   function updateBubble(id: number, b: NewBubble) {
-    bubbles = bubbles.map((x) => (x.id === id ? ({ ...b, id } as Bubble) : x));
+    bubbles = bubbles.map((x) => (x.id === id ? ({ ...b, id, turn: x.turn } as Bubble) : x));
   }
 
   function insertBubbleBefore(beforeId: number, b: NewBubble): number {
     const id = nextId++;
     const i = bubbles.findIndex((x) => x.id === beforeId);
-    bubbles = [...bubbles.slice(0, i), { ...b, id } as Bubble, ...bubbles.slice(i)];
+    bubbles = [...bubbles.slice(0, i), { ...b, id, turn: turnNo } as Bubble, ...bubbles.slice(i)];
     return id;
   }
 
@@ -234,7 +241,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     if (id !== null) bubbles = bubbles.filter((b) => b.id !== id);
   }
 
-  const agentBubble = (text: string, view: Parsed, waiting = false): NewBubble => ({
+  const agentBubble = (text: string, view: Parsed, waiting = false): Extract<NewBubble, { kind: "agent" }> => ({
     kind: "agent",
     text,
     waiting,
@@ -276,6 +283,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     busy = true;
     typedTurn = typed;
     buildFailed = false;
+    turnNo++;
     const sentAt = now();
     let consumed: WorkspaceEvent[] = [];
     let studentId = existingStudentId;
@@ -306,24 +314,38 @@ export function createWorkspace(deps: WorkspaceDeps) {
     publish();
 
     let announceId: number | null = null;
+    let announceText: string | null = null;
+    let announceRestate = false; // a photo's restatement travels in the announce, so its reply inherits the chips
     let sawEvent = false;
     let gotWorkspace = false;
 
+    // The model sometimes says its announce again as the reply; the student reads it once. While streaming, a reply
+    // that is still a prefix of the announce is held back too.
+    const repeats = (view: Parsed) =>
+      announceText !== null && view.chat !== "" && norm(announceText).startsWith(norm(view.chat));
+    const bubbleFor = (chat: string, view: Parsed, waiting = false) => ({
+      ...agentBubble(chat, view, waiting),
+      restate: view.restate || announceRestate,
+    });
+
     const show = (view: Parsed, final: boolean) => {
       // A build is shown by the pet bubble's status row, not by a placeholder text, so the bubble keeps waiting.
-      const chat =
-        view.chat || (typed && !view.building && final && (view.html !== null || gotWorkspace) ? copy.built : "");
+      const chat = repeats(view)
+        ? ""
+        : view.chat || (typed && !view.building && final && (view.html !== null || gotWorkspace) ? copy.built : "");
       if (agentId === null) {
-        if (chat) agentId = addBubble(agentBubble(chat, view));
+        if (chat) agentId = addBubble(bubbleFor(chat, view));
       } else {
-        updateBubble(agentId, agentBubble(chat || copy.thinking, view, !chat));
+        updateBubble(agentId, bubbleFor(chat || copy.thinking, view, !chat));
       }
     };
 
     const onEvent = (e: TurnEvent) => {
       sawEvent = true;
       if (e.event === "announce") {
-        const b: NewBubble = { kind: "agent", text: e.text, waiting: false, line: null, offer: false, restate: false };
+        announceText = e.text;
+        announceRestate = e.text.startsWith(RESTATE);
+        const b: NewBubble = { kind: "agent", text: e.text, waiting: false, line: null, offer: false, restate: announceRestate };
         // Its own bubble, before the waiting one, which keeps "thinking" until the reply text arrives.
         announceId = agentId === null ? addBubble(b) : insertBubbleBefore(agentId, b);
       } else if (e.event === "status") {
@@ -384,8 +406,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
       if (!raw.trim() && typed && !sawEvent) throw new TurnError("empty_reply", "the agent sent an empty reply");
 
       const view = parse(raw);
-      if (raw.trim()) messages = [...messages, { role: "assistant", content: view.silent ? "[silent]" : raw }];
-      if (view.silent || !(raw.trim() || gotWorkspace)) {
+      const repeated = repeats(view) || (announceText !== null && norm(view.chat) === norm(announceText));
+      if (raw.trim()) messages = [...messages, { role: "assistant", content: view.silent || repeated ? "[silent]" : raw }];
+      if (view.silent || repeated || !(raw.trim() || gotWorkspace)) {
         removeBubble(agentId);
         agentId = null;
       } else {
@@ -526,11 +549,15 @@ export function createWorkspace(deps: WorkspaceDeps) {
     offerClosedId = null;
     // By role, not by index: an announce and its reply are two assistant messages, and a code-routed
     // workspace batch is a user message with no reply.
+    let said: string | null = null; // the previous assistant line, to drop an announce repeated as the reply
     for (const m of saved.messages) {
       if (m.role === "assistant") {
         const view = parse(m.content as string);
-        if (view.chat) addBubble(agentBubble(view.chat, view));
+        if (view.chat && (said === null || norm(view.chat) !== said)) addBubble(agentBubble(view.chat, view));
+        if (view.chat) said = norm(view.chat);
       } else {
+        turnNo++;
+        said = null;
         const view = studentView(m.content);
         if (view) addBubble({ kind: "student", text: view.text, photo: view.photo || null });
       }

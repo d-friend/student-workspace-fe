@@ -15,7 +15,7 @@ export type Parsed = {
 const OPEN = "```html";
 const CLOSE = "\n```";
 const SILENT = "[silent]";
-const RESTATE = "Mình đọc đề là:";
+export const RESTATE = "Mình đọc đề là:";
 
 // Leading tags, in this order: [mode:X], then [how]|[why], then [line N] (N >= 1), then [offer].
 // Whitespace may separate them.

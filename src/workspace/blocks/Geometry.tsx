@@ -1,18 +1,26 @@
 import { IconAngle, IconBoxAlignRight, IconCircle, IconEqual, IconLine, IconLineDashed, IconPoint, IconSquareDot } from "@tabler/icons-react";
 import type { ComponentType, KeyboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
+import { useTheme } from "@/hooks/useTheme";
 import { copy } from "@/lib/copy";
 import type { Block, BlockProps, GeometryTool } from "../types";
 import styles from "./Board.module.css";
 
 type GeoBlock = Extract<Block, { type: "geometry" }>;
 // Only the slice of JSXGraph we use.
-type El = { on: (ev: string, f: (e?: unknown) => void) => void };
+type El = {
+  on: (ev: string, f: (e?: unknown) => void) => void;
+  elType?: string;
+  label?: { setAttribute: (a: object) => void };
+  setAttribute: (a: object) => void;
+};
 type Board = {
   create: (type: string, args: unknown[], attrs?: object) => El;
   on: (ev: string, f: (e: unknown) => void) => void;
   getAllObjectsUnderMouse: (e: unknown) => unknown[];
   getUsrCoordsOfMouse: (e: unknown) => number[];
+  objectsList: El[];
+  update: () => void;
 };
 
 const ICONS: Record<GeometryTool, ComponentType<{ size?: number; stroke?: number }>> = {
@@ -29,6 +37,9 @@ const ICONS: Record<GeometryTool, ComponentType<{ size?: number; stroke?: number
 const NEED: Record<GeometryTool, number> = { point: 0, segment: 2, line: 2, circle: 2, midpoint: 2, perpendicular: 3, parallel: 3, angle: 3 };
 
 const cssVar = (el: Element, name: string) => getComputedStyle(el).getPropertyValue(name).trim();
+
+// An angle's wedge: the accent, faint, so the figure under it stays readable.
+const ANGLE_FILL = { fillOpacity: 0.14, highlightFillOpacity: 0.14 };
 
 function nextName(used: Set<string>) {
   for (let i = 0; i < 26; i++) {
@@ -48,6 +59,10 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
   if (error) throw error; // BlockBoundary reports render_error
 
   // Board handlers are bound once per board, so they read live state through this ref.
+  const theme = useTheme();
+  const recolor = useRef<(() => void) | null>(null); // set while a board exists
+  useEffect(() => recolor.current?.(), [theme]);
+
   const live = useRef({ tool, picks, ctx, block });
   useEffect(() => {
     live.current = { tool, picks, ctx, block };
@@ -67,7 +82,11 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
     import("jsxgraph")
       .then(({ default: JXG }) => {
         if (dead || !box.current) return;
-        const [text, accent] = ["--text", "--accent"].map((n) => cssVar(box.current!, n));
+        // Read on every use, not once: what the student draws after a theme switch must match the new theme.
+        const ink = () => {
+          const [text, accent] = ["--text", "--accent"].map((n) => cssVar(box.current!, n));
+          return { text, accent };
+        };
         const xs = block.points.map((p) => p.x);
         const ys = block.points.map((p) => p.y);
         const pad = 2;
@@ -76,14 +95,32 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
         b = JXG.JSXGraph.initBoard(box.current, { boundingbox: [x0, y1, x1, y0], axis: false, grid: false, showCopyright: false, showNavigation: false, keepaspectratio: true }) as unknown as Board;
         const board = b;
         freeBoard = (x) => JXG.JSXGraph.freeBoard(x as never);
-        const paint = { strokeColor: accent, highlightStrokeColor: accent, strokeWidth: 2 };
+        const paint = () => {
+          const { accent } = ink();
+          return { strokeColor: accent, highlightStrokeColor: accent, strokeWidth: 2 };
+        };
+        // The colours were read once, so a theme switch repaints every element in place: the student's own
+        // constructions stay.
+        recolor.current = () => {
+          if (!box.current) return;
+          const { text: t, accent: a } = ink();
+          for (const el of board.objectsList) {
+            const stroke = { strokeColor: a, highlightStrokeColor: a };
+            if (el.elType === "point" || el.elType === "midpoint") el.setAttribute({ ...stroke, fillColor: a, highlightFillColor: a });
+            else if (el.elType === "angle") el.setAttribute({ ...stroke, fillColor: a, highlightFillColor: a, ...ANGLE_FILL });
+            else el.setAttribute(stroke);
+            el.label?.setAttribute({ strokeColor: t });
+          }
+          board.update();
+        };
         const lineEl = (kind: string, a: string, c: string, attrs: object = {}) => {
-          const el = board.create(kind, [pts.get(a), pts.get(c)], { ...paint, ...attrs });
+          const el = board.create(kind, [pts.get(a), pts.get(c)], { ...paint(), ...attrs });
           el?.on("down", (e) => act.current?.line(a, c, e));
           return el;
         };
         const makePoint = (name: string, args: unknown[], kind = "point") => {
           names.add(name);
+          const { text, accent } = ink();
           const el = board.create(kind, args, { name, fixed: true, size: 5, fillColor: accent, strokeColor: accent, highlightFillColor: accent, highlightStrokeColor: accent, label: { strokeColor: text } });
           pts.set(name, el);
           el?.on("down", (e) => act.current?.point(name, e));
@@ -91,7 +128,7 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
         };
         block.points.forEach((p) => makePoint(p.id, [p.x, p.y]));
         block.segments?.forEach(([a, c]) => lineEl("segment", a, c));
-        block.circles?.forEach((c) => board.create("circle", [pts.get(c.center), pts.get(c.through)], paint));
+        block.circles?.forEach((c) => board.create("circle", [pts.get(c.center), pts.get(c.through)], paint()));
 
         const done = (type: GeometryTool, deps: string[]) => {
           live.current.ctx.report("construction_made", { block_id: live.current.block.id, type, deps });
@@ -101,13 +138,13 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
         const build = (t: GeometryTool, d: string[]) => {
           const [p1, p2, p3] = d.map((n) => pts.get(n));
           if (t === "segment" || t === "line") lineEl(t, d[0], d[1]);
-          else if (t === "circle") board.create("circle", [p1, p2], paint);
+          else if (t === "circle") board.create("circle", [p1, p2], paint());
           else if (t === "midpoint") makePoint(nextName(names), [p1, p2], "midpoint");
-          else if (t === "angle") board.create("angle", [p1, p2, p3], { ...paint, name: "" });
+          else if (t === "angle") board.create("angle", [p1, p2, p3], { ...paint(), name: "", fillColor: ink().accent, highlightFillColor: ink().accent, ...ANGLE_FILL });
           else {
             // perpendicular/parallel: derive the helper line from the two defining points, then apply it to the third.
             const base = board.create("line", [p1, p2], { visible: false });
-            board.create(t, [base, p3], paint);
+            board.create(t, [base, p3], paint());
           }
         };
         const push = (name: string, isLine?: [string, string]) => {
@@ -159,6 +196,7 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
       .catch((e) => !dead && setError(e instanceof Error ? e : new Error(String(e))));
     return () => {
       dead = true;
+      recolor.current = null;
       if (b && freeBoard) freeBoard(b);
       act.current = null;
       select(null);

@@ -61,10 +61,10 @@ export function PetLayer({
 
   const isSpoken = (b: Bubble): b is SpokenBubble => b.kind !== "student";
   const latest = state.bubbles.findLast(isSpoken);
-  // Everything D-Friend said since the student last spoke (an announce, then its reply), newest last.
-  const trailing = state.bubbles.slice(state.bubbles.findLastIndex((b) => b.kind === "student") + 1).filter(isSpoken);
-  const spoken = trailing.length > 0 ? trailing.slice(-MAX_SPOKEN) : latest ? [latest] : [];
-  const turn = state.bubbles.findLast((b) => b.kind === "student")?.id ?? 0;
+  // Everything D-Friend said in the latest exchange (an announce, then its reply), newest last. Older turns stay
+  // in the drawer's log, not in the bubble.
+  const spoken = latest ? state.bubbles.filter((b): b is SpokenBubble => isSpoken(b) && b.turn === latest.turn).slice(-MAX_SPOKEN) : [];
+  const turn = latest?.turn ?? 0;
   const status = state.building ? (state.status ?? copy.building) : null;
   // A waiting bubble that gets its words is a new key, so it comes back if it was put away while thinking.
   const key = latest ? `${latest.id}:${latest.kind === "agent" && latest.waiting}` : null;

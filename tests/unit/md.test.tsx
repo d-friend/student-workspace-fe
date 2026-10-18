@@ -16,6 +16,14 @@ test("paragraphs and line breaks", () => {
   expect(ps[0].textContent).toBe("onetwo");
 });
 
+test("inline spans on several lines of one paragraph do not share React keys", () => {
+  const err = vi.spyOn(console, "error").mockImplementation(() => {});
+  const c = r("$1$ và **a**\n$2$ và **b**");
+  expect(c.querySelectorAll("strong")).toHaveLength(2);
+  expect(err).not.toHaveBeenCalled();
+  err.mockRestore();
+});
+
 test("bold and italic", () => {
   const c = r("a **b** and *c*");
   expect(c.querySelector("strong")?.textContent).toBe("b");

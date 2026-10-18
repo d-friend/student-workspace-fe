@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { TeX } from "./TeX";
 
 // Order matters: $$ before $, ** before *.
@@ -49,7 +49,13 @@ export function Md({ text }: { text: string }): ReactNode {
       }
       return (
         <p key={i}>
-          {lines.flatMap((l, j) => (j ? [<br key={`b${j}`} />, ...inline(l)] : inline(l)))}
+          {lines.map((l, j) => (
+            // A fragment per line: inline() keys restart at 0 on every line, so they would clash across lines.
+            <Fragment key={j}>
+              {j > 0 && <br />}
+              {inline(l)}
+            </Fragment>
+          ))}
         </p>
       );
     });

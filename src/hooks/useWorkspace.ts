@@ -70,7 +70,7 @@ export type WorkspaceState = {
   overrides: Record<string, BlockCtx["overrides"]>;
   taskDone: Record<string, string[]>;
   building: boolean;
-  status: string | null; // the StatusPill label from the latest SSE status
+  status: string | null; // the pet bubble's status label from the latest SSE status
   buildingPhase: Phase | null;
   buildFailed: boolean; // the planner failed and there is nothing to show
   screen: Screen;
@@ -310,15 +310,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
     let gotWorkspace = false;
 
     const show = (view: Parsed, final: boolean) => {
+      // A build is shown by the pet bubble's status row, not by a placeholder text, so the bubble keeps waiting.
       const chat =
-        view.chat ||
-        (typed
-          ? view.building
-            ? copy.building
-            : final && (view.html !== null || gotWorkspace)
-              ? copy.built
-              : ""
-          : "");
+        view.chat || (typed && !view.building && final && (view.html !== null || gotWorkspace) ? copy.built : "");
       if (agentId === null) {
         if (chat) agentId = addBubble(agentBubble(chat, view));
       } else {

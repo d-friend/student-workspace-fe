@@ -16,5 +16,5 @@ export function Custom({ block }: BlockProps<CustomBlock>) {
     customFrames.add(win);
     return () => void customFrames.delete(win);
   }, []);
-  return <WorkspaceFrame srcDoc={frameDoc(block.html, origin)} status={null} iframeRef={ref} height={block.height} />;
+  return <WorkspaceFrame srcDoc={frameDoc(block.html, origin)} iframeRef={ref} height={block.height} />;
 }

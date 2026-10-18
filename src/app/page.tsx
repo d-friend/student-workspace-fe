@@ -6,8 +6,8 @@ import { Shell } from "@/components/Shell";
 import { PetLayer } from "@/components/pet/PetLayer";
 import { NewProblemButton } from "@/components/rail/NewProblemButton";
 import { BuildingSkeleton } from "@/components/work/BuildingSkeleton";
-import { StatusPill } from "@/components/work/StatusPill";
 import { WorkspaceFrame } from "@/components/work/WorkspaceFrame";
+import { useDesktop } from "@/hooks/useDesktop";
 import { useUnfold } from "@/hooks/useUnfold";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { copy } from "@/lib/copy";
@@ -75,8 +75,8 @@ export default function Page() {
   const photoSrc = ws.photo === null ? null : JPEG_PREFIX + ws.photo;
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const desktop = useDesktop();
 
-  const pill = ws.building ? (ws.status ?? copy.building) : null;
   // WorkspaceView wraps hintCount and onSolved per doc itself.
   const makeCtx = (w: Workspace): BlockCtx => ({
     workspaceId: w.id,
@@ -102,7 +102,6 @@ export default function Page() {
   let stage;
   if (ws.phase !== null) {
     stage = (
-      // The pill sits on the non-scrolling wrapper, so it stays pinned while the doc (WorkspaceView's scroller) scrolls.
       <div className={styles.viewWrap}>
         <WorkspaceView
           workspaces={ws.workspaces}
@@ -111,16 +110,14 @@ export default function Page() {
           makeCtx={makeCtx}
           taskDone={ws.taskDone}
         />
-        {pill !== null && <StatusPill>{pill}</StatusPill>}
       </div>
     );
   } else if (srcDoc !== null) {
-    stage = <WorkspaceFrame srcDoc={srcDoc} status={pill} iframeRef={ws.frameRef} />;
+    stage = <WorkspaceFrame srcDoc={srcDoc} iframeRef={ws.frameRef} />;
   } else if (ws.screen === "building") {
     const firstSent = ws.bubbles.find((b) => b.kind === "student");
     stage = (
       <BuildingSkeleton
-        status={pill ?? copy.thinking}
         variant={ws.buildingPhase === "learn" ? "learn" : "solve"}
         problem={firstSent?.kind === "student" ? firstSent.text : undefined}
       />
@@ -248,7 +245,7 @@ export default function Page() {
   );
   return (
     <>
-      <Shell bar={!flying && bar} work={work} layer={layer} inert={drawerOpen} />
+      <Shell bar={!flying && bar} work={work} layer={layer} chatOpen={drawerOpen} inert={drawerOpen && !desktop} />
       <input ref={fileInput} type="file" accept="image/*" hidden onChange={onFile} />
     </>
   );

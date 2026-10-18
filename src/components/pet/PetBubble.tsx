@@ -1,43 +1,60 @@
 import type { ReactNode } from "react";
-import { IconX } from "@tabler/icons-react";
+import { IconLoader2, IconX } from "@tabler/icons-react";
 import type { Bubble } from "@/hooks/useWorkspace";
 import { copy } from "@/lib/copy";
 import styles from "./PetBubble.module.css";
 
 export type SpokenBubble = Extract<Bubble, { kind: "agent" | "error" | "note" }>;
 
-// The latest thing D-Friend said, next to the pet. `children` are the chips that apply to it.
+// What D-Friend said this turn, next to the pet, one paragraph per message. `status` is the build's progress, shown
+// under the words. `children` are the chips that apply to the last message.
 export function PetBubble({
-  bubble,
+  bubbles,
+  status,
   onClose,
   onReply,
   children,
 }: {
-  bubble: SpokenBubble;
+  bubbles: SpokenBubble[];
+  status: string | null;
   onClose: () => void;
   onReply: () => void;
   children?: ReactNode;
 }) {
-  const waiting = bubble.kind === "agent" && bubble.waiting;
-  const error = bubble.kind === "error";
+  const last = bubbles.at(-1);
+  const waiting = last?.kind === "agent" && last.waiting;
+  const error = last?.kind === "error";
   return (
     <div role={error ? "alert" : "status"} className={`${styles.bubble} ${error ? styles.error : ""}`}>
       <div className={styles.row}>
-        {waiting ? (
-          <span className={styles.dots} aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </span>
-        ) : (
-          // Re-keyed on the text, so textIn replays when the dots turn into words.
-          <p key={bubble.text} className={styles.text}>
-            {bubble.kind === "agent" && bubble.line !== null && (
-              <span className={styles.line}>{copy.reviewLabel(bubble.line)}</span>
-            )}
-            {bubble.text}
-          </p>
-        )}
+        <div className={styles.texts}>
+          {bubbles.map(
+            (b) =>
+              !(b.kind === "agent" && b.waiting) && (
+                // Keyed on the bubble, not its text, so streaming words land in place and textIn plays once.
+                <p key={b.id} className={styles.text}>
+                  {b.kind === "agent" && b.line !== null && (
+                    <span className={styles.line}>{copy.reviewLabel(b.line)}</span>
+                  )}
+                  {b.text}
+                </p>
+              ),
+          )}
+          {status !== null ? (
+            <p className={styles.status}>
+              <IconLoader2 size={16} aria-hidden="true" className={styles.spin} />
+              {status}
+            </p>
+          ) : (
+            waiting && (
+              <span className={styles.dots} aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </span>
+            )
+          )}
+        </div>
         <button type="button" className={styles.close} aria-label={copy.bubbleClose} onClick={onClose}>
           <span className={styles.closeDisc}>
             <IconX size={16} aria-hidden="true" />
@@ -45,7 +62,7 @@ export function PetBubble({
         </button>
       </div>
       {!waiting && children}
-      {!waiting && (
+      {last && !waiting && (
         <button type="button" className={styles.reply} onClick={onReply}>
           {copy.reply}
         </button>

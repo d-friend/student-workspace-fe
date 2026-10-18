@@ -44,22 +44,6 @@ for (const name of names) {
   }
 }
 
-test("status pill stays pinned while the doc scrolls", async ({ page }) => {
-  await page.setViewportSize({ width: 900, height: 500 });
-  await open(page, "learn-history", "&pill=1");
-  const pill = page.getByText(copy.statusPlanning);
-  await expect(pill).toBeVisible();
-  const before = await pill.boundingBox();
-  const scrolled = await page.locator("main").evaluate((m) => {
-    const s = [...m.querySelectorAll("div")].find((d) => d.scrollHeight > d.clientHeight && getComputedStyle(d).overflowY === "auto");
-    if (!s) return -1;
-    s.scrollTop = 400;
-    return s.scrollTop;
-  });
-  expect(scrolled).toBeGreaterThan(0);
-  expect(await pill.boundingBox()).toEqual(before);
-});
-
 test("Be Vietnam Pro fonts are served with CORS for iframes", async ({ page }) => {
   const res = await page.request.get("/vendor/fonts/BeVietnamPro-latin-400.woff2", { headers: { origin: "null" } });
   expect(res.status()).toBe(200);

@@ -133,6 +133,27 @@ describe("PetLayer", () => {
     expect(screen.getByRole("status")).toBeTruthy();
   });
 
+  it("shows every message of the turn, with the dots under the announce while the reply is awaited", () => {
+    const student: Bubble = { id: 1, kind: "student", text: "x", photo: null };
+    render(setup([student, agent(3, "Mình dựng nhé."), agent(2, "đang nghĩ", { waiting: true })], { busy: true }).ui);
+    const bubble = screen.getByRole("status");
+    expect(within(bubble).getByText("Mình dựng nhé.")).toBeTruthy();
+    expect(within(bubble).queryByText("đang nghĩ")).toBeNull();
+    expect(within(bubble).queryByText(copy.reply)).toBeNull();
+  });
+
+  it("reports the build in the bubble, once, even before the agent has said anything", () => {
+    const s = setup([], { busy: true, building: true, status: copy.statusPlanning });
+    render(s.ui);
+    expect(within(screen.getByRole("status")).getByText(copy.statusPlanning)).toBeTruthy();
+    expect(screen.getAllByText(copy.statusPlanning)).toHaveLength(1);
+  });
+
+  it("falls back to the building label when no stage has been reported", () => {
+    render(setup([agent(1, "đang nghĩ", { waiting: true })], { busy: true, building: true, status: null }).ui);
+    expect(within(screen.getByRole("status")).getByText(copy.building)).toBeTruthy();
+  });
+
   it("focusInput without reveal leaves a closed drawer closed (the bubble keeps the reply)", () => {
     const s = setup([agent(1, "Xin chào")]);
     render(s.ui);

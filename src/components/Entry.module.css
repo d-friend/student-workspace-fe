@@ -22,16 +22,8 @@
 }
 
 .mark {
-  width: 34px;
+  width: auto;
   height: 34px;
-  border-radius: 10px;
-  background: var(--accent);
-  color: var(--accent-text);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 19px;
 }
 
 .stack {

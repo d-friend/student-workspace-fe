@@ -1,20 +1,27 @@
 "use client";
 
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { useDesktop } from "@/hooks/useDesktop";
 import { usePet } from "@/hooks/usePet";
 import type { WorkspaceState } from "@/hooks/useWorkspace";
 import { copy } from "@/lib/copy";
 import { OfferChips } from "@/components/rail/OfferChips";
 import { RestateChips } from "@/components/rail/RestateChips";
+import type { Bubble } from "@/hooks/useWorkspace";
 import { ChatDrawer, type ChatActions, type ChatState } from "./ChatDrawer";
 import type { ComposerProps } from "@/components/rail/Composer";
 import { Pet } from "./Pet";
 import { PetBubble, type SpokenBubble } from "./PetBubble";
 import styles from "./PetLayer.module.css";
 
-type PetSignals = Pick<WorkspaceState, "busy" | "building" | "checking" | "verdict" | "taskDone">;
+type PetSignals = Pick<WorkspaceState, "busy" | "building" | "status" | "checking" | "verdict" | "taskDone">;
+
+// How long the closing chat column slides out before it unmounts (ChatDrawer.module.css panelOut).
+const CLOSE_MS = 350;
+const MAX_SPOKEN = 3;
 
 // Always mounted, over the stage. Holds the drawer's open state and which bubble the student has put away.
+// From 800px the drawer is a column beside the stage and the pet moves to the seam between them.
 export function PetLayer({
   state,
   inputRef,
@@ -41,7 +48,9 @@ export function PetLayer({
   flying?: boolean;
 } & ChatActions) {
   const { mood, celebrate, celebrateKey } = usePet(state);
+  const desktop = useDesktop();
   const [open, setOpen] = useState(false);
+  const [leaving, setLeaving] = useState(false); // desktop only: the column is sliding out
   const [hiddenKey, setHiddenKey] = useState<string | null>(null);
   const [unread, setUnread] = useState(false);
   const petRef = useRef<HTMLButtonElement>(null);
@@ -50,13 +59,20 @@ export function PetLayer({
   const wantFocus = useRef<boolean | null>(null); // a focus request waiting for the render that shows the right composer
   const [focusTick, setFocusTick] = useState(0);
 
-  const latest = state.bubbles.findLast((b): b is SpokenBubble => b.kind !== "student");
+  const isSpoken = (b: Bubble): b is SpokenBubble => b.kind !== "student";
+  const latest = state.bubbles.findLast(isSpoken);
+  // Everything D-Friend said since the student last spoke (an announce, then its reply), newest last.
+  const trailing = state.bubbles.slice(state.bubbles.findLastIndex((b) => b.kind === "student") + 1).filter(isSpoken);
+  const spoken = trailing.length > 0 ? trailing.slice(-MAX_SPOKEN) : latest ? [latest] : [];
+  const turn = state.bubbles.findLast((b) => b.kind === "student")?.id ?? 0;
+  const status = state.building ? (state.status ?? copy.building) : null;
   // A waiting bubble that gets its words is a new key, so it comes back if it was put away while thinking.
   const key = latest ? `${latest.id}:${latest.kind === "agent" && latest.waiting}` : null;
 
   const openDrawer = useCallback(() => {
     onChatOpened(unread);
     setUnread(false);
+    setLeaving(false);
     setOpen(true);
   }, [onChatOpened, unread]);
   // Whatever was said while the drawer was open has been seen, so it does not pop back as a bubble.
@@ -65,7 +81,14 @@ export function PetLayer({
   const closeDrawer = () => {
     setHiddenKey(key);
     setOpen(false);
+    setLeaving(desktop);
   };
+
+  useEffect(() => {
+    if (!leaving) return;
+    const t = setTimeout(() => setLeaving(false), CLOSE_MS);
+    return () => clearTimeout(t);
+  }, [leaving]);
 
   useEffect(() => {
     // Deferred to an effect: the store asks right after publishing, before React has rendered the new screen.
@@ -85,7 +108,7 @@ export function PetLayer({
     if (reveal === null) return;
     wantFocus.current = null;
     if (entry) entryInputRef.current?.focus();
-    else if (open) composerRef.current?.focus();
+    else if (open) composerRef.current?.focus({ preventScroll: true });
     else if (reveal) openDrawer();
   }, [focusTick, entry, open, entryInputRef, openDrawer]);
 
@@ -111,27 +134,32 @@ export function PetLayer({
   // The entry is silent until a conversation exists. A text-only reply (an unreadable photo, a clarification) lands
   // back on the entry, and the student must still see it: the entry has no drawer, the bubble is the only place.
   const talked = state.bubbles.length > 0;
-  const showBubble = !open && !flying && latest !== undefined && key !== hiddenKey && (!entry || talked);
+  // A build with nothing said yet (a foundation request) still shows its progress.
+  const showBubble =
+    !open && !flying && (latest !== undefined || status !== null) && (key === null || key !== hiddenKey) && (!entry || talked);
   const chips =
     latest?.kind === "agent" && !latest.waiting && latest.id === state.bubbles.findLast((b) => b.kind === "agent")?.id;
+  const docked = open && desktop && !entry;
 
   return (
     // With a photo picked the greeting is gone, so the pet docks; it is still the entry's pet.
-    <div className={styles.layer} data-place={entry && !hasPhoto ? "entry" : "dock"} data-fly={flying || undefined}>
+    <div className={styles.layer} data-place={entry && !hasPhoto ? "entry" : "dock"} data-fly={flying || undefined} data-chat={docked || undefined}>
       <button
         ref={petRef}
         type="button"
         className={styles.pet}
-        aria-label={entry ? copy.brand : copy.petOpen}
+        aria-label={entry ? copy.brand : open ? copy.petClose : copy.petOpen}
         aria-describedby={unread && !entry ? "pet-unread" : undefined}
-        inert={open}
+        inert={open && !desktop}
         onClick={
           entry
             ? () => {
                 setHiddenKey(null); // a dismissed reply comes back
                 celebrate();
               }
-            : openDrawer
+            : open
+              ? closeDrawer
+              : openDrawer
         }
       >
         <Pet mood={flying ? "happy" : mood} celebrateKey={celebrateKey} />
@@ -143,8 +171,9 @@ export function PetLayer({
       </button>
       {showBubble && (
         <PetBubble
-          key={latest.id}
-          bubble={latest}
+          key={turn}
+          bubbles={spoken}
+          status={status}
           onClose={() => {
             setHiddenKey(key);
             if (!entry) setUnread(true);
@@ -157,8 +186,15 @@ export function PetLayer({
           {chips && state.offerChips && <OfferChips onAccept={actions.onAcceptOffer} onLater={actions.onOfferLater} />}
         </PetBubble>
       )}
-      {open && !entry && (
-        <ChatDrawer state={state} actions={actions} composer={composer} composerRef={composerRef} onClose={closeDrawer} />
+      {(open || leaving) && !entry && (
+        <ChatDrawer
+          state={state}
+          actions={actions}
+          composer={composer}
+          composerRef={composerRef}
+          onClose={closeDrawer}
+          leaving={!open}
+        />
       )}
     </div>
   );

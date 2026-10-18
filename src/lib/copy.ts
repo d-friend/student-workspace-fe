@@ -41,6 +41,7 @@ export const copy = {
   watching: "Mình đang xem bạn làm. Cần thì bấm Gợi ý.",
   newProblem: "Bài mới",
   petOpen: "Mở cuộc trò chuyện với D-Friend",
+  petClose: "Đóng cuộc trò chuyện với D-Friend",
   petUnread: "Có tin nhắn chưa đọc",
   petHint: "Xem cuộc trò chuyện",
   reply: "Trả lời",

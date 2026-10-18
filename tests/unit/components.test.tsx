@@ -51,9 +51,9 @@ test("restate chips call confirm and correct", () => {
   expect(onCorrect).toHaveBeenCalledTimes(1);
 });
 
-test("the building skeleton shows its status pill", () => {
+test("the building skeleton carries no status; the pet bubble reports progress", () => {
   render(<BuildingSkeleton />);
-  expect(screen.getByRole("status").textContent).toBe(copy.thinking);
+  expect(screen.queryByRole("status")).toBeNull();
 });
 
 test("the building skeleton takes the shape of the target phase", () => {

@@ -1,8 +1,10 @@
 import { type Ref } from "react";
+import Image from "next/image";
 import { IconArrowRight, IconRefresh } from "@tabler/icons-react";
 import { Composer, type ComposerProps } from "@/components/rail/Composer";
 import { PhotoCheck } from "@/components/work/PhotoCheck";
 import { copy } from "@/lib/copy";
+import logoMark from "../../assets/logo-mark.png";
 import styles from "./Entry.module.css";
 
 type Starter = "derivative" | "geometry";
@@ -37,9 +39,7 @@ export function Entry({
       aria-hidden={leaving || undefined}
     >
       <header className={styles.head}>
-        <span className={styles.mark} aria-hidden="true">
-          D
-        </span>
+        <Image className={styles.mark} src={logoMark} alt="" priority />
         {copy.brand}
       </header>
       {photoCheck && <PhotoCheck {...photoCheck} />}

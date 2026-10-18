@@ -175,9 +175,63 @@
   }
 }
 
+/* From 800px the drawer is a column on the right edge. The stage makes room (Shell.module.css), the pet sits on the
+   seam, and there is no scrim. Its width is fixed, so only the slide moves: the text never reflows mid-animation. */
+@media (min-width: 800px) {
+  .scrim {
+    display: none;
+  }
+
+  .drawer {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: var(--chat-w);
+    max-width: none;
+    border-radius: 0;
+    border-left: 1px solid var(--border);
+    box-shadow: none;
+    animation: panelIn 0.4s var(--ease);
+  }
+
+  .drawer[data-leaving] {
+    animation: panelOut 0.35s var(--ease) forwards;
+  }
+
+  /* The pet is on the seam instead. */
+  .headPet {
+    display: none;
+  }
+
+  /* The pet overlaps the column's left edge, so the messages start past it. */
+  .drawer [role="log"] {
+    padding-left: calc(var(--pet-size, 88px) / 2 + 12px);
+  }
+}
+
+@keyframes panelIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes panelOut {
+  to {
+    transform: translateX(100%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .drawer,
+  .drawer[data-leaving],
   .scrim {
     animation: fadeIn 0.15s;
+  }
+
+  .drawer[data-leaving] {
+    opacity: 0;
   }
 }

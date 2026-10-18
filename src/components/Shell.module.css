@@ -1,4 +1,6 @@
 .shell {
+  --chat-w: clamp(340px, 34vw, 430px);
+  --ease: cubic-bezier(0.2, 0.9, 0.25, 1);
   --pet-clear: calc(88px + 24px + 16px + env(safe-area-inset-bottom)); /* pet + its dock offset + a gap */
   position: relative;
   display: flex;
@@ -28,5 +30,22 @@
 @media (max-width: 799px) {
   .shell {
     --pet-clear: calc(72px + 16px + 16px + env(safe-area-inset-bottom));
+  }
+}
+
+/* The chat column (from 800px) takes its width from the stage, which glides to make room. */
+@media (min-width: 800px) {
+  .stage {
+    transition: margin-right 0.4s var(--ease);
+  }
+
+  .shell[data-chat] .stage {
+    margin-right: var(--chat-w);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage {
+    transition: none;
   }
 }

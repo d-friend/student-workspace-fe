@@ -1,56 +1,64 @@
 import type { PetMood } from "@/lib/pet";
 import styles from "./Pet.module.css";
 
+// PATCH, concept 1 of design-source/pets/pet_v1.html: a folded scratch note clipped to a blue card, held by washi tape.
 // celebrateKey is the React key of the body group: bumping it remounts the group so the happy jump replays.
 export function Pet({ mood, className, celebrateKey }: { mood: PetMood; className?: string; celebrateKey?: number }) {
   return (
     <span className={`${styles.pet} ${className ?? ""}`} data-state={mood} aria-hidden="true">
       <svg viewBox="0 0 100 100">
-        <ellipse cx="50" cy="95.5" rx="27" ry="3.6" fill="var(--pet-shadow)" opacity=".13" />
+        <polygon points="22,94 78,92 84,97 18,98" fill="var(--pet-shadow)" opacity=".12" />
         <g key={celebrateKey} className={styles.body}>
-          <path d="M50 23 C49 17 50 13 51 9" stroke="#2C8A57" strokeWidth="3" strokeLinecap="round" fill="none" />
-          <path className={styles.leaf} d="M51 10 C55 3 64 2 68 5 C64 11 57 13 51 10 Z" fill="#3BAA6C" />
-          <rect x="15" y="22" width="70" height="70" rx="29" fill="#F27A3D" />
-          <ellipse cx="50" cy="74" rx="23" ry="13.5" fill="#F8A06C" />
-          <ellipse cx="28.5" cy="62" rx="5.5" ry="3.2" fill="#E8503A" opacity=".35" />
-          <ellipse cx="71.5" cy="62" rx="5.5" ry="3.2" fill="#E8503A" opacity=".35" />
+          <polygon points="24,25 80,28 85,87 20,85" fill="#3B4BFF" stroke="#15171C" strokeWidth="2.4" strokeLinejoin="round" />
+          <g className={styles.clip}><path d="M45 24 L42 9 C41 4 51 3 52 9 L55 26 C55.5 29 49 30 48.5 26 L47 14" fill="none" stroke="#15171C" strokeWidth="2.6" strokeLinecap="round" /></g>
+          <polygon points="16,22 65,18 82,35 77,84 14,81" fill="#FFFDF7" stroke="#15171C" strokeWidth="2.6" strokeLinejoin="round" />
+          {/* ruled lines: only while calm (idle, listening, talking), as on the board */}
+          <g className={`${styles.v} ${styles.calm}`}>
+            <line x1="22" y1="38" x2="56" y2="36" stroke="#E2DEC9" strokeWidth="1.8" strokeLinecap="round" />
+            <line x1="21" y1="73" x2="68" y2="75" stroke="#E2DEC9" strokeWidth="1.8" strokeLinecap="round" />
+          </g>
+          <polygon className={styles.fold} points="65,18 63,36 82,35" fill="#EAE4D3" stroke="#15171C" strokeWidth="2.4" strokeLinejoin="round" />
+          <polygon className={styles.tape} points="9,30 34,13 40,21 15,38" fill="#C8F904" stroke="#15171C" strokeWidth="2.2" strokeLinejoin="round" />
+          <g className={`${styles.v} ${styles.calm}`}><path d="M22 61 L25 58 M25 62 L28 59 M65 60 L68 57 M68 61 L71 58" stroke="#FF3366" strokeWidth="2" strokeLinecap="round" /></g>
           <g className={`${styles.v} ${styles.open}`}><g className={styles.blink}>
-            <ellipse cx="38" cy="51" rx="4.4" ry="6" fill="#15171C" /><ellipse cx="62" cy="51" rx="4.4" ry="6" fill="#15171C" />
-            <circle cx="39.6" cy="48.6" r="1.5" fill="#fff" /><circle cx="63.6" cy="48.6" r="1.5" fill="#fff" />
+            <rect x="31" y="45" width="7.5" height="12" rx="2" fill="#15171C" transform="rotate(-3 34 51)" />
+            <rect x="55" y="44" width="8.5" height="13" rx="2" fill="#15171C" transform="rotate(2 59 50)" />
+            <rect x="33" y="47" width="2.5" height="3.5" fill="#FFFDF7" /><rect x="57" y="46" width="2.5" height="3.5" fill="#FFFDF7" />
           </g></g>
-          {/* desktop board's eyes: the work is always to the pet's left (spec §4.1) */}
-          <g className={`${styles.v} ${styles.down}`}><ellipse cx="33" cy="55" rx="4.4" ry="4.4" fill="#15171C" /><ellipse cx="57" cy="55" rx="4.4" ry="4.4" fill="#15171C" /></g>
+          {/* the board's down eyes already sit left of centre: the work is always to the pet's left (spec §4.1) */}
+          <g className={`${styles.v} ${styles.down}`}>
+            <rect x="29" y="52" width="8" height="8" rx="1.5" fill="#15171C" /><rect x="53" y="52" width="8.5" height="8" rx="1.5" fill="#15171C" />
+          </g>
           <g className={`${styles.v} ${styles.up}`}>
-            <ellipse cx="41" cy="47" rx="4.4" ry="6" fill="#15171C" /><ellipse cx="65" cy="47" rx="4.4" ry="6" fill="#15171C" />
-            <circle cx="42.6" cy="44.4" r="1.5" fill="#fff" /><circle cx="66.6" cy="44.4" r="1.5" fill="#fff" />
+            <rect x="35" y="41" width="7.5" height="11" rx="2" fill="#15171C" /><rect x="58" y="40" width="8.5" height="12" rx="2" fill="#15171C" />
+            <rect x="38" y="42" width="2.5" height="3.5" fill="#FFFDF7" /><rect x="61" y="41" width="2.5" height="3.5" fill="#FFFDF7" />
           </g>
           <g className={`${styles.v} ${styles.happyEyes}`}>
-            <path d="M33 53 Q38 45.5 43 53" stroke="#15171C" strokeWidth="3.2" strokeLinecap="round" fill="none" />
-            <path d="M57 53 Q62 45.5 67 53" stroke="#15171C" strokeWidth="3.2" strokeLinecap="round" fill="none" />
+            <path d="M29 47 L38 51 L29 55" stroke="#15171C" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            <path d="M64 46 L55 50 L64 54" stroke="#15171C" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </g>
           <g className={`${styles.v} ${styles.doubtEyes}`}>
-            <ellipse cx="38" cy="52" rx="4.4" ry="5.6" fill="#15171C" />
-            <path d="M57 52.5 L67 51.5" stroke="#15171C" strokeWidth="3.2" strokeLinecap="round" />
-            <path d="M56 43 L68 39" stroke="#15171C" strokeWidth="2.6" strokeLinecap="round" />
+            <rect x="31" y="47" width="8" height="11" rx="2" fill="#15171C" />
+            <line x1="53" y1="53" x2="66" y2="51" stroke="#15171C" strokeWidth="3.4" strokeLinecap="round" />
+            <line x1="52" y1="43" x2="67" y2="38" stroke="#3B4BFF" strokeWidth="3" strokeLinecap="round" />
           </g>
-          <g className={`${styles.v} ${styles.smile}`}><path d="M44 64 Q50 69 56 64" stroke="#15171C" strokeWidth="2.6" strokeLinecap="round" fill="none" /></g>
-          <g className={`${styles.v} ${styles.o}`}><circle cx="53" cy="65" r="2.6" fill="#6B1E0C" /></g>
-          <g className={`${styles.v} ${styles.talk}`}><ellipse className={styles.mouth} cx="50" cy="65" rx="4.6" ry="3.8" fill="#6B1E0C" /></g>
-          <g className={`${styles.v} ${styles.grin}`}><path d="M41 62 Q50 74 59 62 Z" fill="#6B1E0C" /></g>
-          <g className={`${styles.v} ${styles.flat}`}><path d="M44 66 Q47 63.5 50 66 T56 66" stroke="#15171C" strokeWidth="2.4" strokeLinecap="round" fill="none" /></g>
+          <g className={`${styles.v} ${styles.smile}`}><path d="M41 63 L47 67 L55 61" stroke="#15171C" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" fill="none" /></g>
+          <g className={`${styles.v} ${styles.o}`}><polygon points="47,62 55,61 54,68 46,67" fill="#15171C" /></g>
+          <g className={`${styles.v} ${styles.talk}`}><polygon className={styles.mouth} points="42,61 56,60 54,70 43,69" fill="#FF3366" stroke="#15171C" strokeWidth="2.2" strokeLinejoin="round" /></g>
+          <g className={`${styles.v} ${styles.grin}`}><polygon points="37,60 60,59 56,72 40,71" fill="#FF3366" stroke="#15171C" strokeWidth="2.4" strokeLinejoin="round" /></g>
+          <g className={`${styles.v} ${styles.flat}`}><path d="M40 66 L46 63 L51 67 L57 64" stroke="#15171C" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" /></g>
         </g>
-        <ellipse cx="36" cy="91.5" rx="8" ry="3.6" fill="#D85F25" /><ellipse cx="64" cy="91.5" rx="8" ry="3.6" fill="#D85F25" />
         <g className={`${styles.v} ${styles.think}`}>
-          <circle className={`${styles.td} ${styles.td1}`} cx="77" cy="20" r="2.6" fill="#8A92A0" />
-          <circle className={`${styles.td} ${styles.td2}`} cx="85" cy="13" r="3.4" fill="#8A92A0" />
-          <circle className={`${styles.td} ${styles.td3}`} cx="94" cy="5" r="4.2" fill="#8A92A0" />
+          <polygon className={`${styles.td} ${styles.td1}`} points="75,21 81,17 80,24" fill="#3B4BFF" stroke="#15171C" strokeWidth="1.5" />
+          <rect className={`${styles.td} ${styles.td2}`} x="83" y="9" width="7" height="7" fill="#C8F904" stroke="#15171C" strokeWidth="1.5" transform="rotate(15 86 12)" />
+          <polygon className={`${styles.td} ${styles.td3}`} points="91,1 99,3 95,10" fill="#FF3366" stroke="#15171C" strokeWidth="1.5" />
         </g>
         <g className={`${styles.v} ${styles.spark}`}>
-          <path d="M12 18 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2 z" fill="#E8A317" />
-          <path d="M88 30 l1.5 3.8 l3.8 1.5 l-3.8 1.5 l-1.5 3.8 l-1.5 -3.8 l-3.8 -1.5 l3.8 -1.5 z" fill="#E8A317" />
-          <path d="M78 2 l1.2 3 l3 1.2 l-3 1.2 l-1.2 3 l-1.2 -3 l-3 -1.2 l3 -1.2 z" fill="#3BAA6C" />
+          <g><polygon points="6,22 16,17 13,28" fill="#FF3366" stroke="#15171C" strokeWidth="1.5" /></g>
+          <g><rect x="84" y="24" width="9" height="9" fill="#C8F904" stroke="#15171C" strokeWidth="1.5" transform="rotate(20 88 28)" /></g>
+          <g><path d="M75 6 L79 11 L88 2" stroke="#3B4BFF" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none" /></g>
         </g>
-        <g className={`${styles.v} ${styles.q}`}><text x="80" y="27" fontFamily="var(--font-display), sans-serif" fontSize="24" fontWeight="800" fill="#D99100">?</text></g>
+        <g className={`${styles.v} ${styles.q}`}><text x="79" y="28" fontFamily="var(--font-display), sans-serif" fontSize="28" fontWeight="800" fill="#FF3366" stroke="#15171C" strokeWidth="1">?</text></g>
       </svg>
     </span>
   );

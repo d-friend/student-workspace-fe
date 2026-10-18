@@ -1,5 +1,6 @@
 import { type KeyboardEvent, type RefObject, useEffect } from "react";
 import { IconX } from "@tabler/icons-react";
+import { useDesktop } from "@/hooks/useDesktop";
 import type { WorkspaceState } from "@/hooks/useWorkspace";
 import { copy } from "@/lib/copy";
 import { Bubble } from "@/components/rail/Bubble";
@@ -23,25 +24,30 @@ export type ChatActions = {
   onOfferLater: () => void;
 };
 
-// Side panel from 800px, bottom sheet below (CSS only). The pet's button and the stage are inert while it is open.
+// From 800px a column beside the stage (the stage narrows, nothing is frozen); below, a modal bottom sheet over it,
+// with the pet's button and the stage inert. `leaving` keeps the column mounted while it slides out.
 export function ChatDrawer({
   state,
   actions,
   composer,
   composerRef,
   onClose,
+  leaving = false,
 }: {
   state: ChatState;
   actions: ChatActions;
   composer: Omit<ComposerProps, "inputRef">;
   composerRef: RefObject<HTMLTextAreaElement | null>;
   onClose: () => void;
+  leaving?: boolean;
 }) {
+  const desktop = useDesktop();
   const { bubbles } = state;
   const lastAgent = bubbles.findLast((b) => b.kind === "agent");
   const recap = bubbles.find((b) => b.kind === "agent" && b.restate);
 
-  useEffect(() => composerRef.current?.focus(), [composerRef]);
+  // preventScroll: the column starts off-screen, and a plain focus() scrolls the overflow-hidden shell sideways to it.
+  useEffect(() => composerRef.current?.focus({ preventScroll: true }), [composerRef]);
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key !== "Escape") return;
@@ -52,7 +58,15 @@ export function ChatDrawer({
   return (
     <>
       <button type="button" className={styles.scrim} tabIndex={-1} aria-hidden="true" onClick={onClose} />
-      <div role="dialog" aria-modal="true" aria-label={copy.drawerLabel} className={styles.drawer} onKeyDown={onKeyDown}>
+      <div
+        role="dialog"
+        aria-modal={!desktop}
+        aria-label={copy.drawerLabel}
+        className={styles.drawer}
+        data-leaving={leaving || undefined}
+        inert={leaving}
+        onKeyDown={onKeyDown}
+      >
         <div className={styles.grab} aria-hidden="true" />
         <header className={styles.head}>
           <Pet mood="idle" className={styles.headPet} />

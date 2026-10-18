@@ -124,7 +124,7 @@ describe("typed turn", () => {
     expect(s.bubbles.map((b) => b.kind)).toEqual(["student", "agent"]);
   });
 
-  it("shows building, then built, for a block-only reply", async () => {
+  it("keeps the bubble waiting while a block-only reply builds, then says built", async () => {
     const texts: string[] = [];
     const t = await boot(async (_s, _m, onDelta) => {
       onDelta("```html\n<p>x");
@@ -134,7 +134,7 @@ describe("typed turn", () => {
     });
     t.ws.actions.setInput("x");
     await t.ws.actions.submit();
-    expect(texts).toEqual([copy.building]);
+    expect(texts).toEqual([copy.thinking]);
     expect(t.state().bubbles.at(-1)!.text).toBe(copy.built);
   });
 });

@@ -40,6 +40,22 @@
   top: calc(44dvh - 82px);
 }
 
+/* Chat column open (from 800px): the pet leaves the corner for the seam between the stage and the column, at the
+   bottom, like a chat avatar. Shell.module.css defines --chat-w. It glides there, so it keeps working while it moves. */
+@media (min-width: 800px) {
+  .layer[data-place="dock"] .pet {
+    transition:
+      left 0.4s var(--ease),
+      top 0.4s var(--ease);
+  }
+
+  .layer[data-chat] .pet {
+    left: calc(100% - var(--chat-w) - var(--pet-size) / 2);
+    top: calc(100% - var(--pet-size) - 96px);
+    z-index: 1; /* above the column, which it overlaps by half */
+  }
+}
+
 /* The unfold (spec §6): the same button travels from the entry place to the dock and hops on the way. */
 .layer[data-fly] .pet {
   --fly-ease: cubic-bezier(0.6, 0, 0.3, 1);
@@ -113,6 +129,7 @@
 @media (prefers-reduced-motion: reduce) {
   .layer[data-place="dock"] .pet {
     animation: petIn 0.15s ease-out;
+    transition: none;
   }
 }
 

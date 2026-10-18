@@ -2,15 +2,13 @@
 
 import { useState } from "react";
 import { Shell } from "@/components/Shell";
-import { StatusPill } from "@/components/work/StatusPill";
-import { copy } from "@/lib/copy";
 import type { BlockCtx, Phase, WorkspaceDoc } from "@/workspace/types";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
 import styles from "../../page.module.css";
 
 const noop = () => {};
 
-export function FixtureView({ doc, pill }: { doc: WorkspaceDoc; pill: boolean }) {
+export function FixtureView({ doc }: { doc: WorkspaceDoc }) {
   const [phase, setPhase] = useState<Phase>(doc.phase);
   const w = { id: "fx", doc };
   const makeCtx = (): BlockCtx => ({
@@ -28,7 +26,6 @@ export function FixtureView({ doc, pill }: { doc: WorkspaceDoc; pill: boolean })
       work={
         <div className={styles.viewWrap}>
           <WorkspaceView workspaces={{ [doc.phase]: w }} phase={phase} onPhase={setPhase} makeCtx={makeCtx} />
-          {pill && <StatusPill>{copy.statusPlanning}</StatusPill>}
         </div>
       }
     />

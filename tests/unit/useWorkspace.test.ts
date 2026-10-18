@@ -790,6 +790,83 @@ describe("structured workspace", () => {
     expect(t.state().overrides).toEqual({ S1: { s1: { 2: "review" } } });
   });
 
+  describe("verdict and checking", () => {
+    const okCheck = { ok: true, state: "ok", done: false };
+
+    it("checking counts checks in flight, and drops on resolve and on reject", async () => {
+      const t = await boot(stream([shown("S1"), "ok"]));
+      const d1 = deferred();
+      const d2 = deferred();
+      Object.assign(t.api, {
+        check: vi
+          .fn()
+          .mockImplementationOnce(() => d1.promise.then(() => okCheck))
+          .mockImplementationOnce(() => d2.promise.then(() => okCheck)),
+      });
+      await typed(t);
+      expect(t.state().checking).toBe(0);
+      const p1 = t.ws.actions.check("S1", "s1", "y", []);
+      expect(t.state().checking).toBe(1);
+      const p2 = t.ws.actions.check("S1", "s1", "y", []);
+      expect(t.state().checking).toBe(2);
+      d1.resolve();
+      await p1;
+      expect(t.state().checking).toBe(1);
+      d2.reject(new Error("net"));
+      await expect(p2).rejects.toThrow("net");
+      expect(t.state().checking).toBe(0);
+    });
+
+    it("a resolved check sets the verdict and seq counts up", async () => {
+      const t = await boot(stream([shown("S1"), "ok"]));
+      Object.assign(t.api, { check: vi.fn().mockResolvedValue({ ok: false, state: "review", done: true }) });
+      await typed(t);
+      expect(t.state().verdict).toEqual({ seq: 0, state: null, done: false });
+      await t.ws.actions.check("S1", "s1", "y", []);
+      expect(t.state().verdict).toEqual({ seq: 1, state: "review", done: true });
+      await t.ws.actions.check("S1", "s1", "y", []);
+      expect(t.state().verdict.seq).toBe(2);
+    });
+
+    it("a rejected check leaves the verdict alone", async () => {
+      const t = await boot(stream([shown("S1"), "ok"]));
+      Object.assign(t.api, { check: vi.fn().mockRejectedValue(new Error("net")) });
+      await typed(t);
+      await expect(t.ws.actions.check("S1", "s1", "y", [])).rejects.toThrow("net");
+      expect(t.state().verdict).toEqual({ seq: 0, state: null, done: false });
+    });
+
+    it("a line_state event during a turn bumps the verdict", async () => {
+      const t = await boot(
+        stream([shown("S1"), { event: "line_state", workspaceId: "S1", blockId: "s1", line: 1, state: "ok" }, "ok"]),
+      );
+      await typed(t);
+      expect(t.state().verdict).toEqual({ seq: 1, state: "ok", done: false });
+    });
+
+    it("newProblem and a phase switch reset the state but keep counting seq", async () => {
+      const t = await boot(
+        stream([
+          shown("L1", LEARN),
+          shown("S1"),
+          { event: "line_state", workspaceId: "S1", blockId: "s1", line: 1, state: "ok" },
+          "ok",
+        ]),
+      );
+      await typed(t);
+      expect(t.state().verdict).toEqual({ seq: 1, state: "ok", done: false });
+      t.ws.actions.setPhase("solve"); // already active: no change
+      expect(t.state().verdict.state).toBe("ok");
+      t.ws.actions.setPhase("learn");
+      expect(t.state().verdict).toEqual({ seq: 1, state: null, done: false });
+      Object.assign(t.api, { check: vi.fn().mockResolvedValue(okCheck) });
+      await t.ws.actions.check("S1", "s1", "y", []);
+      expect(t.state().verdict.seq).toBe(2);
+      t.ws.actions.newProblem();
+      expect(t.state().verdict).toEqual({ seq: 2, state: null, done: false });
+    });
+  });
+
   it("restore prefers workspaces over html", async () => {
     const t = await boot(undefined, {
       sessionId: "srv",

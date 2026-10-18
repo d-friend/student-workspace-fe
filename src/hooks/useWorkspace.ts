@@ -80,6 +80,8 @@ export type WorkspaceState = {
   hasMessages: boolean;
   inputDisabled: boolean;
   sendDisabled: boolean;
+  verdict: { seq: number; state: "ok" | "review" | null; done: boolean }; // latest line verdict; seq never resets
+  checking: number; // checks in flight
 };
 
 export type WorkspaceDeps = {
@@ -143,6 +145,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let sessionConfirmed = false;
   let restateClosedId: number | null = null;
   let offerClosedId: number | null = null;
+  let checking = 0;
+  let verdictSeq = 0;
+  let verdict: WorkspaceState["verdict"] = { seq: 0, state: null, done: false };
 
   const sid = () => (sessionConfirmed ? sessionId : null);
 
@@ -186,7 +191,15 @@ export function createWorkspace(deps: WorkspaceDeps) {
       hasMessages: messages.length > 0,
       inputDisabled,
       sendDisabled: inputDisabled || queued !== null,
+      verdict,
+      checking,
     };
+  }
+
+  // A different active phase clears the old phase's verdict; seq keeps counting.
+  function activate(p: Phase) {
+    if (p !== phase) verdict = { seq: verdictSeq, state: null, done: false };
+    phase = p;
   }
 
   function publish() {
@@ -327,7 +340,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
         const old = workspaces[e.phase];
         const replaced = old !== undefined;
         workspaces = { ...workspaces, [e.phase]: { id: e.workspaceId, doc: e.doc } };
-        phase = e.phase;
+        activate(e.phase);
         gotWorkspace = true;
         building = false;
         status = null;
@@ -345,10 +358,11 @@ export function createWorkspace(deps: WorkspaceDeps) {
         }
         track("workspace_shown", { ms_since_send: Math.max(0, now() - sentAt), replaced }, sid());
       } else if (e.event === "phase") {
-        if (workspaces[e.phase]) phase = e.phase;
+        if (workspaces[e.phase]) activate(e.phase);
       } else if (e.event === "line_state") {
         const w = overrides[e.workspaceId] ?? {};
         overrides = { ...overrides, [e.workspaceId]: { ...w, [e.blockId]: { ...w[e.blockId], [e.line]: e.state } } };
+        verdict = { seq: ++verdictSeq, state: e.state, done: false };
       } else {
         taskDone = { ...taskDone, [e.workspaceId]: [...(taskDone[e.workspaceId] ?? []), e.blockId] };
       }
@@ -673,14 +687,17 @@ export function createWorkspace(deps: WorkspaceDeps) {
     },
 
     setPhase(p: Phase) {
-      phase = p;
+      activate(p);
       actions.report("phase_viewed", { phase: p });
     },
 
     check(workspaceId: string, blockId: string, answer: string, previous: string[]): Promise<CheckResponse> {
       const w = Object.values(workspaces).find((x) => x.id === workspaceId);
       if (!w || sessionId === null) return Promise.reject(new Error(`no workspace ${workspaceId}`));
+      checking++;
+      publish();
       return api.check(sessionId, { workspaceId, blockId, answer, previous }).then((r) => {
+        verdict = { seq: ++verdictSeq, state: r.state, done: r.done };
         // A master line_state judged the attempt it was issued for, not the next one at that line.
         // shortcut: the line is previous.length + 1, which is Steps' contract; other blocks hold no overrides.
         const line = previous.length + 1;
@@ -692,6 +709,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
           publish();
         }
         return r;
+      }).finally(() => {
+        checking--;
+        publish();
       });
     },
 
@@ -711,6 +731,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       html = null;
       workspaces = {};
       phase = null;
+      verdict = { seq: verdictSeq, state: null, done: false };
       overrides = {};
       taskDone = {};
       building = false;

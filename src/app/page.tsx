@@ -82,10 +82,11 @@ export default function Page() {
     workspaceId: w.id,
     phase: w.doc.phase,
     report: ws.report,
-    check: (blockId, answer, previous) => ws.check(w.id, blockId, answer, previous),
+    check: (blockId, answer, previous, item) => ws.check(w.id, blockId, answer, previous, item),
     overrides: ws.overrides[w.id] ?? {},
     hintCount: 0,
     onSolved: () => {},
+    help: null,
   });
 
   // One composer at a time: the entry's until there is a conversation, then the drawer's.

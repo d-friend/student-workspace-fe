@@ -893,6 +893,17 @@ describe("structured workspace", () => {
     expect(check).toHaveBeenCalledWith("s1", { workspaceId: "S1", blockId: "s1", answer: "y", previous: ["a"] });
   });
 
+  it("check passes item through", async () => {
+    const t = await boot(stream([shown("L1", LEARN), shown("S1"), "ok"]));
+    const check = vi.fn().mockResolvedValue({ ok: true, state: "ok", done: false });
+    Object.assign(t.api, { check });
+    await typed(t);
+    await t.ws.actions.check("S1", "s1", "1", [], 1);
+    expect(check).toHaveBeenLastCalledWith("s1", { workspaceId: "S1", blockId: "s1", answer: "1", previous: [], item: 1 });
+    await t.ws.actions.check("S1", "s1", "y", []);
+    expect(check.mock.calls.at(-1)![1]).not.toHaveProperty("item");
+  });
+
   it("check binds to the given workspace even when another phase repeats the block id", async () => {
     const practice = { ...SOLVE, phase: "practice" as const };
     const t = await boot(stream([shown("S1"), shown("P1", practice), { event: "phase", phase: "solve" }, "ok"]));

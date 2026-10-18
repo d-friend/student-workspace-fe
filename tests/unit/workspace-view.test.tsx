@@ -15,6 +15,7 @@ const mk = (): BlockCtx => ({
   overrides: {},
   hintCount: 0,
   onSolved: vi.fn(),
+  help: null,
 });
 const ws = (doc: WorkspaceDoc): Workspace => ({ id: doc.phase, doc });
 const view = (

@@ -738,12 +738,12 @@ export function createWorkspace(deps: WorkspaceDeps) {
       actions.report("phase_viewed", { phase: p });
     },
 
-    check(workspaceId: string, blockId: string, answer: string, previous: string[]): Promise<CheckResponse> {
+    check(workspaceId: string, blockId: string, answer: string, previous: string[], item?: number): Promise<CheckResponse> {
       const w = Object.values(workspaces).find((x) => x.id === workspaceId);
       if (!w || sessionId === null) return Promise.reject(new Error(`no workspace ${workspaceId}`));
       checking++;
       publish();
-      return api.check(sessionId, { workspaceId, blockId, answer, previous }).then((r) => {
+      return api.check(sessionId, { workspaceId, blockId, answer, previous, ...(item !== undefined && { item }) }).then((r) => {
         verdict = { seq: ++verdictSeq, state: r.state, done: r.done };
         // A master line_state judged the attempt it was issued for, not the next one at that line.
         // shortcut: the line is previous.length + 1, which is Steps' contract; other blocks hold no overrides.

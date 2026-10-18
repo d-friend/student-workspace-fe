@@ -59,10 +59,11 @@ export type BlockCtx = {
   workspaceId: string;
   phase: Phase;
   report: (type: string, data?: unknown) => void;
-  check: (blockId: string, answer: string, previous: string[]) => Promise<CheckResponse>;
+  check: (blockId: string, answer: string, previous: string[], item?: number) => Promise<CheckResponse>; // item: scaffold index
   overrides: Record<string, Record<number, "ok" | "review">>; // from SSE line_state, by block id
   hintCount: number; // "Gợi ý" presses in this doc
   onSolved: (blockId: string) => void; // a steps block reached its final checkpoint
+  help: { level: number; onHint: () => void; onIdea?: () => void } | null; // Doc sets it; Steps shows it in its active row
 };
 
 export type BlockProps<B> = { block: B; ctx: BlockCtx };

@@ -30,6 +30,7 @@ const build = async (page: Page) => {
 
 test("works without opening the chat", async ({ page }) => {
   await build(page);
+  await page.getByRole("button", { name: copy.otherWay }).click();
   await page.getByLabel(copy.lineLabel(1)).fill("f'(x)=3x^2-2");
   await page.getByRole("button", { name: copy.check }).click();
   await expect(page.getByText(copy.stateOk, { exact: true })).toBeVisible();
@@ -50,6 +51,7 @@ test("works without opening the chat", async ({ page }) => {
   await page.getByRole("tab", { name: copy.phaseLearn }).click();
   await expect(page.getByRole("heading", { name: "Ý tưởng" })).toBeVisible();
   await page.getByRole("tab", { name: copy.phaseSolve }).click();
+  await page.getByRole("button", { name: copy.otherWay }).click(); // a reload restores the scaffold
   await expect(page.getByLabel(copy.lineLabel(1))).toBeVisible();
 });
 
@@ -97,6 +99,7 @@ test("restore never unfolds", async ({ page }) => {
     new MutationObserver(look).observe(document, { subtree: true, childList: true, attributes: true });
   });
   await page.reload();
+  await page.getByRole("button", { name: copy.otherWay }).click(); // a reload restores the scaffold
   await expect(page.getByLabel(copy.lineLabel(1))).toBeVisible();
   await page.waitForTimeout(1500); // longer than the unfold (about 1.05 s)
   expect(await page.evaluate(() => (window as unknown as { __flew: boolean }).__flew)).toBe(false);

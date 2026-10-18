@@ -38,6 +38,8 @@ export const copy = {
   offerYes: "Thử bài tương tự",
   offerLater: "Để sau",
   writeOwn: "Tự nhắn",
+  otherWay: "Mình có cách khác",
+  blankLabel: (n: number) => `Dòng ${n}, điền vào chỗ trống`,
   offerYesMessage: "Cho mình thử bài tương tự",
   watching: "Mình đang xem bạn làm. Cần thì bấm Gợi ý.",
   newProblem: "Bài mới",

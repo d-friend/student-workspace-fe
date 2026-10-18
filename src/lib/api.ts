@@ -107,13 +107,14 @@ export async function currentSession(): Promise<{
 
 export async function check(
   sessionId: string,
-  body: { workspaceId: string; blockId: string; answer: string; previous: string[] },
+  body: { workspaceId: string; blockId: string; answer: string; previous: string[]; item?: number },
 ): Promise<CheckResponse> {
   const res = await post(`/api/sessions/${sessionId}/check`, {
     workspace_id: body.workspaceId,
     block_id: body.blockId,
     answer: body.answer,
     previous: body.previous,
+    ...(body.item !== undefined && { item: body.item }),
   });
   if (!res.ok) throw await toApiError(res);
   return res.json();

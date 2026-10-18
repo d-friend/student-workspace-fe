@@ -19,6 +19,7 @@ export function FixtureView({ doc }: { doc: WorkspaceDoc }) {
     overrides: {},
     hintCount: 0,
     onSolved: noop,
+    help: null,
   });
   return (
     <Shell

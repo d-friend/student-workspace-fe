@@ -34,6 +34,7 @@ test("build, check a line, add a learn phase, switch keeping input, reload", asy
 
   await send(page, "__build");
   await expect(page.getByText("Viết phương trình tiếp tuyến")).toBeVisible();
+  await page.getByRole("button", { name: copy.otherWay }).click();
   const line = page.getByLabel(copy.lineLabel(1));
   await line.fill("f'(x)=3x^2-2");
   await page.getByRole("button", { name: copy.check }).click();
@@ -72,6 +73,7 @@ test("a student gesture starts a turn, new problem, photo, tracking rows without
   await expect(page.getByText("Viết phương trình tiếp tuyến")).toBeVisible();
 
   // A rejected line is a student gesture the master must see: it answers on its own.
+  await page.getByRole("button", { name: copy.otherWay }).click();
   await page.getByLabel(copy.lineLabel(1)).fill(LINE);
   await page.getByRole("button", { name: copy.check }).click();
   await expect(page.getByText(copy.stateReview, { exact: true })).toBeVisible();

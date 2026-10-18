@@ -33,8 +33,9 @@ function Doc({ w, p, hidden, tabbed, base, onPhase, hasSolve, taskDone }: {
   const [solved, setSolved] = useState<{ via?: "master" } | null>(null);
   const reported = useRef(false);
   const level = Math.min(presses, 3);
+  const working = p !== "learn";
   const stepsIds = w.doc.blocks.filter((b) => b.type === "steps").map((b) => b.id);
-  const stepsId = stepsIds[0] ?? "";
+  const stepsId = w.doc.blocks.find((b) => b.type === "steps")?.id ?? ""; // not stepsIds[0]: React Compiler would see ctx.help mutating stepsIds
   const mastered = stepsIds.some((id) => taskDone.includes(id));
   const fin = useMemo(() => solved ?? (mastered ? { via: "master" as const } : null), [solved, mastered]);
 
@@ -44,15 +45,20 @@ function Doc({ w, p, hidden, tabbed, base, onPhase, hasSolve, taskDone }: {
     base.report("task_completed", { similar: p === "practice", helped: presses > 0, max_hint: level, ...(fin.via && { via: fin.via }) });
   }, [fin, base, p, presses, level]);
 
+  const onHint = () => {
+    setPresses(presses + 1);
+    base.report("help_requested", { block_id: stepsId, level: Math.min(presses + 1, 3) });
+  };
+  const help = { level, onHint, onIdea: p === "solve" ? () => base.report("foundation_requested", {}) : undefined };
   const ctx: BlockCtx = {
     ...base,
     hintCount: presses,
+    help,
     onSolved: (id) => {
       base.onSolved(id);
       setSolved((f) => f ?? {});
     },
   };
-  const working = p !== "learn";
 
   return (
     <section id={`panel-${p}`} {...(tabbed && { role: "tabpanel", "aria-labelledby": `tab-${p}` })} hidden={hidden} className={styles.doc} data-phase={p}>
@@ -62,16 +68,7 @@ function Doc({ w, p, hidden, tabbed, base, onPhase, hasSolve, taskDone }: {
           {renderBlock(b, ctx)}
         </BlockBoundary>
       ))}
-      {working && (
-        <HelpBar
-          level={level}
-          onHint={() => {
-            setPresses(presses + 1);
-            ctx.report("help_requested", { block_id: stepsId, level: Math.min(presses + 1, 3) });
-          }}
-          onIdea={p === "solve" ? () => ctx.report("foundation_requested", {}) : undefined}
-        />
-      )}
+      {working && !stepsId && <HelpBar level={help.level} onHint={help.onHint} onIdea={help.onIdea} />}
       {fin && <DoneBanner />}
       {p === "learn" && w.doc.sources.length > 0 && (
         <aside className={styles.sources}>

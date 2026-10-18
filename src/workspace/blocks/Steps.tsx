@@ -1,20 +1,24 @@
 import { IconAlertCircle, IconCheck } from "@tabler/icons-react";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { copy } from "@/lib/copy";
+import { HelpBar } from "../HelpBar";
 import type { Block, BlockProps } from "../types";
 import styles from "./working.module.css";
 
 type Steps = Extract<Block, { type: "steps" }>;
 type Entry = { text: string; state: "ok" | "review" };
+type Attempt = { answer: string; text: string; input: "choice" | "blank" | "free"; item?: number };
 
 export function Steps({ block, ctx }: BlockProps<Steps>) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [text, setText] = useState("");
-  const [failed, setFailed] = useState<string | null>(null);
+  const [failed, setFailed] = useState<Attempt | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [free, setFree] = useState(false);
   const inputId = useId();
   const input = useRef<HTMLInputElement>(null);
+  const refocus = useRef(false); // focus the input once the next render has put it in place
   const dirty = useRef(false); // this position had a review or error
   const hintBase = useRef(0); // ctx.hintCount at the last ok line
 
@@ -22,17 +26,27 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const effective = entries.map((e, i) => ov[i + 1] ?? e.state);
   let pos = 0;
   while (pos < entries.length && effective[pos] === "ok") pos++;
+  // Past the last item without done (the master judged it ok, or an override moved on) the student types freely.
+  const item = block.scaffold && !free && pos < block.scaffold.length ? block.scaffold[pos] : null;
+  const [pre, post = ""] = item?.kind === "blank" ? item.template.split("___") : [];
 
-  async function run(answer: string) {
-    if (busy || done || !answer.trim()) return;
+  useEffect(() => {
+    if (!refocus.current) return;
+    refocus.current = false;
+    input.current?.focus();
+  });
+
+  async function run(a: Attempt) {
+    if (busy || done || !a.answer.trim()) return;
     setBusy(true);
     setFailed(null);
+    // shortcut: previous scaffold lines may not parse as SymPy, so code-side checkpoint progress can lag; the master covers it.
     const previous = entries.slice(0, pos).map((e) => e.text);
     try {
-      const r = await ctx.check(block.id, answer, previous);
+      const r = await ctx.check(block.id, a.answer, previous, ...(a.item === undefined ? [] : [a.item]));
       const retried = dirty.current || ctx.hintCount > hintBase.current;
-      setEntries([...entries.slice(0, pos), { text: answer, state: r.state }]);
-      ctx.report("line_checked", { block_id: block.id, line: pos + 1, text: answer, ok: r.ok, state: r.state, retried });
+      setEntries([...entries.slice(0, pos), { text: a.text, state: r.state }]);
+      ctx.report("line_checked", { block_id: block.id, line: pos + 1, text: a.text, ok: r.ok, state: r.state, retried, input: a.input });
       if (r.state === "ok") {
         dirty.current = false;
         hintBase.current = ctx.hintCount;
@@ -44,10 +58,10 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
       }
     } catch {
       dirty.current = true;
-      setFailed(answer);
+      setFailed(a);
     } finally {
       setBusy(false);
-      input.current?.focus();
+      refocus.current = true;
     }
   }
 
@@ -74,22 +88,68 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
         )}
       </ol>
       {!done && (
-        <form
-          className={styles.entry}
-          onSubmit={(e) => {
-            e.preventDefault();
-            void run(text);
-          }}
-        >
-          <label htmlFor={inputId} className={styles.entryLabel}>
-            {copy.lineLabel(pos + 1)}
-          </label>
-          {block.help && <p className={`${styles.small} ${styles.help}`}>{block.help}</p>}
-          <input ref={input} id={inputId} className={styles.input} value={text} onChange={(e) => setText(e.target.value)} autoComplete="off" />
-          <button type="submit" className={styles.primary} disabled={busy}>
-            {copy.check}
-          </button>
-        </form>
+        <div data-pet-anchor className={styles.active}>
+          {item?.kind === "choice" ? (
+            <div role="group" aria-label={item.prompt} className={styles.options}>
+              {item.options.map((o, i) => (
+                <button key={i} type="button" className={styles.btn} disabled={busy} onClick={() => void run({ answer: String(i), text: o, input: "choice", item: pos })}>
+                  {o}
+                </button>
+              ))}
+            </div>
+          ) : item ? (
+            <form
+              className={styles.blank}
+              onSubmit={(e) => {
+                e.preventDefault();
+                void run({ answer: text, text: pre + text + post, input: "blank", item: pos });
+              }}
+            >
+              <label htmlFor={inputId} className={styles.srOnly}>
+                {copy.blankLabel(pos + 1)}
+              </label>
+              {pre}
+              <input ref={input} id={inputId} className={`${styles.input} ${styles.gap}`} value={text} onChange={(e) => setText(e.target.value)} autoComplete="off" />
+              {post}
+              <button type="submit" className={styles.primary} disabled={busy}>
+                {copy.check}
+              </button>
+            </form>
+          ) : (
+            <form
+              className={styles.entry}
+              onSubmit={(e) => {
+                e.preventDefault();
+                void run({ answer: text, text, input: "free" });
+              }}
+            >
+              <label htmlFor={inputId} className={styles.entryLabel}>
+                {copy.lineLabel(pos + 1)}
+              </label>
+              {block.help && <p className={`${styles.small} ${styles.help}`}>{block.help}</p>}
+              <input ref={input} id={inputId} className={styles.input} value={text} onChange={(e) => setText(e.target.value)} autoComplete="off" />
+              <button type="submit" className={styles.primary} disabled={busy}>
+                {copy.check}
+              </button>
+            </form>
+          )}
+          {ctx.help && <HelpBar {...ctx.help} />}
+          {item && (
+            <button
+              type="button"
+              className={styles.btn}
+              onClick={() => {
+                // shortcut: no way back to the scaffold; add one if students ask for it.
+                setFree(true);
+                setText("");
+                refocus.current = true;
+                ctx.report("other_way_chosen", { block_id: block.id, line: pos + 1 });
+              }}
+            >
+              {copy.otherWay}
+            </button>
+          )}
+        </div>
       )}
     </section>
   );

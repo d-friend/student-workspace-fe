@@ -1,0 +1,149 @@
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { PetLayer } from "@/components/pet/PetLayer";
+import type { Bubble, WorkspaceState } from "@/hooks/useWorkspace";
+import { copy } from "@/lib/copy";
+
+afterEach(cleanup);
+
+const agent = (id: number, text: string, extra: Partial<Extract<Bubble, { kind: "agent" }>> = {}): Bubble => ({
+  id,
+  kind: "agent",
+  text,
+  waiting: false,
+  line: null,
+  offer: false,
+  restate: false,
+  ...extra,
+});
+
+function setup(bubbles: Bubble[], extra: Partial<WorkspaceState> = {}) {
+  const state = {
+    bubbles,
+    busy: false,
+    building: false,
+    checking: 0,
+    verdict: { seq: 0, state: null, done: false },
+    taskDone: {},
+    restateChips: false,
+    offerChips: false,
+    watching: false,
+    hasMessages: bubbles.length > 0,
+    ...extra,
+  } as WorkspaceState;
+  const props = {
+    inputRef: { current: null } as { current: HTMLTextAreaElement | null },
+    onNewProblem: vi.fn(),
+    onConfirmRestate: vi.fn(),
+    onCorrectRestate: vi.fn(),
+    onAcceptOffer: vi.fn(),
+    onOfferLater: vi.fn(),
+    composer: {
+      value: "",
+      onChange: vi.fn(),
+      onSend: vi.fn(),
+      onPickPhoto: vi.fn(),
+      placeholder: "...",
+      photo: null,
+    },
+  };
+  return { state, props, ui: <PetLayer state={state} {...props} /> };
+}
+
+const pet = () => screen.getByRole("button", { name: copy.petOpen });
+
+describe("PetLayer", () => {
+  it("(a) the pet is a button labelled petOpen", () => {
+    render(setup([]).ui);
+    expect(pet().tagName).toBe("BUTTON");
+  });
+
+  it("(b) opens a dialog with the composer focused; Escape closes and focus returns to the pet", () => {
+    render(setup([]).ui);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(pet());
+    expect(screen.getByRole("dialog", { name: copy.drawerLabel })).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByLabelText(copy.inputLabel));
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(pet());
+  });
+
+  it("(c) the bubble shows the text once when closed; with the drawer open only the log has it", () => {
+    render(setup([agent(1, "Xin chào")]).ui);
+    expect(within(screen.getByRole("status")).getByText("Xin chào")).toBeTruthy();
+    expect(screen.getAllByText("Xin chào")).toHaveLength(1);
+    fireEvent.click(pet());
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getAllByText("Xin chào")).toHaveLength(1);
+    expect(within(screen.getByRole("log")).getByText("Xin chào")).toBeTruthy();
+  });
+
+  it("(d) the close button hides the bubble and shows the unread cue; opening clears it", () => {
+    render(setup([agent(1, "Xin chào")]).ui);
+    expect(screen.queryByText(copy.petUnread)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: copy.bubbleClose }));
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByText(copy.petUnread)).toBeTruthy();
+    fireEvent.click(pet());
+    expect(screen.queryByText(copy.petUnread)).toBeNull();
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(screen.queryByText(copy.petUnread)).toBeNull();
+  });
+
+  it("a newer agent bubble brings a dismissed bubble back", () => {
+    const first = setup([agent(1, "Một")]);
+    const { rerender } = render(first.ui);
+    fireEvent.click(screen.getByRole("button", { name: copy.bubbleClose }));
+    const next = setup([agent(1, "Một"), agent(2, "Hai")]);
+    rerender(next.ui);
+    expect(within(screen.getByRole("status")).getByText("Hai")).toBeTruthy();
+  });
+
+  it("(e) an error bubble is an alert", () => {
+    render(setup([{ id: 1, kind: "error", text: "Lỗi mạng" }]).ui);
+    expect(within(screen.getByRole("alert")).getByText("Lỗi mạng")).toBeTruthy();
+  });
+
+  it("(f) restate chips live in the bubble when closed and in the drawer when open, never both", () => {
+    const s = setup([agent(1, "Mình đọc đề là: x", { restate: true })], { restateChips: true });
+    render(s.ui);
+    expect(screen.getAllByRole("button", { name: copy.restateYes })).toHaveLength(1);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: copy.restateYes }));
+    expect(s.props.onConfirmRestate).toHaveBeenCalledTimes(1);
+    fireEvent.click(pet());
+    const chips = screen.getAllByRole("button", { name: copy.restateYes });
+    expect(chips).toHaveLength(1);
+    expect(screen.getByRole("dialog").contains(chips[0])).toBe(true);
+  });
+
+  it("Trả lời opens the drawer", () => {
+    render(setup([agent(1, "Em thử bước này nhé?")]).ui);
+    fireEvent.click(screen.getByRole("button", { name: copy.reply }));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("a waiting bubble shows no text, only the typing dots", () => {
+    render(setup([agent(1, "đang nghĩ", { waiting: true })], { busy: true }).ui);
+    expect(screen.queryByText("đang nghĩ")).toBeNull();
+    expect(screen.getByRole("status")).toBeTruthy();
+  });
+
+  it("focusInput (the store's inputRef) opens the drawer and focuses the composer", () => {
+    const s = setup([]);
+    render(s.ui);
+    act(() => s.props.inputRef.current!.focus());
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByLabelText(copy.inputLabel));
+  });
+
+  it("shows the problem recap from the restatement and Bài mới only once there are messages", () => {
+    const s = setup([agent(1, "Mình đọc đề là: x", { restate: true })]);
+    render(s.ui);
+    fireEvent.click(pet());
+    expect(within(screen.getByRole("dialog")).getByText(copy.problemRecap)).toBeTruthy();
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: copy.newProblem }));
+    expect(s.props.onNewProblem).toHaveBeenCalledTimes(1);
+  });
+});

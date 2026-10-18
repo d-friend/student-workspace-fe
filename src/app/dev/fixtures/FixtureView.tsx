@@ -24,7 +24,7 @@ export function FixtureView({ doc, pill }: { doc: WorkspaceDoc; pill: boolean })
   });
   return (
     <Shell
-      rail={null}
+      layer={null}
       work={
         <div className={styles.viewWrap}>
           <WorkspaceView workspaces={{ [doc.phase]: w }} phase={phase} onPhase={setPhase} makeCtx={makeCtx} />

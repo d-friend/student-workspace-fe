@@ -1,14 +1,9 @@
 "use client";
 
-import { type ChangeEvent, useEffect, useMemo, useRef } from "react";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "@/components/Shell";
-import { Bubble } from "@/components/rail/Bubble";
-import { ChatLog } from "@/components/rail/ChatLog";
-import { Composer } from "@/components/rail/Composer";
-import { OfferChips } from "@/components/rail/OfferChips";
-import { RailHeader } from "@/components/rail/RailHeader";
-import { RestateChips } from "@/components/rail/RestateChips";
-import { WatchingCue } from "@/components/rail/WatchingCue";
+import { PetLayer } from "@/components/pet/PetLayer";
+import { NewProblemButton } from "@/components/rail/NewProblemButton";
 import { BuildingSkeleton } from "@/components/work/BuildingSkeleton";
 import { EmptyState } from "@/components/work/EmptyState";
 import { PhotoCheck } from "@/components/work/PhotoCheck";
@@ -78,65 +73,7 @@ export default function Page() {
   const srcDoc = useMemo(() => (ws.html === null ? null : frameDoc(ws.html, location.origin)), [ws.html]);
   const photoSrc = ws.photo === null ? null : JPEG_PREFIX + ws.photo;
 
-  const lastAgent = ws.bubbles.findLast((b) => b.kind === "agent");
-
-  const rail = (
-    <>
-      <RailHeader showNewProblem={ws.hasMessages} onNewProblem={ws.newProblem} />
-      <ChatLog empty={ws.bubbles.length === 0} tick={ws.bubbles}>
-        {ws.bubbles.map((b) => {
-          if (b.kind === "student") {
-            return (
-              <Bubble key={b.id} variant="student">
-                {b.photo && (
-                  // eslint-disable-next-line @next/next/no-img-element -- base64 data URL, next/image cannot optimize it
-                  <img src={JPEG_PREFIX + b.photo} alt={copy.photoChip} style={{ maxWidth: "100%", borderRadius: 8 }} />
-                )}
-                {b.text}
-              </Bubble>
-            );
-          }
-          if (b.kind !== "agent") {
-            return (
-              <Bubble key={b.id} variant={b.kind}>
-                {b.text}
-              </Bubble>
-            );
-          }
-          const muted = b.id !== lastAgent?.id;
-          return (
-            <div key={b.id} style={{ display: "contents" }}>
-              {b.line === null ? (
-                <Bubble variant="agent" muted={muted}>
-                  {b.text}
-                </Bubble>
-              ) : (
-                <Bubble variant="agent-review" line={b.line} muted={muted}>
-                  {b.text}
-                </Bubble>
-              )}
-              {!muted && ws.restateChips && <RestateChips onConfirm={ws.confirmRestate} onCorrect={ws.correctRestate} />}
-              {!muted && ws.offerChips && (
-                <OfferChips onAccept={() => void ws.answerOffer(true)} onLater={() => void ws.answerOffer(false)} />
-              )}
-            </div>
-          );
-        })}
-        {ws.watching && <WatchingCue />}
-      </ChatLog>
-      <Composer
-        value={ws.input}
-        onChange={ws.setInput}
-        onSend={() => void ws.submit()}
-        onPickPhoto={() => pick("composer_button")}
-        placeholder={ws.hasMessages ? copy.placeholderWorking : copy.placeholderEmpty}
-        sendDisabled={ws.sendDisabled}
-        photo={photoSrc ? { src: photoSrc, onRemove: ws.removePhoto } : null}
-        inputRef={ws.inputRef}
-      />
-      <input ref={fileInput} type="file" accept="image/*" hidden onChange={onFile} />
-    </>
-  );
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const pill = ws.building ? (ws.status ?? copy.building) : null;
   // WorkspaceView wraps hintCount and onSolved per doc itself.
@@ -193,5 +130,37 @@ export default function Page() {
     );
   }
 
-  return <Shell rail={rail} work={work} />;
+  const layer = (
+    <PetLayer
+      state={ws}
+      inputRef={ws.inputRef}
+      onOpenChange={setDrawerOpen}
+      onNewProblem={ws.newProblem}
+      onConfirmRestate={ws.confirmRestate}
+      onCorrectRestate={ws.correctRestate}
+      onAcceptOffer={() => void ws.answerOffer(true)}
+      onOfferLater={() => void ws.answerOffer(false)}
+      composer={{
+        value: ws.input,
+        onChange: ws.setInput,
+        onSend: () => void ws.submit(),
+        onPickPhoto: () => pick("composer_button"),
+        placeholder: ws.hasMessages ? copy.placeholderWorking : copy.placeholderEmpty,
+        sendDisabled: ws.sendDisabled,
+        photo: photoSrc ? { src: photoSrc, onRemove: ws.removePhoto } : null,
+      }}
+    />
+  );
+  const bar = ws.hasMessages && (
+    <div className={styles.topBar}>
+      <NewProblemButton onClick={ws.newProblem} />
+    </div>
+  );
+
+  return (
+    <>
+      <Shell bar={bar} work={work} layer={layer} inert={drawerOpen} />
+      <input ref={fileInput} type="file" accept="image/*" hidden onChange={onFile} />
+    </>
+  );
 }

@@ -5,3 +5,11 @@
   min-height: 0;
   display: flex;
 }
+
+/* Room on the right for the theme toggle, which floats over the stage corner. */
+.topBar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 8px 68px 0 clamp(16px, 4vw, 48px);
+}

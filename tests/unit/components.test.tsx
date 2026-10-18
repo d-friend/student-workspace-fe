@@ -2,7 +2,6 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { Bubble } from "@/components/rail/Bubble";
 import { Composer } from "@/components/rail/Composer";
-import { RailHeader } from "@/components/rail/RailHeader";
 import { RestateChips } from "@/components/rail/RestateChips";
 import { BuildingSkeleton } from "@/components/work/BuildingSkeleton";
 import { EmptyState } from "@/components/work/EmptyState";
@@ -79,11 +78,4 @@ test("the empty state offers Thử lại only after a failed build", () => {
   rerender(<EmptyState onSnap={vi.fn()} onType={vi.fn()} onStarter={vi.fn()} onRetry={onRetry} />);
   fireEvent.click(screen.getByRole("button", { name: copy.retry }));
   expect(onRetry).toHaveBeenCalledTimes(1);
-});
-
-test("Bài mới shows only when asked", () => {
-  const { rerender } = render(<RailHeader showNewProblem={false} onNewProblem={vi.fn()} />);
-  expect(screen.queryByRole("button", { name: copy.newProblem })).toBeNull();
-  rerender(<RailHeader showNewProblem onNewProblem={vi.fn()} />);
-  expect(screen.getByRole("button", { name: copy.newProblem })).toBeTruthy();
 });

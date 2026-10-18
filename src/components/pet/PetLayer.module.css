@@ -1,0 +1,57 @@
+/* Docked: bottom-right of the stage. The layer lets clicks through; its children opt back in. */
+.layer {
+  --pet-size: 88px;
+  --pet-edge: 24px;
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.layer > * {
+  pointer-events: auto;
+}
+
+.pet {
+  position: absolute;
+  right: calc(var(--pet-edge) + env(safe-area-inset-right));
+  bottom: calc(var(--pet-edge) + env(safe-area-inset-bottom));
+  width: var(--pet-size);
+  height: var(--pet-size);
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.pet:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--brand);
+  border: 2px solid var(--panel);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+@media (max-width: 799px) {
+  .layer {
+    --pet-size: 72px;
+    --pet-edge: 16px;
+  }
+}

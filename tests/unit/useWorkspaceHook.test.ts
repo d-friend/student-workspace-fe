@@ -48,6 +48,8 @@ it("wires the controller into React: input, a typed turn, and the screen", async
 
 const DONE = { turnId: "t", stopReason: "end_turn" };
 const send = async (text: string) => {
+  // The composer lives in the chat drawer, which opens from the pet.
+  if (!screen.queryByRole("dialog")) fireEvent.click(screen.getByRole("button", { name: copy.petOpen }));
   fireEvent.change(screen.getByRole("textbox", { name: copy.inputLabel }), { target: { value: text } });
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: copy.send }));

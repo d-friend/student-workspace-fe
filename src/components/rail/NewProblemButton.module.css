@@ -1,0 +1,15 @@
+.button {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  height: 44px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+}

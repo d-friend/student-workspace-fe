@@ -25,6 +25,8 @@ const ASK_TAG = /^\s*\[(how|why)\]/;
 const LINE_TAG = /^\s*\[line ([1-9]\d*)\]/;
 const OFFER_TAG = /^\s*\[offer\]/;
 const OPTS_TAG = /^\s*\[opts: ([^\]\n]{1,200})\]/;
+// The model sometimes writes the tag after the question text; accept it at the very end of the message.
+const TRAILING_OPTS_TAG = /\s*\[opts: ([^\]\n]{1,200})\]\s*$/;
 
 // While streaming, a chat that is still a prefix of one of these tags is hidden.
 const PARTIAL_MARKERS = [
@@ -39,13 +41,19 @@ const PARTIAL_MARKERS = [
   "[mode:practice]",
 ];
 const PARTIAL_LINE = /^\[line \d+$/;
-const PARTIAL_OPTS = /^\[opts:[^\]]*$/;
+// A trailing, still-open options tag or a prefix of "[opts:" (2+ chars), so it never flashes while streaming.
+const TRAILING_PARTIAL_OPTS = /\s*\[(?:opts:[^\]]*|o(?:p(?:t(?:s)?)?)?)$/;
 // Line-start anchor: a closing inline-code backtick ("Try `h`") is not a fence.
 const TRAILING_FENCE = /(^|\n)`{1,3}[a-z]*$/;
 
 function hidePartial(chat: string): string {
-  if (chat && (PARTIAL_MARKERS.some((m) => m.startsWith(chat)) || PARTIAL_LINE.test(chat) || PARTIAL_OPTS.test(chat))) return "";
-  return chat;
+  if (chat && (PARTIAL_MARKERS.some((m) => m.startsWith(chat)) || PARTIAL_LINE.test(chat))) return "";
+  return chat.replace(TRAILING_PARTIAL_OPTS, "");
+}
+
+function parseOpts(list: string): string[] | null {
+  const parts = list.split("|").map((x) => x.trim()).filter((x) => x && x.length <= 60);
+  return parts.length ? parts.slice(0, 3) : null;
 }
 
 export function parse(raw: string): Parsed {
@@ -78,13 +86,24 @@ export function parse(raw: string): Parsed {
   }
   const optsTag = OPTS_TAG.exec(body);
   if (optsTag) {
-    const parts = optsTag[1].split("|").map((x) => x.trim()).filter((x) => x && x.length <= 60);
-    opts = parts.length ? parts.slice(0, 3) : null;
+    opts = parseOpts(optsTag[1]);
     body = body.slice(optsTag[0].length);
   }
 
-  const common = { mode, ask, line, offer, opts };
   const open = body.indexOf(OPEN);
+  const nl = body.indexOf("\n", open);
+  const close = body.lastIndexOf(CLOSE);
+  // An empty block closes on the newline that ends its opening line.
+  const building = open !== -1 && (nl === -1 || close < nl);
+  if (!opts && !building) {
+    const trailing = TRAILING_OPTS_TAG.exec(body);
+    if (trailing) {
+      opts = parseOpts(trailing[1]);
+      body = body.slice(0, trailing.index);
+    }
+  }
+
+  const common = { mode, ask, line, offer, opts };
   if (open === -1) {
     const chat = body.replace(TRAILING_FENCE, "").trim();
     return {
@@ -98,10 +117,7 @@ export function parse(raw: string): Parsed {
   }
 
   const before = body.slice(0, open).trim();
-  const nl = body.indexOf("\n", open);
-  const close = body.lastIndexOf(CLOSE);
-  // An empty block closes on the newline that ends its opening line.
-  if (nl === -1 || close < nl) {
+  if (building) {
     const chat = hidePartial(before);
     return { ...common, chat, html: null, building: true, silent: false, restate: chat.startsWith(RESTATE) };
   }

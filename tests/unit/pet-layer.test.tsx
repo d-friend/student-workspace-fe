@@ -131,7 +131,7 @@ describe("PetLayer", () => {
   });
 
   describe("fading away", () => {
-    const FADE = 5000 + 400;
+    const FADE = 8000 + 400;
     const bubble = () => screen.queryByRole("status");
     const wait = (ms: number) => act(() => void vi.advanceTimersByTime(ms));
     const timed = (fn: () => void) => () => {
@@ -143,11 +143,11 @@ describe("PetLayer", () => {
       }
     };
 
-    it("a finished message fades after 5 s and is gone, without an unread cue", timed(() => {
+    it("a finished message fades after 8 s and is gone, without an unread cue", timed(() => {
       render(setup([agent(1, "Xin chào")]).ui);
-      wait(4900);
+      wait(7900);
       expect(bubble()).toBeTruthy();
-      wait(FADE - 4900);
+      wait(FADE - 7900);
       expect(bubble()).toBeNull();
       expect(screen.queryByText(copy.petUnread)).toBeNull();
     }));
@@ -155,9 +155,9 @@ describe("PetLayer", () => {
     it("new words restart the clock and bring a faded bubble back", timed(() => {
       const first = setup([agent(1, "Một")]);
       const { rerender } = render(first.ui);
-      wait(4000);
+      wait(6000);
       rerender(setup([agent(1, "Một hai")]).ui);
-      wait(4000);
+      wait(6000);
       expect(bubble()).toBeTruthy();
       wait(FADE);
       expect(bubble()).toBeNull();

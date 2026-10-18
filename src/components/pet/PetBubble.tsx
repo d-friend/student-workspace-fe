@@ -6,7 +6,7 @@ import styles from "./PetBubble.module.css";
 
 export type SpokenBubble = Extract<Bubble, { kind: "agent" | "error" | "note" }>;
 
-const SHOW_MS = 5000; // how long a finished message stays before it fades
+const SHOW_MS = 8000; // how long a finished message stays before it fades
 const FADE_MS = 400; // keep in step with bubbleOut in PetBubble.module.css
 
 // What D-Friend said this turn, next to the pet, one paragraph per message. `status` is the build's progress, shown

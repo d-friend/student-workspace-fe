@@ -85,6 +85,7 @@ describe("the pet's flight", () => {
     taskDone: {},
     restateChips: false,
     offerChips: false,
+    optChips: null,
     watching: false,
     hasMessages: true,
   } as unknown as WorkspaceState;
@@ -98,6 +99,7 @@ describe("the pet's flight", () => {
     onCorrectRestate: vi.fn(),
     onAcceptOffer: vi.fn(),
     onOfferLater: vi.fn(),
+    onOpt: vi.fn(),
     composer: { value: "", onChange: vi.fn(), onSend: vi.fn(), onPickPhoto: vi.fn(), placeholder: "", photo: null },
   };
 

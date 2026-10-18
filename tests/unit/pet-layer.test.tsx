@@ -31,6 +31,7 @@ function setup(bubbles: Bubble[], extra: Partial<WorkspaceState> = {}, entry = f
     taskDone: {},
     restateChips: false,
     offerChips: false,
+    optChips: null,
     watching: false,
     hasMessages: bubbles.length > 0,
     ...extra,
@@ -45,6 +46,7 @@ function setup(bubbles: Bubble[], extra: Partial<WorkspaceState> = {}, entry = f
     onCorrectRestate: vi.fn(),
     onAcceptOffer: vi.fn(),
     onOfferLater: vi.fn(),
+    onOpt: vi.fn(),
     composer: {
       value: "",
       onChange: vi.fn(),
@@ -209,6 +211,55 @@ describe("PetLayer", () => {
       wait(20000);
       expect(bubble()).toBeTruthy();
     }));
+  });
+
+  describe("answer choices", () => {
+    const opts = (extra: Partial<Extract<Bubble, { kind: "agent" }>> = {}) =>
+      setup([agent(1, "Em chọn nhé", { opts: ["A", "B"], ...extra })], { optChips: ["A", "B"] });
+
+    it("bubble shows opts and Tự nhắn", () => {
+      const s = opts();
+      render(s.ui);
+      const bubble = screen.getByRole("status");
+      expect(within(bubble).getByRole("button", { name: "B" })).toBeTruthy();
+      expect(within(bubble).getByRole("button", { name: copy.writeOwn })).toBeTruthy();
+      fireEvent.click(within(bubble).getByRole("button", { name: "A" }));
+      expect(s.props.onOpt).toHaveBeenCalledWith("A");
+    });
+
+    it("Tự nhắn opens the drawer with the composer focused", () => {
+      const s = opts();
+      render(s.ui);
+      fireEvent.click(screen.getByRole("button", { name: copy.writeOwn }));
+      expect(screen.getByRole("dialog")).toBeTruthy();
+      expect(document.activeElement).toBe(screen.getByLabelText(copy.inputLabel));
+      expect(s.props.onChatOpened).toHaveBeenCalledTimes(1);
+    });
+
+    it("drawer shows opts without Tự nhắn and the bubble is gone", () => {
+      render(opts().ui);
+      fireEvent.click(pet());
+      const chips = screen.getAllByRole("button", { name: "A" });
+      expect(chips).toHaveLength(1);
+      expect(screen.getByRole("dialog").contains(chips[0])).toBe(true);
+      expect(screen.queryByRole("button", { name: copy.writeOwn })).toBeNull();
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+
+    it("a why question does not fade; a plain message does", () => {
+      vi.useFakeTimers();
+      try {
+        const q = render(setup([agent(1, "Vì sao em chọn bước này?", { ask: "why" })]).ui);
+        act(() => void vi.advanceTimersByTime(10000));
+        expect(screen.queryByRole("status")).toBeTruthy();
+        q.unmount();
+        render(setup([agent(1, "Xin chào", { ask: null })]).ui);
+        act(() => void vi.advanceTimersByTime(10000));
+        expect(screen.queryByRole("status")).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   it("a waiting bubble shows no text, only the typing dots", () => {

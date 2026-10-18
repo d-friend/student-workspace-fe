@@ -240,6 +240,7 @@ export default function Page() {
       onCorrectRestate={ws.correctRestate}
       onAcceptOffer={() => void ws.answerOffer(true)}
       onOfferLater={() => void ws.answerOffer(false)}
+      onOpt={(t) => void ws.answerOpt(t)}
       composer={composer}
     />
   );

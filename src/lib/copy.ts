@@ -37,6 +37,7 @@ export const copy = {
   reviewLabel: (n: number) => `Về dòng ${n}`,
   offerYes: "Thử bài tương tự",
   offerLater: "Để sau",
+  writeOwn: "Tự nhắn",
   offerYesMessage: "Cho mình thử bài tương tự",
   watching: "Mình đang xem bạn làm. Cần thì bấm Gợi ý.",
   newProblem: "Bài mới",

@@ -7,6 +7,7 @@ import { FLY_MS } from "@/hooks/useUnfold";
 import type { WorkspaceState } from "@/hooks/useWorkspace";
 import { copy } from "@/lib/copy";
 import { OfferChips } from "@/components/rail/OfferChips";
+import { OptChips } from "@/components/rail/OptChips";
 import { RestateChips } from "@/components/rail/RestateChips";
 import type { Bubble } from "@/hooks/useWorkspace";
 import { ChatDrawer, type ChatActions, type ChatState } from "./ChatDrawer";
@@ -15,7 +16,7 @@ import { Pet } from "./Pet";
 import { PetBubble, type SpokenBubble } from "./PetBubble";
 import styles from "./PetLayer.module.css";
 
-type PetSignals = Pick<WorkspaceState, "busy" | "building" | "status" | "checking" | "verdict" | "taskDone" | "newProblemCount">;
+type PetSignals = Pick<WorkspaceState, "busy" | "building" | "status" | "checking" | "verdict" | "taskDone" | "newProblemCount" | "optChips">;
 
 // How long the closing chat column slides out before it unmounts (ChatDrawer.module.css panelOut).
 const CLOSE_MS = 350;
@@ -194,14 +195,21 @@ export function PetLayer({
             if (!entry) setUnread(true);
           }}
           // The entry keeps its message: there it can be the only place an instruction (a retake) is shown. So does
-          // a bubble that is asking the student to choose (its chips): it stays until they answer or close it.
-          autoHide={!entry && !(chips && (state.restateChips || state.offerChips))}
+          // a bubble that is asking the student to choose (its chips) or a question: it stays until they answer or close it.
+          autoHide={
+            !entry &&
+            !(chips && (state.restateChips || state.offerChips || state.optChips)) &&
+            !(latest?.kind === "agent" && latest.ask !== null)
+          }
           onHide={() => setHiddenKey(key)}
         >
           {chips && state.restateChips && (
             <RestateChips onConfirm={actions.onConfirmRestate} onCorrect={actions.onCorrectRestate} />
           )}
           {chips && state.offerChips && <OfferChips onAccept={actions.onAcceptOffer} onLater={actions.onOfferLater} />}
+          {chips && state.optChips && (
+            <OptChips options={state.optChips} onPick={actions.onOpt} onWriteOwn={() => inputRef.current?.focus(true)} />
+          )}
         </PetBubble>
       )}
       {(open || leaving) && !entry && (

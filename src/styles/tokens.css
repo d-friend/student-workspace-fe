@@ -1,4 +1,4 @@
-/* Light is the default. Dark follows the system setting. Values from plan-frontend.md and spec-workspace.md 4.1. */
+/* Light is the default. Dark follows the system setting unless data-theme on <html> overrides it (ThemeToggle). Values from plan-frontend.md and spec-workspace.md 4.1. */
 :root {
   --bg: #f6f7f9;
   --panel: #ffffff;
@@ -20,7 +20,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #12151b;
     --panel: #1a1e26;
     --text: #e7e9ee;
@@ -39,4 +39,24 @@
     --error-bg: #3a1717;
     --error-text: #ffb4b4;
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #12151b;
+  --panel: #1a1e26;
+  --text: #e7e9ee;
+  --muted: #a3abb8;
+  --border: #343a46;
+  --control-border: #6b7486;
+  --hairline: #262b35;
+  --accent: #7da2ff;
+  --accent-text: #0d1220;
+  --student: #1c2640;
+  --agent: #222833;
+  --idea-bg: #1c2640;
+  --review-bg: #2b1d10;
+  --review-border: #5a3b22;
+  --review-text: #ffb27a;
+  --error-bg: #3a1717;
+  --error-text: #ffb4b4;
 }

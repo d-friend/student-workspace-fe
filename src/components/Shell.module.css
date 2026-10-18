@@ -7,13 +7,44 @@
 }
 
 .rail {
-  flex: 0 0 380px;
+  flex: 0 0 var(--rail-w, 380px);
+  max-width: calc(100vw - 360px); /* the work area keeps at least 360px when the window shrinks */
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--panel);
   border-right: 1px solid var(--border);
+}
+
+/* A 9px grab strip over the rail/work border; the visible line is the ::after. Desktop only. */
+.handle {
+  position: relative;
+  flex: none;
+  width: 9px;
+  margin: 0 -4px;
+  z-index: 1;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.handle::after {
+  content: "";
+  position: absolute;
+  inset: 0 3px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 120ms;
+}
+
+.handle:hover::after,
+.handle:focus-visible::after,
+.handle[data-dragging]::after {
+  opacity: 1;
+}
+
+.handle:focus-visible {
+  outline: none;
 }
 
 .work {
@@ -29,6 +60,10 @@
     flex-direction: column;
   }
 
+  .handle {
+    display: none;
+  }
+
   .work {
     order: 1;
     flex: 55 1 0;
@@ -38,6 +73,7 @@
     order: 2;
     flex: 45 1 0;
     border-right: 0;
+    max-width: none;
     border-top: 1px solid var(--border);
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -6px 18px rgba(36, 47, 72, 0.08);

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
+import Script from "next/script";
 import type { ReactNode } from "react";
 import "katex/dist/katex.min.css";
+import { THEME_INIT } from "@/lib/theme";
 import "../styles/tokens.css";
 import "./globals.css";
 
@@ -17,8 +19,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="vi" className={beVietnamPro.variable}>
-      <body>{children}</body>
+    // suppressHydrationWarning: THEME_INIT sets data-theme on <html> before React hydrates.
+    <html lang="vi" className={beVietnamPro.variable} suppressHydrationWarning>
+      <body>
+        <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
+        {children}
+      </body>
     </html>
   );
 }

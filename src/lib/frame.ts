@@ -32,6 +32,7 @@ window.dfriend = { report(type, data) {
   let safe; try { safe = JSON.parse(JSON.stringify(data ?? null)); } catch { safe = null; }
   parent.postMessage({ dfriend: true, event: { type: String(type), data: safe, byStudent: Date.now() - lastTouch < 5000, gesture: lastTouch } }, "*");
 } };
+addEventListener("message", (e) => { const t = e.data && e.data.dfriendTheme; if (e.source === parent && (t === "light" || t === "dark")) document.documentElement.dataset.theme = t; });
 const fail = (message) => { if (errored) return; errored = true; window.dfriend.report("workspace_error", { message }); };
 addEventListener("error", (e) => fail(String(e.message)));
 addEventListener("unhandledrejection", (e) => fail(String(e.reason?.message ?? e.reason)));

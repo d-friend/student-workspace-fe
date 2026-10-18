@@ -3,6 +3,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { copy } from "@/lib/copy";
 import { renderBlock } from "@/workspace/blocks";
 import type { Block, BlockCtx, CheckResponse, Phase, Workspace, WorkspaceDoc } from "@/workspace/types";
+import { DoneBanner } from "@/workspace/DoneBanner";
 import { HelpBar } from "@/workspace/HelpBar";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
 
@@ -169,7 +170,7 @@ test("done reports task_completed once with max_hint and helped", async () => {
   expect(c.report).toHaveBeenCalledWith("help_requested", { block_id: "s_solve", level: 2 });
   type("a");
   submit();
-  await screen.findByText(copy.doneTitle);
+  await screen.findByText(copy.doneLabel);
   expect(doneCalls(c)).toEqual([["task_completed", { similar: false, helped: true, max_hint: 2 }]]);
 });
 
@@ -177,7 +178,7 @@ test("taskDone prop reports via master", () => {
   const c = ctxWith();
   const { rerender } = render(view({ solve: ws("solve") }, "solve", c));
   rerender(view({ solve: ws("solve") }, "solve", c, { taskDone: { solve: ["s_solve"] } }));
-  expect(screen.getByText(copy.doneTitle)).toBeTruthy();
+  expect(screen.getByText(copy.doneLabel)).toBeTruthy();
   rerender(view({ solve: ws("solve") }, "solve", c, { taskDone: { solve: ["s_solve"] } }));
   expect(doneCalls(c)).toEqual([["task_completed", { similar: false, helped: false, max_hint: 0, via: "master" }]]);
 });
@@ -187,7 +188,7 @@ test("practice doc reports similar true", async () => {
   render(view({ practice: ws("practice") }, "practice", c));
   type("a");
   submit();
-  await screen.findByText(copy.doneTitle);
+  await screen.findByText(copy.doneLabel);
   expect(doneCalls(c)[0][1]).toMatchObject({ similar: true });
 });
 
@@ -334,7 +335,7 @@ test("help bar sits in the active row", async () => {
   expect(screen.getAllByRole("button", { name: copy.hint })).toHaveLength(1);
   gap(1, "a");
   submit();
-  await screen.findByText(copy.doneTitle);
+  await screen.findByText(copy.doneLabel);
   expect(screen.queryByRole("button", { name: copy.hint })).toBeNull();
   unmount();
   const bare: Workspace = { id: "solve", doc: { ...doc("solve"), blocks: [{ type: "problem", id: "p1", md: "Đề thử" }] } };
@@ -360,4 +361,27 @@ test("focus stays in the choice group after a wrong pick", async () => {
   const group = screen.getByRole("group", { name: "Hệ số góc là" });
   await waitFor(() => expect(group.contains(document.activeElement)).toBe(true));
   expect(document.activeElement?.tagName).toBe("BUTTON");
+});
+
+test("done banner shows the label and the hints used", () => {
+  render(<DoneBanner hints={2} />);
+  expect(screen.getByRole("status")).toBeTruthy();
+  expect(screen.getByText("Xong bài")).toBeTruthy();
+  expect(screen.getByText(copy.doneHints(2))).toBeTruthy();
+});
+
+test("done banner omits the hint line when no hint was used", () => {
+  render(<DoneBanner hints={0} />);
+  expect(screen.getByText("Xong bài")).toBeTruthy();
+  expect(screen.queryByText(/Gợi ý đã dùng/)).toBeNull();
+});
+
+test("done banner counts the hints pressed", async () => {
+  const c = ctxWith([fin]);
+  render(view({ solve: ws("solve") }, "solve", c));
+  fireEvent.click(screen.getByRole("button", { name: copy.hint }));
+  type("a");
+  submit();
+  await screen.findByText("Xong bài");
+  expect(screen.getByText(copy.doneHints(1))).toBeTruthy();
 });

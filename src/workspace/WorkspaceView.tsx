@@ -71,7 +71,7 @@ function Doc({ w, p, hidden, tabbed, base, onPhase, hasSolve, taskDone }: {
         </BlockBoundary>
       ))}
       {working && !stepsId && <HelpBar level={help.level} onHint={help.onHint} onIdea={help.onIdea} />}
-      {fin && <DoneBanner />}
+      {fin && <DoneBanner hints={presses} />}
       {p === "learn" && w.doc.sources.length > 0 && (
         <aside className={styles.sources}>
           <h2>{copy.sources}</h2>

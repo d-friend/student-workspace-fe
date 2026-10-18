@@ -112,8 +112,8 @@ it("a master task_done marks only its own workspace when block ids repeat across
   });
   const { container } = render(createElement(Page));
   await send("đề bài");
-  expect(container.querySelector("#panel-solve")!.textContent).toContain(copy.doneTitle);
-  expect(container.querySelector("#panel-practice")!.textContent).not.toContain(copy.doneTitle);
+  expect(container.querySelector("#panel-solve")!.textContent).toContain(copy.doneLabel);
+  expect(container.querySelector("#panel-practice")!.textContent).not.toContain(copy.doneLabel);
 
   // The completions ride along with the next typed message.
   vi.mocked(api.turn).mockImplementationOnce(async (_s, _m, onDelta) => {

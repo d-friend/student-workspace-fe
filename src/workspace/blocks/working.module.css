@@ -56,10 +56,14 @@
 .segOn { background: var(--accent); }
 .idea { min-height: 48px; padding: 0 16px; font: 600 15px/1.4 var(--font-sans); color: var(--brand); background: transparent; border: 0; border-radius: 10px; cursor: pointer; }
 
-.done { display: flex; align-items: center; gap: 12px; padding: 24px; color: var(--accent-text); background: var(--accent); border-radius: 14px; font: 800 20px/1.4 var(--font-display), var(--font-sans); }
-.done b { font-weight: 800; }
+.done { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 18px 22px; color: var(--accent-text); background: var(--accent); border-radius: 18px; animation: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.doneMain { display: flex; align-items: center; gap: 12px; font: 800 34px/1.2 var(--font-display), var(--font-sans); }
+.doneMain b { font-weight: 800; }
+/* Muted by mixing the text token, not a literal grey, so it holds 4.5:1 in both themes. */
+.doneHints { margin: 0 0 0 auto; font: 400 14px/1.4 var(--font-sans); color: color-mix(in srgb, var(--accent-text) 75%, transparent); text-align: right; }
+@keyframes rise { from { opacity: 0; transform: translateY(18px); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .line, .badge svg { animation: none; }
+  .line, .badge svg, .done { animation: none; }
   .btn:active, .primary:active, .hint:active, .idea:active { transform: none; }
 }

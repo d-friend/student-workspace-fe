@@ -18,6 +18,6 @@
 }
 
 .primary {
-  color: var(--accent);
+  color: var(--brand);
   border-color: var(--accent);
 }

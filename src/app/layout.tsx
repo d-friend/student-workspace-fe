@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Be_Vietnam_Pro } from "next/font/google";
+import { Be_Vietnam_Pro, Bricolage_Grotesque } from "next/font/google";
 import Script from "next/script";
 import type { ReactNode } from "react";
 import "katex/dist/katex.min.css";
@@ -13,6 +13,12 @@ const beVietnamPro = Be_Vietnam_Pro({
   variable: "--font-sans",
 });
 
+const bricolage = Bricolage_Grotesque({
+  subsets: ["vietnamese", "latin"],
+  weight: ["700", "800"],
+  variable: "--font-display",
+});
+
 export const metadata: Metadata = {
   title: "D-Friend",
 };
@@ -20,7 +26,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     // suppressHydrationWarning: THEME_INIT sets data-theme on <html> before React hydrates.
-    <html lang="vi" className={beVietnamPro.variable} suppressHydrationWarning>
+    <html lang="vi" className={`${beVietnamPro.variable} ${bricolage.variable}`} suppressHydrationWarning>
       <body>
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
         {children}

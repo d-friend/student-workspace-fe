@@ -27,7 +27,7 @@
 
 .title {
   margin: 0;
-  font: 600 24px/1.3 var(--font-sans);
+  font: 700 24px/1.3 var(--font-display), var(--font-sans);
 }
 
 .sources {
@@ -47,7 +47,7 @@
 }
 
 .sources a {
-  color: var(--accent);
+  color: var(--brand);
 }
 
 @keyframes fade {

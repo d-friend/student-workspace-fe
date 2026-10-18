@@ -16,6 +16,7 @@
 .student {
   align-self: flex-end;
   max-width: 86%;
+  color: var(--student-text);
   background: var(--student);
   border-radius: 14px 14px 4px 14px;
 }

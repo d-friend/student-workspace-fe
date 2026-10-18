@@ -19,23 +19,23 @@ const ICON_BOOK = icon(
 
 export const KIT_CSS = `
 :root {
-  --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f27; --muted: #5b6472;
-  --border: #d5d9e0; --control-border: #7d8696; --hairline: #e6e9ee; --accent: #2457d6; --accent-text: #ffffff;
-  --student: #e3ebff; --agent: #eceef2; --idea-bg: #eef3ff; --review-bg: #fff5ec; --review-border: #f3d3b8;
+  --bg: #f3f5f7; --panel: #ffffff; --text: #15171c; --muted: #4a4f5c;
+  --border: #d9dee6; --control-border: #7d8696; --hairline: #e3e6ec; --accent: #15171c; --accent-text: #ffffff; --brand: #b4461a; --pet: #f27a3d;
+  --student: #15171c; --student-text: #ffffff; --agent: #f1f3f6; --idea-bg: #eef3ff; --review-bg: #fff5ec; --review-border: #f3d3b8;
   --review-text: #a14400; --error-bg: #fde8e8; --error-text: #8a1c1c;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #12151b; --panel: #1a1e26; --text: #e7e9ee; --muted: #a3abb8;
-    --border: #343a46; --control-border: #6b7486; --hairline: #262b35; --accent: #7da2ff; --accent-text: #0d1220;
-    --student: #1c2640; --agent: #222833; --idea-bg: #1c2640; --review-bg: #2b1d10; --review-border: #5a3b22;
+    --border: #343a46; --control-border: #6b7486; --hairline: #262b35; --accent: #e7e9ee; --accent-text: #12151b; --brand: #f7b48c; --pet: #f27a3d;
+    --student: #2a3142; --student-text: #e7e9ee; --agent: #222833; --idea-bg: #1c2640; --review-bg: #2b1d10; --review-border: #5a3b22;
     --review-text: #ffb27a; --error-bg: #3a1717; --error-text: #ffb4b4;
   }
 }
 :root[data-theme="dark"] {
   --bg: #12151b; --panel: #1a1e26; --text: #e7e9ee; --muted: #a3abb8;
-  --border: #343a46; --control-border: #6b7486; --hairline: #262b35; --accent: #7da2ff; --accent-text: #0d1220;
-  --student: #1c2640; --agent: #222833; --idea-bg: #1c2640; --review-bg: #2b1d10; --review-border: #5a3b22;
+  --border: #343a46; --control-border: #6b7486; --hairline: #262b35; --accent: #e7e9ee; --accent-text: #12151b; --brand: #f7b48c; --pet: #f27a3d;
+  --student: #2a3142; --student-text: #e7e9ee; --agent: #222833; --idea-bg: #1c2640; --review-bg: #2b1d10; --review-border: #5a3b22;
   --review-text: #ffb27a; --error-bg: #3a1717; --error-text: #ffb4b4;
 }
 body {
@@ -72,7 +72,7 @@ body {
   background: var(--review-text); -webkit-mask: ${ICON_ALERT} no-repeat center / contain; mask: ${ICON_ALERT} no-repeat center / contain;
 }
 .df-step[data-state="ok"]::after, .df-step[data-state="review"]::after {
-  order: 4; font-size: 14px; font-weight: 600; color: var(--accent);
+  order: 4; font-size: 14px; font-weight: 600; color: var(--brand);
 }
 .df-step[data-state="ok"]::after { content: "Đúng"; }
 .df-step[data-state="review"]::after { content: "Xem lại"; color: var(--review-text); }
@@ -126,7 +126,7 @@ body {
 }
 .df-idea {
   font: inherit; height: 48px; padding: 0 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 10px;
-  font-size: 15px; font-weight: 600; color: var(--accent); background: transparent; border: 0; border-radius: 10px;
+  font-size: 15px; font-weight: 600; color: var(--brand); background: transparent; border: 0; border-radius: 10px;
 }
 .df-idea::before {
   content: ""; width: 20px; height: 20px; flex: none; background: currentColor;

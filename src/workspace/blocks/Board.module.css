@@ -26,5 +26,5 @@
   border-radius: 10px;
   cursor: pointer;
 }
-.tool[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.tool[aria-pressed="true"] { border-color: var(--accent); color: var(--brand); }
 .status { margin: 0; font: 500 15px/1.4 var(--font-sans); color: var(--muted); }

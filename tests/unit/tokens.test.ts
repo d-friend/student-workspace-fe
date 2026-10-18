@@ -34,25 +34,20 @@ describe("tokens", () => {
     expect(Object.keys(kit.dark).sort()).toEqual(Object.keys(kit.light).sort());
   });
 
-  test("new tokens have the spec-workspace 4.1 values", () => {
-    expect(app.light).toMatchObject({ "--control-border": "#7d8696", "--idea-bg": "#eef3ff" });
-    expect(app.dark).toMatchObject({ "--control-border": "#6b7486", "--idea-bg": "#1c2640" });
+  test("light values match spec section 7", () => {
+    expect(app.light).toMatchObject({
+      "--bg": "#f3f5f7", "--panel": "#ffffff", "--text": "#15171c", "--muted": "#4a4f5c",
+      "--border": "#d9dee6", "--hairline": "#e3e6ec", "--accent": "#15171c", "--accent-text": "#ffffff",
+      "--brand": "#b4461a", "--pet": "#f27a3d", "--student": "#15171c", "--student-text": "#ffffff", "--agent": "#f1f3f6",
+    });
   });
 
-  test("dark values match spec-workspace 4.1", () => {
+  test("dark values match spec section 7", () => {
     expect(app.dark).toMatchObject({
-      "--bg": "#12151b",
-      "--panel": "#1a1e26",
-      "--text": "#e7e9ee",
-      "--muted": "#a3abb8",
-      "--hairline": "#262b35",
-      "--border": "#343a46",
-      "--accent": "#7da2ff",
-      "--accent-text": "#0d1220",
-      "--review-bg": "#2b1d10",
-      "--review-text": "#ffb27a",
-      "--error-bg": "#3a1717",
-      "--error-text": "#ffb4b4",
+      "--bg": "#12151b", "--panel": "#1a1e26", "--text": "#e7e9ee", "--muted": "#a3abb8",
+      "--hairline": "#262b35", "--border": "#343a46", "--accent": "#e7e9ee", "--accent-text": "#12151b",
+      "--brand": "#f7b48c", "--pet": "#f27a3d", "--student": "#2a3142", "--student-text": "#e7e9ee", "--agent": "#222833",
+      "--review-bg": "#2b1d10", "--review-text": "#ffb27a", "--error-bg": "#3a1717", "--error-text": "#ffb4b4",
     });
   });
 });

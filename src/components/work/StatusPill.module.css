@@ -17,7 +17,7 @@
 }
 
 .spin {
-  color: var(--accent);
+  color: var(--brand);
   animation: spin 1s linear infinite;
 }
 

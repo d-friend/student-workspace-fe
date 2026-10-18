@@ -64,7 +64,7 @@
 }
 .option p { margin: 0; }
 .option { justify-content: space-between; gap: 12px; }
-.optionOk { border-color: var(--accent); color: var(--accent); }
+.optionOk { border-color: var(--accent); color: var(--brand); }
 .optionReview { background: var(--review-bg); border-color: var(--review-border); color: var(--review-text); }
 .badge { display: inline-flex; align-items: center; gap: 4px; font: 600 15px/1.4 var(--font-sans); white-space: nowrap; }
 .field { display: flex; flex-direction: column; gap: 4px; }

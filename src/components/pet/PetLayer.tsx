@@ -108,8 +108,10 @@ export function PetLayer({
     wasOpen.current = open;
   }, [open]);
 
-  // The entry has nobody to talk to yet, except to say that something failed.
-  const showBubble = !open && !flying && latest !== undefined && key !== hiddenKey && (!entry || latest.kind === "error");
+  // The entry is silent until a conversation exists. A text-only reply (an unreadable photo, a clarification) lands
+  // back on the entry, and the student must still see it: the entry has no drawer, the bubble is the only place.
+  const talked = state.bubbles.length > 0;
+  const showBubble = !open && !flying && latest !== undefined && key !== hiddenKey && (!entry || talked);
   const chips =
     latest?.kind === "agent" && !latest.waiting && latest.id === state.bubbles.findLast((b) => b.kind === "agent")?.id;
 
@@ -123,7 +125,14 @@ export function PetLayer({
         aria-label={entry ? copy.brand : copy.petOpen}
         aria-describedby={unread && !entry ? "pet-unread" : undefined}
         inert={open}
-        onClick={entry ? celebrate : openDrawer}
+        onClick={
+          entry
+            ? () => {
+                setHiddenKey(null); // a dismissed reply comes back
+                celebrate();
+              }
+            : openDrawer
+        }
       >
         <Pet mood={flying ? "happy" : mood} celebrateKey={celebrateKey} />
         {unread && !open && !entry && (

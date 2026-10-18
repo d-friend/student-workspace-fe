@@ -206,13 +206,27 @@ describe("PetLayer", () => {
       expect(entryPet().querySelector("[data-state]")?.getAttribute("data-state")).toBe("happy");
     });
 
-    it("shows no bubble and no unread badge for an agent line, but shows an error as an alert", () => {
+    it("shows a text-only reply on the entry as a status bubble (no unread badge), and an error as an alert", () => {
       const a = withEntry({}, [agent(1, "Xin chào")]);
       const { unmount } = render(a.ui);
-      expect(screen.queryByRole("status")).toBeNull();
+      expect(within(screen.getByRole("status")).getByText("Xin chào")).toBeTruthy();
+      expect(screen.queryByText(copy.petUnread)).toBeNull();
       unmount();
       render(withEntry({}, [{ id: 1, kind: "error", text: "Lỗi mạng" }]).ui);
       expect(within(screen.getByRole("alert")).getByText("Lỗi mạng")).toBeTruthy();
+    });
+
+    it("shows nothing on a fresh entry", () => {
+      render(withEntry({}, []).ui);
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+
+    it("tapping the pet on the entry brings a dismissed reply back", () => {
+      render(withEntry({}, [agent(1, "Mình đọc đề là: x")]).ui);
+      fireEvent.click(screen.getByRole("button", { name: copy.bubbleClose }));
+      expect(screen.queryByText("Mình đọc đề là: x")).toBeNull();
+      fireEvent.click(entryPet());
+      expect(screen.getByText("Mình đọc đề là: x")).toBeTruthy();
     });
 
     it("closing an error bubble on the entry leaves no unread badge", () => {

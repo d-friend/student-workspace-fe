@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PetAnchorProvider, usePetAnchorRef, usePetScrollerRef } from "@/components/pet/PetAnchor";
 import { PetLayer } from "@/components/pet/PetLayer";
@@ -641,6 +642,23 @@ describe("PetLayer in the lane", () => {
     expect(pet().style.top).toBe("");
   });
 
+  it("on re-entry (the drawer closes) the first position is the fresh one, never the old spot", () => {
+    mockRects(() => {});
+    render(ui());
+    expect(pet().style.top).toBe("276px");
+    fireEvent.click(pet());
+    live.anchor = { ...live.anchor, top: 500, bottom: 540 }; // the doc moved while the drawer was open
+    const node = layer(document.body).querySelector("button")!;
+    const seen: string[] = [];
+    const mo = new MutationObserver(() => {});
+    mo.observe(node, { attributes: true, attributeFilter: ["style"], attributeOldValue: true });
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    seen.push(...mo.takeRecords().map((r) => r.oldValue ?? ""));
+    mo.disconnect();
+    expect(node.style.top).toBe("476px");
+    expect(seen.join("|")).not.toContain("276px");
+  });
+
   describe("bubble side", () => {
     const say = [agent(1, "Em thử bước này nhé?")];
     const bubble = () => screen.getByRole("status");
@@ -662,12 +680,31 @@ describe("PetLayer in the lane", () => {
       expect(bubble().style.top).toBe("");
     });
 
-    it("in a narrow lane the bubble sits above the pet, right-aligned, within the viewport width", () => {
+    // The bubble's box in layer coordinates, from its inline left and max-width (it is max-content wide, up to 300px).
+    const box = () => {
+      const left = parseFloat(bubble().style.left);
+      const avail = Number(/, (\d+(?:\.\d+)?)px\)$/.exec(bubble().style.maxWidth)?.[1]);
+      return { left, right: left + Math.min(300, avail) };
+    };
+
+    it("in a narrow lane (stage 1440) the bubble sits above the pet and stays right of the doc column", () => {
       mockRects(() => (live.layer = live.scroller = { left: 0, top: 0, right: 1440, bottom: 900 }));
       render(ui({}, say));
       expect(bubble().dataset.side).toBe("above");
-      expect(bubble().style.right).toBe(`${1440 - (1152 + 88)}px`);
       expect(bubble().style.bottom).toBe(`${900 - 276 + 8}px`);
+      expect(bubble().style.right).toBe("");
+      const b = box();
+      expect(b.left).toBeGreaterThanOrEqual(R.column.right + 8);
+      expect(b.right).toBeLessThanOrEqual(1440 - 16);
+      expect(b.right - b.left).toBeGreaterThanOrEqual(200); // the narrowest lane still leaves a readable bubble
+    });
+
+    it("beside the pet (stage 1700) the bubble is also right of the column and inside the stage", () => {
+      mockRects(() => {});
+      render(ui({}, say));
+      const b = box();
+      expect(b.left).toBeGreaterThanOrEqual(R.column.right + 8);
+      expect(b.right).toBeLessThanOrEqual(1700 - 16);
     });
 
     it("without a lane the bubble keeps its docked place", () => {
@@ -683,9 +720,19 @@ describe("PetLayer in the lane", () => {
       expect(bubble().dataset.side).toBe("right");
       expect(within(bubble()).getByRole("button", { name: "A" })).toBeTruthy();
       expect(within(bubble()).getByRole("button", { name: copy.writeOwn })).toBeTruthy();
-      const max = /min\(300px, [^,]*, (\d+)px\)/.exec(bubble().style.maxWidth);
-      const width = Math.min(300, Number(max?.[1] ?? 300));
-      expect(parseFloat(bubble().style.left) + width).toBeLessThanOrEqual(R.layer.right);
+      expect(box().right).toBeLessThanOrEqual(R.layer.right - 16);
     });
+  });
+});
+
+describe("PetBubble.module.css cascade", () => {
+  const css = readFileSync("src/components/pet/PetBubble.module.css", "utf8");
+  it("the lane entrance is scoped away from .leaving, so the fade-out still plays", () => {
+    expect(css).toMatch(/\.bubble\[data-side\]:not\(\.leaving\)\s*\{[^}]*animation-name:\s*bubbleInSide/);
+    expect(css).not.toMatch(/\.bubble\[data-side="[a-z]+"\][^{]*\{[^}]*animation-name/);
+  });
+  it("under reduced motion the lane bubble uses the short fade, not the entrance", () => {
+    const reduced = css.slice(css.indexOf("prefers-reduced-motion"));
+    expect(reduced).toMatch(/\.bubble\[data-side\]:not\(\.leaving\)\s*\{[^}]*animation-name:\s*fadeIn/);
   });
 });

@@ -33,15 +33,18 @@ type Lane = Extract<Place, { mode: "lane" }>;
 
 const relTo = (r: DOMRect, o: DOMRect): Rect => ({ left: r.left - o.left, top: r.top - o.top, right: r.right - o.left, bottom: r.bottom - o.top });
 
-// Where the bubble goes in the lane, in the layer's coordinates: beside the pet, or above (below when there is no
-// room above) with its right edge on the pet's.
+// Where the bubble goes in the lane, in the layer's coordinates. It never leaves the lane: its left edge stays 8px
+// right of the doc column (the lane starts 24px right of it) and its right edge 16px inside the stage. Beside the
+// pet, or over it (below when there is no room above) with its left edge at the column.
 function bubbleStyle(lane: Lane, w: number, h: number): { style: CSSProperties; up: boolean } {
+  const fit = (left: number) => `min(${BUBBLE_W}px, calc(100vw - 32px), ${Math.max(0, w - 16 - left)}px)`;
   if (lane.side === "right") {
     const left = lane.left + PET + BUBBLE_GAP;
-    const style: CSSProperties = { left, maxWidth: `min(${BUBBLE_W}px, calc(100vw - 32px), ${Math.max(0, w - left - 8)}px)` };
+    const style: CSSProperties = { left, maxWidth: fit(left) };
     return lane.flip ? { style: { ...style, bottom: h - lane.top - PET }, up: true } : { style: { ...style, top: lane.top }, up: false };
   }
-  const style: CSSProperties = { right: w - lane.left - PET };
+  const left = lane.left - 16;
+  const style: CSSProperties = { left, maxWidth: fit(left) };
   const up = lane.flip || lane.top >= ABOVE_MIN;
   return up ? { style: { ...style, bottom: h - lane.top + 8 }, up } : { style: { ...style, top: lane.top + PET + 8 }, up };
 }
@@ -230,6 +233,7 @@ export function PetLayer({
       cancelAnimationFrame(raf);
       clearTimeout(idle);
       setScrolling(false);
+      setPlace({ mode: "dock" }); // re-entry must not start from the old spot
     };
   }, [laneOn, anchor, scroller]);
   const lane = laneOn && place.mode === "lane" ? place : null;

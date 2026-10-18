@@ -5,6 +5,7 @@ export type Place =
 
 const GAP = 24; // between the doc column and the pet
 const EDGE = 8; // keep the pet this far inside the stage
+const LANE_MIN = 200; // narrowest lane that still leaves a readable bubble; narrower docks
 const RIGHT_MIN = 316; // lane width that fits the bubble to the right of the pet
 
 // The pet stands in the lane right of the doc column, level with the anchor; it docks when the lane is too narrow.
@@ -13,7 +14,7 @@ export function placePet({ anchor, column, stage, pet }: { anchor: Rect | null; 
   if (!anchor || !column) return { mode: "dock" };
   const left = column.right + GAP;
   const lane = stage.right - left;
-  if (lane < pet + 16) return { mode: "dock" };
+  if (lane < Math.max(pet + 16, LANE_MIN)) return { mode: "dock" };
   const mid = (anchor.top + anchor.bottom) / 2;
   const top = Math.min(Math.max(mid - pet / 2, stage.top + EDGE), stage.bottom - pet - EDGE);
   const flip = top + pet / 2 > stage.top + (stage.bottom - stage.top) * 0.6;

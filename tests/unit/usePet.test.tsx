@@ -294,7 +294,7 @@ describe("usePet", () => {
     expect(vi.getTimerCount()).toBeGreaterThan(0);
     r.unmount();
     expect(vi.getTimerCount()).toBe(0);
-    expect(remove).toHaveBeenCalledWith("input", expect.any(Function), true);
+    expect(remove).toHaveBeenCalledWith("input", expect.any(Function));
     expect(remove).toHaveBeenCalledWith("focusout", expect.any(Function), true);
   });
 });

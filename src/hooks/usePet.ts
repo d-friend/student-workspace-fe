@@ -116,11 +116,13 @@ export function usePet(s: PetSignals): {
       setTyping(true);
       t = setTimeout(stop, TYPING_MS);
     };
-    document.addEventListener("input", onInput, true);
+    // Bubble phase, not capture: setState before React's own onChange handler runs makes React reset a controlled
+    // input to its old value, which swallowed the first keystroke of every composer.
+    document.addEventListener("input", onInput);
     document.addEventListener("focusout", stop, true);
     return () => {
       clearTimeout(t);
-      document.removeEventListener("input", onInput, true);
+      document.removeEventListener("input", onInput);
       document.removeEventListener("focusout", stop, true);
     };
   }, []);

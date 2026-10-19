@@ -82,3 +82,11 @@ test("closing the timeline returns to the list", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Close timeline" }));
   expect(await screen.findByTitle("internal-abcdefgh")).toBeTruthy();
 });
+
+test("guest dates are readable local times, not raw ISO strings", async () => {
+  mockedAdminGet.mockResolvedValue(guests);
+  render(<GuestsSection token="token" onGuestOpen={() => {}} />);
+  await screen.findByRole("button", { name: "internal" });
+  expect(screen.queryByText("2026-10-19T00:00:00Z")).toBeNull();
+  expect(screen.getAllByText(/19 Oct.*07:00/).length).toBeGreaterThan(0); // 00:00Z is 07:00 in Ho Chi Minh
+});

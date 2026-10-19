@@ -93,3 +93,22 @@ test("a failing section shows its own error without breaking the others", async 
   expect(await screen.findByText("Could not load this section.")).toBeTruthy();
   expect(screen.getAllByText("$1.25").length).toBeGreaterThan(0);
 });
+
+test("Cost shows — instead of $0 for every figure while no model is priced", async () => {
+  mockedAdminGet.mockResolvedValue({
+    ...cost,
+    total_usd: 0,
+    per_day: [{ day: "2026-10-19", usd: 0, turns: 4 }],
+    per_active_guest_day_usd: 0,
+    per_completed_problem_usd: 0,
+  });
+  render(<CostSection token="token" days={7} />);
+  expect(await screen.findByText("Partial: no price for unknown-model")).toBeTruthy();
+  expect(screen.queryByText(/\$0\.00/)).toBeNull();
+});
+
+test("Thesis says 1 pair, not 1 pairs", async () => {
+  mockedAdminGet.mockResolvedValue(thesis);
+  render(<ThesisSection token="token" days={7} />);
+  expect(await screen.findByText(/^1 pair ·/)).toBeTruthy();
+});

@@ -20,6 +20,9 @@
   --review-bg: #fff5ec;
   --review-border: #f3d3b8;
   --review-text: #a14400;
+  --ok-bg: #e9f7f0;
+  --ok-border: #a8dcc3;
+  --ok-text: #0d6b45;
   --error-bg: #fde8e8;
   --error-text: #8a1c1c;
 }
@@ -45,6 +48,9 @@
   --review-bg: #2b1d10;
   --review-border: #5a3b22;
   --review-text: #ffb27a;
+  --ok-bg: #0f2a1f;
+  --ok-border: #2a5c45;
+  --ok-text: #7fe0b2;
   --error-bg: #3a1717;
   --error-text: #ffb4b4;
 }

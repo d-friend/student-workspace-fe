@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { usePetAnchorRef } from "@/components/pet/PetAnchor";
 import { copy } from "@/lib/copy";
 import { HelpBar } from "../HelpBar";
+import { MathInline } from "../md";
 import type { Block, BlockProps } from "../types";
 import styles from "./working.module.css";
 
@@ -75,7 +76,9 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
         {entries.map((e, i) => (
           <li key={`${i}-${effective[i]}`} className={`${styles.line} ${effective[i] === "review" ? styles.lineReview : ""}`}>
             <span className={styles.n}>{i + 1}</span>
-            <span className={styles.lineText}>{e.text}</span>
+            <span className={styles.lineText}>
+              <MathInline text={e.text} />
+            </span>
             <span className={`${styles.badge} ${effective[i] === "review" ? styles.badgeReview : ""}`}>
               {effective[i] === "ok" ? <IconCheck size={20} stroke={2} aria-hidden="true" /> : <IconAlertCircle size={20} stroke={2} aria-hidden="true" />}
               {effective[i] === "ok" ? copy.stateOk : copy.stateReview}
@@ -96,12 +99,12 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
           {item?.kind === "choice" ? (
             <>
               <p id={promptId} className={styles.entryLabel}>
-                {item.prompt}
+                <MathInline text={item.prompt} />
               </p>
               <div ref={group} role="group" aria-labelledby={promptId} className={styles.options}>
                 {item.options.map((o, i) => (
                   <button key={i} type="button" className={styles.btn} disabled={busy} onClick={() => void run({ answer: String(i), text: o, input: "choice", item: pos })}>
-                    {o}
+                    <MathInline text={o} />
                   </button>
                 ))}
               </div>

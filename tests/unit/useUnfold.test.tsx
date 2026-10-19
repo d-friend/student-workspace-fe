@@ -118,7 +118,7 @@ describe("the pet's flight", () => {
     expect(layer.dataset.fly).toBeUndefined();
     act(() => vi.advanceTimersByTime(1300));
     expect(screen.getByRole("button", { name: copy.petOpen })).toBe(before);
-    expect(before.querySelector("[data-state]")?.getAttribute("data-state")).toBe("thinking");
+    expect(before.querySelector("[data-state]")?.getAttribute("data-state")).toBe("working");
   });
 
   it("a failure mid-flight puts the pet back on the entry", () => {

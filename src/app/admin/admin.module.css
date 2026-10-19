@@ -1,0 +1,110 @@
+.page,
+.gate {
+  width: 100%;
+  min-height: 100dvh;
+  padding: 24px 16px;
+  background: var(--bg);
+}
+
+.page {
+  overflow-x: hidden;
+}
+
+.header,
+.tokenForm {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.header h1,
+.tokenForm h1 {
+  margin: 0;
+  font-size: clamp(26px, 5vw, 38px);
+}
+
+.controls,
+.days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.days button,
+.signOut,
+.tokenForm button {
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.days button[aria-pressed="true"],
+.tokenForm button {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.tokenForm {
+  display: grid;
+  width: min(100%, 420px);
+  gap: 12px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.tokenForm label {
+  font-weight: 600;
+}
+
+.tokenForm input {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+}
+
+.error {
+  margin: 0;
+  color: var(--error-text);
+}
+
+.emptyFrame {
+  max-width: 1120px;
+  margin: 24px auto;
+}
+
+@media (max-width: 600px) {
+  .header {
+    flex-direction: column;
+  }
+}

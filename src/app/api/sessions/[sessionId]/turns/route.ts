@@ -20,7 +20,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
       cache: "no-store",
       headers,
       body: await request.arrayBuffer(), // at most 8 MB; the backend enforces the cap
-      signal: request.signal, // a closed tab aborts the upstream stream, so the backend records client_closed
+      signal: request.signal, // a closed tab ends the upstream stream; the backend still finishes and saves the turn
     });
   } catch {
     return Response.json(

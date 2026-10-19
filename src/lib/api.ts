@@ -105,6 +105,13 @@ export async function currentSession(): Promise<{
   return { sessionId: body.session_id, messages: body.messages, html: body.html ?? null, workspaces, phase: body.phase ?? null };
 }
 
+// Whether a turn of this session is still running on the server.
+export async function turnStatus(sessionId: string): Promise<boolean> {
+  const res = await get(`/api/sessions/${sessionId}/turn-status`);
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).in_flight;
+}
+
 export async function check(
   sessionId: string,
   body: { workspaceId: string; blockId: string; answer: string; previous: string[]; item?: number },
@@ -149,7 +156,10 @@ export async function turn(
   onDelta: (text: string) => void,
   onEvent?: (e: TurnEvent) => void,
 ): Promise<{ turnId: string; stopReason: string | null }> {
-  const res = await post(`/api/sessions/${sessionId}/turns`, { message });
+  // A request that never connects may still have reached the server, so it is as recoverable as a dropped stream.
+  const res = await post(`/api/sessions/${sessionId}/turns`, { message }).catch((e) => {
+    throw new TurnError("stream_lost", e instanceof Error ? e.message : "request failed");
+  });
   if (!res.ok) throw await toApiError(res);
   try {
     for await (const { event, data } of readSse(res)) {
@@ -175,7 +185,8 @@ export async function turn(
     }
   } catch (e) {
     if (e instanceof TurnError) throw e;
-    throw new TurnError("internal", e instanceof Error ? e.message : "stream failed");
+    // The server keeps building after the connection drops (a locked phone), so the caller can wait for it.
+    throw new TurnError("stream_lost", e instanceof Error ? e.message : "stream failed");
   }
-  throw new TurnError("stream_ended", "the reply stream ended before done");
+  throw new TurnError("stream_lost", "the reply stream ended before done");
 }

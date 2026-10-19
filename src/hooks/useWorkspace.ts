@@ -36,6 +36,8 @@ const STATUS_LABEL = {
 } as const;
 
 const FLUSH_DELAY_MS = 800;
+const RECOVER_MS = 120_000; // how long to wait for a build that outlived its connection (the planner caps at 90 s)
+const RECOVER_POLL_MS = 2000;
 const MAX_PENDING = 20;
 
 // `turn` numbers the exchanges (a typed message, or a batch of workspace events, and what comes back), so the pet
@@ -95,10 +97,11 @@ export type WorkspaceState = {
 };
 
 export type WorkspaceDeps = {
-  api: Pick<typeof realApi, "createGuest" | "currentSession" | "createSession" | "endSession" | "turn" | "check">;
+  api: Pick<typeof realApi, "createGuest" | "currentSession" | "createSession" | "endSession" | "turn" | "turnStatus" | "check">;
   track: TrackFn;
   readPhoto: (file: Blob) => Promise<PhotoResult>;
   now?: () => number;
+  sleep?: (ms: number) => Promise<void>;
 };
 
 type Queued = { text: string; photo: string | null; bubbleId: number };
@@ -123,6 +126,7 @@ function describeError(e: unknown): { text: string; code: string; status?: numbe
 export function createWorkspace(deps: WorkspaceDeps) {
   const { api, track, readPhoto } = deps;
   const now = deps.now ?? Date.now;
+  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   // Set by the hook once the iframe and the composer exist.
   // reveal: the student must see the composer (a failed send, a correction), so a closed drawer opens for it.
   const dom = { frameWindow: (): Window | null => null, focusInput: ((): void => {}) as (reveal?: boolean) => void };
@@ -283,6 +287,24 @@ export function createWorkspace(deps: WorkspaceDeps) {
     track("workspace_shown", { ms_since_send: Math.max(0, now() - sentAt), replaced }, sid());
   }
 
+  // A dropped stream (a locked phone) does not stop the build: the server finishes and saves the turn. Wait for it
+  // and return the saved session, or null when nothing was saved (the request never arrived, or the turn failed).
+  async function recover(sid: string, before: number): Promise<Saved | null> {
+    const deadline = now() + RECOVER_MS;
+    while (now() < deadline) {
+      try {
+        if (!(await api.turnStatus(sid))) {
+          const saved = await api.currentSession();
+          return saved && saved.sessionId === sid && saved.messages.length > before ? saved : null;
+        }
+      } catch {
+        // Offline or still waking up: ask again.
+      }
+      await sleep(RECOVER_POLL_MS);
+    }
+    return null;
+  }
+
   async function runTurn(
     typed: boolean,
     text: string,
@@ -431,6 +453,11 @@ export function createWorkspace(deps: WorkspaceDeps) {
         install(view.html, sentAt);
       }
     } catch (e) {
+      const saved = e instanceof TurnError && e.code === "stream_lost" && sessionId ? await recover(sessionId, base) : null;
+      if (saved) {
+        restore(saved);
+        return;
+      }
       messages = messages.slice(0, base);
       removeBubble(agentId);
       removeBubble(announceId);

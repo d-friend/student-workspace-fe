@@ -385,3 +385,15 @@ test("done banner counts the hints pressed", async () => {
   await screen.findByText("Xong bài");
   expect(screen.getByText(copy.doneHints(1))).toBeTruthy();
 });
+
+test("choice options render $math$, and typed stars stay literal", async () => {
+  const withMath: Block = {
+    ...(steps as Extract<Block, { type: "steps" }>),
+    scaffold: [{ kind: "choice", prompt: "Chọn $\\dfrac{h^3}{h}$", options: ["$\\dfrac{a}{b}$", "2*x+3*y"] }],
+  };
+  const { container } = render(<>{renderBlock(withMath, ctxWith())}</>);
+  expect(container.querySelectorAll(".katex").length).toBe(2);
+  expect(container.textContent).not.toContain("$");
+  expect(container.querySelector("em")).toBeNull();
+  expect(screen.getByText("2*x+3*y")).toBeTruthy();
+});

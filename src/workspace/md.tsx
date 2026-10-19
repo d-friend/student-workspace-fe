@@ -4,10 +4,13 @@ import { TeX } from "./TeX";
 // Order matters: $$ before $, ** before *.
 const INLINE = /\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$|\*\*(.+?)\*\*|\*([^*\n]+?)\*/g;
 
-function inline(s: string): ReactNode[] {
+// Math only: for text that may hold a typed `*`, where bold and italic would misfire.
+const MATH = /\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g;
+
+function inline(s: string, re = INLINE): ReactNode[] {
   const out: ReactNode[] = [];
   let last = 0;
-  for (const m of s.matchAll(INLINE)) {
+  for (const m of s.matchAll(re)) {
     if (m.index > last) out.push(s.slice(last, m.index));
     const k = out.length;
     if (m[1] !== undefined) out.push(<TeX key={k} tex={m[1]} display />);
@@ -23,6 +26,10 @@ function inline(s: string): ReactNode[] {
 // Inline subset only (math, bold, italic), no block wrapper: safe inside headings and figcaptions.
 export function MdInline({ text }: { text: string }): ReactNode {
   return inline(text);
+}
+
+export function MathInline({ text }: { text: string }): ReactNode {
+  return inline(text, MATH);
 }
 
 const UL = /^- /;

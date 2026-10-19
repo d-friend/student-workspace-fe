@@ -49,6 +49,16 @@ test("a failed toggle reverts the checkbox and shows an error", async () => {
   expect(checkbox.checked).toBe(false);
 });
 
+test("a refresh failure after a successful toggle keeps the optimistic internal flag", async () => {
+  mockedAdminGet.mockResolvedValueOnce(guests).mockRejectedValueOnce(new Error("refresh down"));
+  mockedAdminPut.mockResolvedValue();
+  render(<GuestsSection token="token" onGuestOpen={() => {}} />);
+  const checkbox = await screen.findByRole("checkbox", { name: "Mark internal for student-abcdefgh" }) as HTMLInputElement;
+  fireEvent.click(checkbox);
+  expect(await screen.findByText("Updated internal status, but could not refresh the list.")).toBeTruthy();
+  expect(checkbox.checked).toBe(true);
+});
+
 test("clicking an id opens the timeline with sessions newest first", async () => {
   mockedAdminGet.mockImplementation((path) => Promise.resolve(path === "/guests" ? guests : detail));
   function Harness() {

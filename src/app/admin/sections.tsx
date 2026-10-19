@@ -71,8 +71,9 @@ export function GuestsSection({ token, onGuestOpen }: Omit<Props, "days">) {
   const [guests, setGuests] = useState<GuestRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
-  const load = () => adminGet<GuestRow[]>("/guests", token).then(setGuests, () => setError("Could not load this section."));
-  useEffect(() => { void load(); }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    void adminGet<GuestRow[]>("/guests", token).then(setGuests, () => setError("Could not load this section."));
+  }, [token]);
   const toggle = async (guest: GuestRow) => {
     const internal = !guest.internal;
     setSaving(guest.id);
@@ -80,10 +81,16 @@ export function GuestsSection({ token, onGuestOpen }: Omit<Props, "days">) {
     setGuests((current) => current?.map((item) => item.id === guest.id ? { ...item, internal } : item) ?? null);
     try {
       await adminPut(`/guests/${guest.id}/internal`, token, { internal });
-      await load();
     } catch {
       setGuests((current) => current?.map((item) => item.id === guest.id ? { ...item, internal: guest.internal } : item) ?? null);
       setError("Could not update internal status.");
+      setSaving(null);
+      return;
+    }
+    try {
+      setGuests(await adminGet<GuestRow[]>("/guests", token));
+    } catch {
+      setError("Updated internal status, but could not refresh the list.");
     } finally {
       setSaving(null);
     }

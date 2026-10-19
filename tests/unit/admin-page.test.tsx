@@ -17,6 +17,8 @@ vi.mock("@/app/admin/sections", () => ({
   LatencySection: () => <div />,
   UsersSection: () => <div />,
   ThesisSection: () => <div />,
+  GuestsSection: () => <div />,
+  GuestTimeline: () => <div />,
 }));
 
 const mockedAdminGet = vi.mocked(adminGet);

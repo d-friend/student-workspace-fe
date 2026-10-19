@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { adminGet, clearToken, readToken, saveToken } from "@/lib/admin";
-import { CostSection, HealthSection, LatencySection, ThesisSection, UsersSection } from "./sections";
+import { CostSection, GuestsSection, GuestTimeline, HealthSection, LatencySection, ThesisSection, UsersSection } from "./sections";
 import styles from "./admin.module.css";
 
 const DAYS = [
@@ -20,6 +20,7 @@ export default function AdminPage() {
   const [days, setDays] = useState(7);
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [openGuest, setOpenGuest] = useState<string | null>(null);
 
   const validate = async (candidate: string, selectedDays = days) => {
     setChecking(true);
@@ -98,9 +99,10 @@ export default function AdminPage() {
       <div className={styles.content} aria-label="Admin dashboard content">
         <HealthSection token={token} days={days} />
         <CostSection token={token} days={days} />
-        <LatencySection token={token} days={days} />
+        <LatencySection token={token} days={days} onGuestOpen={setOpenGuest} />
         <UsersSection token={token} days={days} />
         <ThesisSection token={token} days={days} />
+        {openGuest ? <GuestTimeline token={token} guestId={openGuest} onClose={() => setOpenGuest(null)} /> : <GuestsSection token={token} onGuestOpen={setOpenGuest} />}
       </div>
     </main>
   );

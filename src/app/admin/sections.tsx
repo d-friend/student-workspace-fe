@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { adminGet, type Cost, type Health, type Latency, type Pct, type Thesis, type Users } from "@/lib/admin";
+import { adminGet, adminPut, type Cost, type GuestDetail, type GuestRow, type Health, type Latency, type Pct, type Thesis, type Users } from "@/lib/admin";
 import styles from "./admin.module.css";
 
 type Props = { token: string; days: number; onGuestOpen?: (guestId: string) => void };
@@ -65,4 +65,39 @@ export function ThesisSection({ token }: Props) {
   const { data, error } = useAdmin<Thesis>("/thesis", token, 7);
   const cell = (original: number, reinforcement: number) => data?.hint_table.find((item) => item.original_max_hint === original && item.reinforcement_max_hint === reinforcement)?.n ?? 0;
   return <Section title="Thesis">{error ? <Failure /> : !data ? <p>Loading…</p> : <>{data.cohorts.length ? <div className={styles.tableWrap}><table><thead><tr><th>First completion</th><th>Completers</th><th>D1</th><th>D7</th></tr></thead><tbody>{data.cohorts.map((row) => <tr key={row.first_completion_day}><td>{row.first_completion_day}</td><td>{row.completers}</td><td>{row.eligible_d1 ? `${row.returned_d1} / ${row.eligible_d1}` : "—"}</td><td>{row.eligible_d7 ? `${row.returned_d7} / ${row.eligible_d7}` : "—"}</td></tr>)}</tbody></table></div> : <Empty />}<div className={styles.funnel}>{([ ["Original done", data.funnel.sessions_original_done], ["Offered", data.funnel.sessions_offered], ["Accepted", data.funnel.sessions_accepted], ["Reinforcement done", data.funnel.sessions_reinforcement_done] ] as const).map(([label, count]) => <div key={label}><span>{label}</span><strong>{count}</strong></div>)}</div><p className={styles.note}>{data.pairs.length} pairs{data.mean_drop === null ? "" : ` · mean drop ${data.mean_drop}`} — read with the table, not alone</p><div className={styles.tableWrap}><table><thead><tr><th>Original \ Reinforcement</th>{[0, 1, 2, 3].map((n) => <th key={n}>{n}</th>)}</tr></thead><tbody>{[0, 1, 2, 3].map((original) => <tr key={original}><th>{original}</th>{[0, 1, 2, 3].map((reinforcement) => <td key={reinforcement}>{cell(original, reinforcement)}</td>)}</tr>)}</tbody></table></div></>}</Section>;
+}
+
+export function GuestsSection({ token, onGuestOpen }: Omit<Props, "days">) {
+  const [guests, setGuests] = useState<GuestRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
+  const load = () => adminGet<GuestRow[]>("/guests", token).then(setGuests, () => setError("Could not load this section."));
+  useEffect(() => { void load(); }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggle = async (guest: GuestRow) => {
+    const internal = !guest.internal;
+    setSaving(guest.id);
+    setError(null);
+    setGuests((current) => current?.map((item) => item.id === guest.id ? { ...item, internal } : item) ?? null);
+    try {
+      await adminPut(`/guests/${guest.id}/internal`, token, { internal });
+      await load();
+    } catch {
+      setGuests((current) => current?.map((item) => item.id === guest.id ? { ...item, internal: guest.internal } : item) ?? null);
+      setError("Could not update internal status.");
+    } finally {
+      setSaving(null);
+    }
+  };
+  return <Section title="Guests">{error && <p className={styles.error} role="alert">{error}</p>}{!guests ? error ? null : <p>Loading…</p> : guests.length === 0 ? <Empty /> : <div className={styles.tableWrap}><table><thead><tr><th>Guest</th><th>Created</th><th>Last seen</th><th>Sessions</th><th>Turns</th><th>Completions</th><th>USD</th><th>Internal</th></tr></thead><tbody>{guests.map((guest) => <tr key={guest.id}><td><button className={styles.idButton} type="button" title={guest.id} onClick={() => onGuestOpen?.(guest.id)}>{guest.id.slice(0, 8)}</button></td><td>{guest.created_at}</td><td>{guest.last_seen_at}</td><td>{guest.sessions}</td><td>{guest.turns}</td><td>{guest.completions}</td><td>{money(guest.usd)}</td><td><input type="checkbox" aria-label={`Mark internal for ${guest.id}`} checked={guest.internal} disabled={saving === guest.id} onChange={() => void toggle(guest)} /></td></tr>)}</tbody></table></div>}</Section>;
+}
+
+export function GuestTimeline({ token, guestId, onClose }: { token: string; guestId: string; onClose: () => void }) {
+  const [detail, setDetail] = useState<GuestDetail | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    let current = true;
+    void adminGet<GuestDetail>(`/guests/${guestId}`, token).then((data) => current && setDetail(data), () => current && setError(true));
+    return () => { current = false; };
+  }, [guestId, token]);
+  return <Section title="Guest timeline"><button type="button" className={styles.signOut} onClick={onClose}>Close timeline</button>{error ? <Failure /> : !detail ? <p>Loading…</p> : <div className={styles.timeline}>{detail.sessions.map((session) => <article key={session.id} className={styles.session}><h3>{session.id}</h3><p>{session.started_via} · {session.created_at} · {session.mode ?? "—"}</p>{session.turns.map((turn) => <div className={styles.turn} key={turn.id}><b>{turn.started_at}</b><span>{turn.kind} · {turn.route ?? "—"} · {turn.mode ?? "—"}</span><span>{turn.error_code ?? (turn.ok === null ? "—" : turn.ok ? "ok" : "failed")} · {ms(turn.total_ms)} · {turn.model ?? "—"} · {money(turn.usd)}</span><span>{turn.events.join(", ") || "—"}</span></div>)}</article>)}</div>}</Section>;
 }

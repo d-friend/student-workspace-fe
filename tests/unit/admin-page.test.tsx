@@ -11,6 +11,14 @@ vi.mock("@/lib/admin", () => ({
   saveToken: vi.fn(),
 }));
 
+vi.mock("@/app/admin/sections", () => ({
+  HealthSection: () => <div />,
+  CostSection: () => <div />,
+  LatencySection: () => <div />,
+  UsersSection: () => <div />,
+  ThesisSection: () => <div />,
+}));
+
 const mockedAdminGet = vi.mocked(adminGet);
 const mockedClearToken = vi.mocked(clearToken);
 const mockedReadToken = vi.mocked(readToken);

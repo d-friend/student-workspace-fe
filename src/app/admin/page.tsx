@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { adminGet, clearToken, readToken, saveToken } from "@/lib/admin";
+import { CostSection, HealthSection, LatencySection, ThesisSection, UsersSection } from "./sections";
 import styles from "./admin.module.css";
 
 const DAYS = [
@@ -94,7 +95,13 @@ export default function AdminPage() {
           <button type="button" className={styles.signOut} onClick={signOut}>Sign out</button>
         </div>
       </header>
-      <div className={styles.emptyFrame} aria-label="Admin dashboard content" />
+      <div className={styles.content} aria-label="Admin dashboard content">
+        <HealthSection token={token} days={days} />
+        <CostSection token={token} days={days} />
+        <LatencySection token={token} days={days} />
+        <UsersSection token={token} days={days} />
+        <ThesisSection token={token} days={days} />
+      </div>
     </main>
   );
 }

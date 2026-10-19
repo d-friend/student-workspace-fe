@@ -97,3 +97,35 @@ test("a single-phase doc is not a tab panel; with a PhaseSwitch each panel is la
   const panels = screen.getAllByRole("tabpanel", { hidden: true });
   expect(panels.map((p) => p.getAttribute("aria-labelledby"))).toEqual(["tab-learn", "tab-solve"]);
 });
+
+const openQuiz = (id: string) => ({ type: "quiz", id, question_md: id, answer: "open", explanation_md: "e" }) as const;
+
+test("a learn doc reports learn_completed once, after its last quiz is answered", () => {
+  const doc: WorkspaceDoc = { ...fixtures["quiz.json"], phase: "learn", blocks: [openQuiz("q1"), openQuiz("q2")] };
+  const ctx = mk();
+  const { container } = render(view({ learn: ws(doc) }, "learn", vi.fn(), ctx));
+  const inputs = container.querySelectorAll("input");
+  const buttons = screen.getAllByRole("button", { name: copy.answer });
+  const types = () => (ctx.report as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
+
+  fireEvent.change(inputs[0], { target: { value: "a" } });
+  fireEvent.click(buttons[0]);
+  expect(types()).toEqual(["quiz_answered"]);
+
+  fireEvent.change(inputs[1], { target: { value: "b" } });
+  fireEvent.click(buttons[1]);
+  expect(types()).toEqual(["quiz_answered", "quiz_answered", "learn_completed"]);
+});
+
+test("a quiz in a solve doc never reports learn_completed", () => {
+  const doc: WorkspaceDoc = {
+    ...fixtures["quiz.json"],
+    phase: "solve",
+    blocks: [{ type: "problem", id: "p1", md: "x" }, openQuiz("q1")],
+  };
+  const ctx = mk();
+  const { container } = render(view({ solve: ws(doc) }, "solve", vi.fn(), ctx));
+  fireEvent.change(container.querySelector("input")!, { target: { value: "a" } });
+  fireEvent.click(screen.getByRole("button", { name: copy.answer }));
+  expect((ctx.report as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0])).toEqual(["quiz_answered"]);
+});

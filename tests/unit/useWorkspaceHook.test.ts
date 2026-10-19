@@ -110,19 +110,16 @@ it("a master task_done marks only its own workspace when block ids repeat across
     onDelta("Xong rồi.");
     return DONE;
   });
+  vi.mocked(api.turn).mockImplementationOnce(async () => DONE); // the completion's own turn
   const { container } = render(createElement(Page));
   await send("đề bài");
   expect(container.querySelector("#panel-solve")!.textContent).toContain(copy.doneLabel);
   expect(container.querySelector("#panel-practice")!.textContent).not.toContain(copy.doneLabel);
 
-  // The completions ride along with the next typed message.
-  vi.mocked(api.turn).mockImplementationOnce(async (_s, _m, onDelta) => {
-    onDelta("ok");
-    return DONE;
-  });
-  await send("tiếp");
+  // The completion is sent on its own as soon as the build turn ends; it does not wait for the next message.
+  await waitFor(() => expect(api.turn).toHaveBeenCalledTimes(2));
   const content = String((vi.mocked(api.turn).mock.calls.at(-1)![1] as { content: string }).content);
-  const events = JSON.parse(content.slice("[workspace] ".length, content.indexOf("\n\n")));
+  const events = JSON.parse(content.slice("[workspace] ".length));
   expect(events.filter((e: { type: string }) => e.type === "task_completed")).toEqual([
     { type: "task_completed", data: { similar: false, helped: false, max_hint: 0, via: "master" }, byStudent: false },
   ]);

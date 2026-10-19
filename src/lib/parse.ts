@@ -42,7 +42,9 @@ const PARTIAL_MARKERS = [
 ];
 const PARTIAL_LINE = /^\[line \d+$/;
 // A trailing, still-open options tag or a prefix of "[opts:" (2+ chars), so it never flashes while streaming.
-const TRAILING_PARTIAL_OPTS = /\s*\[(?:opts:[^\]]*|o(?:p(?:t(?:s)?)?)?)$/;
+const TRAILING_PARTIAL_OPTS = /\s*\[(?:opts:[^\]]*|o(?:p(?:t(?:s)?)?)?|of(?:f(?:e(?:r)?)?)?)$/;
+// The model sometimes writes [offer] inside the text instead of before it; read it anywhere in the chat.
+const STRAY_OFFER = /\s*\[offer\]\s*/;
 // Line-start anchor: a closing inline-code backtick ("Try `h`") is not a fence.
 const TRAILING_FENCE = /(^|\n)`{1,3}[a-z]*$/;
 
@@ -57,6 +59,12 @@ function parseOpts(list: string): string[] | null {
 }
 
 export function parse(raw: string): Parsed {
+  const parsed = parseTags(raw);
+  if (!STRAY_OFFER.test(parsed.chat)) return parsed;
+  return { ...parsed, offer: true, chat: parsed.chat.replace(STRAY_OFFER, " ").trim() };
+}
+
+function parseTags(raw: string): Parsed {
   let mode: Parsed["mode"] = null;
   let ask: Parsed["ask"] = null;
   let line: number | null = null;

@@ -93,6 +93,11 @@ const CASES: [string, Partial<Parsed>][] = [
   ["Vì sao? [o", { chat: "Vì sao?" }],
   ["Vì sao? [", { chat: "Vì sao? [" }],
   ["Dùng [opt giữa câu rồi nói tiếp", { chat: "Dùng [opt giữa câu rồi nói tiếp" }],
+  // a stray [offer] after the first sentence is read as the tag, never shown
+  ["Đúng rồi. [offer] Mình có bài tương tự.", { offer: true, chat: "Đúng rồi. Mình có bài tương tự." }],
+  ["Đúng rồi. Mình có bài tương tự. [offer]", { offer: true, chat: "Đúng rồi. Mình có bài tương tự." }],
+  ["Đúng rồi. [offe", { chat: "Đúng rồi." }],
+  ["Hi\n```html\n<p>x</p>\n```\nĐúng. [offer] Thử nhé.", { offer: true, chat: "Hi\n\nĐúng. Thử nhé.", html: "<p>x</p>" }],
   ["Xem [opts: x] rồi làm tiếp.", { chat: "Xem [opts: x] rồi làm tiếp." }],
   ["[silent] [opts: a]", { opts: ["a"], silent: true }],
   ["Mình đọc đề là: x. [opts: a | b]", { opts: ["a", "b"], restate: true, chat: "Mình đọc đề là: x." }],

@@ -1,6 +1,7 @@
 html {
   color-scheme: light;
   height: 100%;
+  overscroll-behavior: none; /* no rubber-band of the whole page when a scroller inside it reaches its end */
 }
 
 * {

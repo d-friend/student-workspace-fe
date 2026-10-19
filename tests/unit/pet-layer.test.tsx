@@ -474,11 +474,12 @@ describe("PetLayer chat_opened", () => {
 
 describe("PetLayer in the lane", () => {
   const rect = (r: Rect) => ({ ...r, x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top, toJSON() {} }) as DOMRect;
-  const R: Record<"layer" | "scroller" | "column" | "anchor", Rect> = {
+  const R: Record<"layer" | "scroller" | "column" | "anchor" | "bubble", Rect> = {
     layer: { left: 0, top: 0, right: 1700, bottom: 900 },
     scroller: { left: 0, top: 0, right: 1700, bottom: 900 },
     column: { left: 312, top: 0, right: 1128, bottom: 900 },
     anchor: { left: 400, top: 300, right: 1000, bottom: 340 },
+    bubble: { left: 1000, top: 700, right: 1300, bottom: 840 },
   };
   const rects = () => structuredClone(R);
   let live = rects();
@@ -497,7 +498,9 @@ describe("PetLayer in the lane", () => {
             ? "column"
             : this.hasAttribute("data-pet-anchor")
               ? "anchor"
-              : null;
+              : this.hasAttribute("data-bubble")
+                ? "bubble"
+                : null;
       return rect(key ? live[key] : { left: 0, top: 0, right: 0, bottom: 0 });
     });
     queue = [];
@@ -687,16 +690,16 @@ describe("PetLayer in the lane", () => {
       return { left, right: left + Math.min(300, avail) };
     };
 
-    it("in a narrow lane (stage 1440) the bubble sits above the pet and stays right of the doc column", () => {
+    it("in a narrow lane (stage 1440) the bubble sits above the pet and reaches at most 24px into the doc sheet", () => {
       mockRects(() => (live.layer = live.scroller = { left: 0, top: 0, right: 1440, bottom: 900 }));
       render(ui({}, say));
       expect(bubble().dataset.side).toBe("above");
       expect(bubble().style.bottom).toBe(`${900 - 276 + 8}px`);
       expect(bubble().style.right).toBe("");
       const b = box();
-      expect(b.left).toBeGreaterThanOrEqual(R.column.right + 8);
+      expect(b.left).toBeGreaterThanOrEqual(R.column.right - 24); // inside the sheet's side padding, over no text
       expect(b.right).toBeLessThanOrEqual(1440 - 16);
-      expect(b.right - b.left).toBeGreaterThanOrEqual(200); // the narrowest lane still leaves a readable bubble
+      expect(b.right - b.left).toBeGreaterThanOrEqual(232); // the narrowest lane still leaves a readable bubble
     });
 
     it("beside the pet (stage 1700) the bubble is also right of the column and inside the stage", () => {
@@ -712,6 +715,17 @@ describe("PetLayer in the lane", () => {
       render(ui({}, say, { active: false }));
       expect(bubble().dataset.side).toBeUndefined();
       expect(bubble().style.left).toBe("");
+    });
+
+    it("a docked bubble gets its height reserved under the doc, and the doc scrolls the active line above it", () => {
+      mockRects(() => {
+        live.column = { left: 0, top: 0, right: 1700, bottom: 900 }; // no lane: the doc fills the stage
+        live.anchor = { left: 400, top: 600, right: 1000, bottom: 760 }; // the active line runs under the bubble (top 700)
+      });
+      render(ui({}, say));
+      expect(bubble().dataset.side).toBeUndefined();
+      expect(scroller().style.getPropertyValue("--pet-clear")).toBe(`${900 - 700 + 12}px`);
+      expect(scroller().scrollTop).toBe(760 + 12 - 700); // the line's bottom ends 12px above the bubble
     });
 
     it("the answer chips and Tự nhắn are inside the bubble and its right edge stays in the stage", () => {

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro, Bricolage_Grotesque } from "next/font/google";
 import Script from "next/script";
 import type { ReactNode } from "react";
@@ -22,6 +22,9 @@ const bricolage = Bricolage_Grotesque({
 export const metadata: Metadata = {
   title: "D-Friend",
 };
+
+// The keyboard shrinks the page instead of panning it, so the chat sheet and its composer stay in view.
+export const viewport: Viewport = { interactiveWidget: "resizes-content" };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

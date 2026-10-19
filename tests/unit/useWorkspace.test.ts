@@ -45,6 +45,7 @@ function setup(turn: Turn = reply(HTML_REPLY), current: CurrentArg = null) {
     createSession: vi.fn(async () => ({ sessionId: `s${++session}` })),
     endSession: vi.fn().mockResolvedValue(undefined),
     turn: vi.fn(turn),
+    turnStatus: vi.fn().mockResolvedValue(false),
   };
   const track = vi.fn();
   const focus = vi.fn();
@@ -56,6 +57,7 @@ function setup(turn: Turn = reply(HTML_REPLY), current: CurrentArg = null) {
       track: track as never,
       readPhoto,
       now: () => (clock += 100),
+      sleep: () => Promise.resolve(),
     });
     ws.bind({ frameWindow: () => window, focusInput: focus });
     const detach = ws.attach();
@@ -533,6 +535,102 @@ describe("restore from the server", () => {
     await t.ws.actions.submit();
     expect(lastCall(t.api)[0]).toBe("srv1");
     expect(lastCall(t.api)[1]).toEqual({ role: "user", content: "y" });
+  });
+});
+
+describe("a stream lost mid-turn (a locked phone)", () => {
+  const SAVED = {
+    sessionId: "s1",
+    messages: [
+      { role: "user", content: "x" },
+      { role: "assistant", content: HTML_REPLY },
+      { role: "user", content: "y" },
+      { role: "assistant", content: "ok" },
+    ],
+    html: "<p>x</p>",
+    workspaces: {},
+    phase: null,
+  };
+  const lose = (t: Awaited<ReturnType<typeof boot>>) => {
+    t.api.turn.mockRejectedValueOnce(new TurnError("stream_lost", "network error"));
+  };
+
+  it("waits for the build the server finishes, then shows the saved session", async () => {
+    const t = await boot();
+    t.ws.actions.setInput("x");
+    await t.ws.actions.submit();
+
+    lose(t);
+    t.api.turnStatus.mockResolvedValueOnce(true).mockResolvedValueOnce(true).mockResolvedValue(false);
+    t.api.currentSession.mockResolvedValueOnce(SAVED as never);
+    t.ws.actions.setInput("y");
+    await t.ws.actions.submit();
+
+    expect(t.api.turnStatus).toHaveBeenCalledTimes(3);
+    expect(t.api.turnStatus).toHaveBeenCalledWith("s1");
+    const s = t.state();
+    expect(s.bubbles.some((b) => b.kind === "error")).toBe(false);
+    expect(s.input).toBe(""); // the turn was not lost, so nothing to resend
+    expect(s.html).toBe("<p>x</p>");
+    expect(s.busy).toBe(false);
+  });
+
+  it("falls back to the failure path when the server saved nothing", async () => {
+    const t = await boot();
+    t.ws.actions.setInput("x");
+    await t.ws.actions.submit();
+
+    lose(t);
+    t.api.currentSession.mockResolvedValueOnce(null);
+    t.ws.actions.setInput("y");
+    await t.ws.actions.submit();
+
+    const s = t.state();
+    expect(s.bubbles.at(-1)).toMatchObject({ kind: "error", text: copy.errConnect("network error") });
+    expect(s.input).toBe("y");
+  });
+
+  it("gives up when the turn never finishes", async () => {
+    const t = await boot();
+    t.ws.actions.setInput("x");
+    await t.ws.actions.submit();
+
+    lose(t);
+    t.api.turnStatus.mockResolvedValue(true);
+    t.ws.actions.setInput("y");
+    await t.ws.actions.submit();
+
+    expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "error" });
+    expect(t.state().input).toBe("y");
+  });
+
+  it("gives up after five failed status checks in a row", async () => {
+    const t = await boot();
+    t.ws.actions.setInput("x");
+    await t.ws.actions.submit();
+
+    lose(t);
+    t.api.turnStatus.mockRejectedValue(new TypeError("offline"));
+    t.ws.actions.setInput("y");
+    await t.ws.actions.submit();
+
+    expect(t.api.turnStatus).toHaveBeenCalledTimes(5);
+    expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "error" });
+    expect(t.state().input).toBe("y");
+  });
+
+  it("keeps waiting through a failed status check", async () => {
+    const t = await boot();
+    t.ws.actions.setInput("x");
+    await t.ws.actions.submit();
+
+    lose(t);
+    t.api.turnStatus.mockRejectedValueOnce(new TypeError("offline")).mockResolvedValue(false);
+    t.api.currentSession.mockResolvedValueOnce(SAVED as never);
+    t.ws.actions.setInput("y");
+    await t.ws.actions.submit();
+
+    expect(t.state().bubbles.some((b) => b.kind === "error")).toBe(false);
   });
 });
 

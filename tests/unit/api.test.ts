@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { ApiError, check, createSession, currentSession, endSession, turn, type TurnEvent } from "@/lib/api";
+import { ApiError, check, createSession, currentSession, endSession, turn, turnStatus, TurnError, type TurnEvent } from "@/lib/api";
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
@@ -154,4 +154,38 @@ test("check throws ApiError on 429", async () => {
 test("currentSession maps a missing html key to null", async () => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json(200, { session_id: "s1", messages: [] })));
   expect((await currentSession())?.html).toBeNull();
+});
+
+test("a connection that drops mid-stream is a stream_lost TurnError", async () => {
+  const enc = new TextEncoder();
+  const body = new ReadableStream({
+    start(c) {
+      c.enqueue(enc.encode('event: text\ndata: {"delta": "x"}\n\n'));
+      c.error(new TypeError("network error")); // a phone that locked mid-build
+    },
+  });
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
+  const err = await turn("s1", { role: "user", content: "hi" }, () => {}).catch((e) => e);
+  expect(err).toBeInstanceOf(TurnError);
+  expect(err.code).toBe("stream_lost");
+});
+
+test("a stream that ends before done is stream_lost too, and a request that never connects as well", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('event: text\ndata: {"delta": "x"}\n\n', { status: 200 })));
+  expect(await turn("s1", { role: "user", content: "hi" }, () => {}).catch((e) => e)).toMatchObject({ code: "stream_lost" });
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Load failed")));
+  expect(await turn("s1", { role: "user", content: "hi" }, () => {}).catch((e) => e)).toMatchObject({ code: "stream_lost" });
+});
+
+test("a server error event stays its own code", async () => {
+  const body = 'event: error\ndata: {"code": "upstream", "message": "boom"}\n\n';
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
+  expect(await turn("s1", { role: "user", content: "hi" }, () => {}).catch((e) => e)).toMatchObject({ code: "upstream" });
+});
+
+test("turnStatus reads in_flight", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(json(200, { in_flight: true }));
+  vi.stubGlobal("fetch", fetchMock);
+  expect(await turnStatus("s1")).toBe(true);
+  expect(fetchMock.mock.calls[0][0]).toBe("/api/sessions/s1/turn-status");
 });

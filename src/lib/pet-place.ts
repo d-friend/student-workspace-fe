@@ -6,7 +6,7 @@ export type Place =
 const GAP = 24; // between the doc column and the pet
 const EDGE = 8; // keep the pet this far inside the stage
 const LANE_MIN = 200; // narrowest lane that still leaves a readable bubble; narrower docks
-const RIGHT_MIN = 316; // lane width that fits the bubble to the right of the pet
+const RIGHT_MIN = 348; // lane width that fits a 232px bubble to the right of the pet (88 + 12 gap + 232 + 16)
 
 // The pet stands in the lane right of the doc column, level with the anchor; it docks when the lane is too narrow.
 // bubbleW is part of the contract with PetLayer; the right/above switch uses RIGHT_MIN.

@@ -32,6 +32,11 @@ test("the lane must leave a bubble at least 200px: 199 docks, 200 stays", () => 
   expect(placePet({ ...base, column: { ...column, right: 1216 }, anchor: at(300) })).toMatchObject({ mode: "lane", left: 1240, side: "above" }); // lane 200
 });
 
+test("the bubble goes right of the pet only when 232px fit there: lane 347 is above, 348 is right", () => {
+  expect(placePet({ ...base, stage: { ...stage, right: 1499 }, anchor: at(300) })).toMatchObject({ side: "above" }); // lane 347
+  expect(placePet({ ...base, stage: { ...stage, right: 1500 }, anchor: at(300) })).toMatchObject({ side: "right" }); // lane 348
+});
+
 test("no anchor or no column docks", () => {
   expect(placePet({ ...base, anchor: null })).toEqual({ mode: "dock" });
   expect(placePet({ ...base, column: null, anchor: at(300) })).toEqual({ mode: "dock" });

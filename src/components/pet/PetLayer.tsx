@@ -26,16 +26,19 @@ const MAX_SPOKEN = 3;
 const PET = 88; // --pet-size at the docked place (PetLayer.module.css); the lane only exists on a wide stage
 const SCROLL_MS = 120; // after the last scroll event the pet is no longer "moving with the scroll"
 const BUBBLE_GAP = 12; // pet to bubble, beside it
+const BUBBLE_CLEAR = 12; // between a docked bubble and the doc above it
 const BUBBLE_W = 300; // PetBubble.module.css max-width
+const PAD_REACH = 24; // how far a bubble over the pet reaches into the doc sheet's side padding
 const ABOVE_MIN = 200; // above the pet needs this much room over it, else the bubble opens below
 
 type Lane = Extract<Place, { mode: "lane" }>;
 
 const relTo = (r: DOMRect, o: DOMRect): Rect => ({ left: r.left - o.left, top: r.top - o.top, right: r.right - o.left, bottom: r.bottom - o.top });
 
-// Where the bubble goes in the lane, in the layer's coordinates. It never leaves the lane: its left edge stays 8px
-// right of the doc column (the lane starts 24px right of it) and its right edge 16px inside the stage. Beside the
-// pet, or over it (below when there is no room above) with its left edge at the column.
+// Where the bubble goes in the lane, in the layer's coordinates. Its right edge stays 16px inside the stage. Beside
+// the pet, or over it (below when there is no room above) with its left edge PAD_REACH inside the doc column: that is
+// the sheet's side padding (at least 32px from 800px), so a narrow lane still gets a bubble of 232px or more
+// without covering any text.
 function bubbleStyle(lane: Lane, w: number, h: number): { style: CSSProperties; up: boolean } {
   const fit = (left: number) => `min(${BUBBLE_W}px, calc(100vw - 32px), ${Math.max(0, w - 16 - left)}px)`;
   if (lane.side === "right") {
@@ -43,7 +46,7 @@ function bubbleStyle(lane: Lane, w: number, h: number): { style: CSSProperties; 
     const style: CSSProperties = { left, maxWidth: fit(left) };
     return lane.flip ? { style: { ...style, bottom: h - lane.top - PET }, up: true } : { style: { ...style, top: lane.top }, up: false };
   }
-  const left = lane.left - 16;
+  const left = lane.left - 24 - PAD_REACH; // the lane starts 24px right of the column
   const style: CSSProperties = { left, maxWidth: fit(left) };
   const up = lane.flip || lane.top >= ABOVE_MIN;
   return up ? { style: { ...style, bottom: h - lane.top + 8 }, up } : { style: { ...style, top: lane.top + PET + 8 }, up };
@@ -245,6 +248,31 @@ export function PetLayer({
     return () => void scroller.style.removeProperty("--pet-clear");
   }, [inLane, scroller]);
   const laneBubble = lane ? bubbleStyle(lane, stageSize.w, stageSize.h) : null;
+
+  // Docked, the bubble stands over the doc. Reserve its height under the doc and scroll the active line above it, so
+  // the choices and the check button stay reachable (the bubble hides on its own after a few seconds).
+  const dockedBubble = showBubble && !lane && scroller !== null;
+  useEffect(() => {
+    const bubble = layerRef.current?.querySelector("[data-bubble]");
+    if (!dockedBubble || !scroller || !bubble) return;
+    const fit = () => {
+      const b = bubble.getBoundingClientRect();
+      const s = scroller.getBoundingClientRect();
+      scroller.style.setProperty("--pet-clear", `${Math.max(0, s.bottom - b.top) + BUBBLE_CLEAR}px`);
+      if (!anchor) return;
+      const a = anchor.getBoundingClientRect();
+      // Never push the line's top out of view: a line taller than the room keeps its top.
+      const by = Math.min(a.bottom + BUBBLE_CLEAR - b.top, a.top - s.top - BUBBLE_CLEAR);
+      if (by > 0) scroller.scrollBy({ top: by });
+    };
+    fit();
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fit);
+    ro?.observe(bubble);
+    return () => {
+      ro?.disconnect();
+      scroller.style.removeProperty("--pet-clear");
+    };
+  }, [dockedBubble, scroller, anchor, spoken.length, state.optChips, state.offerChips, state.restateChips]);
 
   return (
     // With a photo picked the greeting is gone, so the pet docks; it is still the entry's pet.

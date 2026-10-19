@@ -62,6 +62,7 @@ export function PetBubble({
   return (
     <div
       role={error ? "alert" : "status"}
+      data-bubble=""
       data-side={side}
       data-flip={flip || undefined}
       style={style}

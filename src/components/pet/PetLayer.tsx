@@ -26,6 +26,7 @@ const MAX_SPOKEN = 3;
 const PET = 88; // --pet-size at the docked place (PetLayer.module.css); the lane only exists on a wide stage
 const SCROLL_MS = 120; // after the last scroll event the pet is no longer "moving with the scroll"
 const BUBBLE_GAP = 12; // pet to bubble, beside it
+const BUBBLE_CLEAR = 12; // between a docked bubble and the doc above it
 const BUBBLE_W = 300; // PetBubble.module.css max-width
 const PAD_REACH = 24; // how far a bubble over the pet reaches into the doc sheet's side padding
 const ABOVE_MIN = 200; // above the pet needs this much room over it, else the bubble opens below
@@ -247,6 +248,31 @@ export function PetLayer({
     return () => void scroller.style.removeProperty("--pet-clear");
   }, [inLane, scroller]);
   const laneBubble = lane ? bubbleStyle(lane, stageSize.w, stageSize.h) : null;
+
+  // Docked, the bubble stands over the doc. Reserve its height under the doc and scroll the active line above it, so
+  // the choices and the check button stay reachable (the bubble hides on its own after a few seconds).
+  const dockedBubble = showBubble && !lane && scroller !== null;
+  useEffect(() => {
+    const bubble = layerRef.current?.querySelector("[data-bubble]");
+    if (!dockedBubble || !scroller || !bubble) return;
+    const fit = () => {
+      const b = bubble.getBoundingClientRect();
+      const s = scroller.getBoundingClientRect();
+      scroller.style.setProperty("--pet-clear", `${Math.max(0, s.bottom - b.top) + BUBBLE_CLEAR}px`);
+      if (!anchor) return;
+      const a = anchor.getBoundingClientRect();
+      // Never push the line's top out of view: a line taller than the room keeps its top.
+      const by = Math.min(a.bottom + BUBBLE_CLEAR - b.top, a.top - s.top - BUBBLE_CLEAR);
+      if (by > 0) scroller.scrollBy({ top: by });
+    };
+    fit();
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fit);
+    ro?.observe(bubble);
+    return () => {
+      ro?.disconnect();
+      scroller.style.removeProperty("--pet-clear");
+    };
+  }, [dockedBubble, scroller, anchor, spoken.length, state.optChips, state.offerChips, state.restateChips]);
 
   return (
     // With a photo picked the greeting is gone, so the pet docks; it is still the entry's pet.

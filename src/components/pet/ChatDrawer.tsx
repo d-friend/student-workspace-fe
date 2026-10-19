@@ -49,7 +49,10 @@ export function ChatDrawer({
   const recap = bubbles.find((b) => b.kind === "agent" && b.restate);
 
   // preventScroll: the column starts off-screen, and a plain focus() scrolls the overflow-hidden shell sideways to it.
-  useEffect(() => composerRef.current?.focus({ preventScroll: true }), [composerRef]);
+  // Not on a touch screen: the keyboard would cover the log the student opened the chat to read.
+  useEffect(() => {
+    if (!matchMedia("(pointer: coarse)").matches) composerRef.current?.focus({ preventScroll: true });
+  }, [composerRef]);
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key !== "Escape") return;

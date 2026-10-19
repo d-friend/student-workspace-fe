@@ -957,18 +957,52 @@ describe("structured workspace", () => {
     expect(t.track).not.toHaveBeenCalledWith("turn_failed", expect.anything(), expect.anything());
   });
 
-  it("task_completed via master is not student-triggered", async () => {
+  it("task_completed via master is sent at once, not as a student gesture", async () => {
     const t = await boot(stream([shown("w1"), "ok"]));
     await typed(t);
     t.api.turn.mockClear();
     t.ws.actions.report("task_completed", { similar: false, helped: false, max_hint: 0, via: "master" });
-    await vi.advanceTimersByTimeAsync(2000);
-    expect(t.api.turn).not.toHaveBeenCalled();
-    t.ws.actions.report("help_requested", { block_id: "s1", level: 1 });
-    await vi.advanceTimersByTimeAsync(800);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.api.turn).toHaveBeenCalledTimes(1);
     expect(sentEvents(t.api).map((e: { type: string; byStudent: boolean; gesture?: number }) => [e.type, e.byStudent, e.gesture])).toEqual([
       ["task_completed", false, undefined],
-      ["help_requested", true, expect.any(Number)],
+    ]);
+  });
+
+  it("a completion right before Bài mới still reaches the server", async () => {
+    const t = await boot(stream([shown("w1"), "ok"]));
+    await typed(t);
+    t.api.turn.mockClear();
+    t.ws.actions.report("task_completed", { similar: false, helped: false, max_hint: 1 });
+    t.ws.actions.newProblem();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.api.turn).toHaveBeenCalledTimes(1);
+    expect(lastCall(t.api)[0]).toBe("s1");
+    expect(sentEvents(t.api).map((e: { type: string }) => e.type)).toEqual(["task_completed"]);
+  });
+
+  it("a completion during a running turn is sent when it ends", async () => {
+    const gate = deferred();
+    let calls = 0;
+    const t = await boot(async (_s, _m, onDelta, onEvent) => {
+      if (++calls === 1) {
+        onEvent!(shown("w1"));
+        onDelta("ok");
+        await gate.promise;
+      }
+      return DONE;
+    });
+    t.ws.actions.setInput("x");
+    void t.ws.actions.submit();
+    await vi.advanceTimersByTimeAsync(0);
+    t.ws.actions.report("task_completed", { similar: false, helped: false, max_hint: 0, via: "master" });
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(t.api.turn).toHaveBeenCalledTimes(1);
+    gate.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.api.turn).toHaveBeenCalledTimes(2);
+    expect(sentEvents(t.api).map((e: { type: string; byStudent: boolean; gesture?: number }) => [e.type, e.byStudent, e.gesture])).toEqual([
+      ["task_completed", false, undefined],
     ]);
   });
 

@@ -548,7 +548,10 @@ export function createWorkspace(deps: WorkspaceDeps) {
     pending = [...pending, event].slice(-MAX_PENDING);
     closeRestate();
     publish();
-    if (timer === undefined) {
+    if (event.type === "task_completed") {
+      clearTimer();
+      flush();
+    } else if (timer === undefined) {
       timer = setTimeout(() => {
         timer = undefined;
         flush();

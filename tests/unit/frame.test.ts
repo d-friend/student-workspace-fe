@@ -52,6 +52,10 @@ test("shouldTrigger ignores events the student did not cause", () => {
   expect(shouldTrigger([{ type: "tick", byStudent: false, gesture: 1 }, { type: "tick" }], 0)).toBe(false);
 });
 
+test("shouldTrigger fires on a completion the student did not cause", () => {
+  expect(shouldTrigger([{ type: "task_completed", byStudent: false }], 0)).toBe(true);
+});
+
 test("shouldTrigger fires once per student gesture", () => {
   const ticks = [
     { type: "tick", byStudent: true, gesture: 1 },

@@ -58,7 +58,10 @@ export function eventMessage(events: WorkspaceEvent[]): string {
 // started a turn, so one gesture starts at most one turn.
 export function shouldTrigger(events: WorkspaceEvent[], handled: number): boolean {
   return events.some(
-    (e) => (e.byStudent === true && (e.gesture ?? -Infinity) > handled) || e.type === "workspace_error",
+    (e) =>
+      (e.byStudent === true && (e.gesture ?? -Infinity) > handled) ||
+      e.type === "workspace_error" ||
+      e.type === "task_completed", // a master completion has no gesture, and waiting for one can lose it
   );
 }
 

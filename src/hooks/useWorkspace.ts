@@ -38,6 +38,7 @@ const STATUS_LABEL = {
 const FLUSH_DELAY_MS = 800;
 const RECOVER_MS = 120_000; // how long to wait for a build that outlived its connection (the planner caps at 90 s)
 const RECOVER_POLL_MS = 2000;
+const RECOVER_MAX_FAILS = 5; // consecutive failed status checks (about 10 s offline) before the turn counts as lost
 const MAX_PENDING = 20;
 
 // `turn` numbers the exchanges (a typed message, or a batch of workspace events, and what comes back), so the pet
@@ -291,14 +292,18 @@ export function createWorkspace(deps: WorkspaceDeps) {
   // and return the saved session, or null when nothing was saved (the request never arrived, or the turn failed).
   async function recover(sid: string, before: number): Promise<Saved | null> {
     const deadline = now() + RECOVER_MS;
+    let fails = 0;
     while (now() < deadline) {
       try {
-        if (!(await api.turnStatus(sid))) {
+        const running = await api.turnStatus(sid);
+        fails = 0;
+        if (!running) {
           const saved = await api.currentSession();
           return saved && saved.sessionId === sid && saved.messages.length > before ? saved : null;
         }
       } catch {
-        // Offline or still waking up: ask again.
+        // Offline or still waking up: ask again, but not forever when the server is really unreachable.
+        if (++fails >= RECOVER_MAX_FAILS) return null;
       }
       await sleep(RECOVER_POLL_MS);
     }

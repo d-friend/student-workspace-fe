@@ -604,6 +604,21 @@ describe("a stream lost mid-turn (a locked phone)", () => {
     expect(t.state().input).toBe("y");
   });
 
+  it("gives up after five failed status checks in a row", async () => {
+    const t = await boot();
+    t.ws.actions.setInput("x");
+    await t.ws.actions.submit();
+
+    lose(t);
+    t.api.turnStatus.mockRejectedValue(new TypeError("offline"));
+    t.ws.actions.setInput("y");
+    await t.ws.actions.submit();
+
+    expect(t.api.turnStatus).toHaveBeenCalledTimes(5);
+    expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "error" });
+    expect(t.state().input).toBe("y");
+  });
+
   it("keeps waiting through a failed status check", async () => {
     const t = await boot();
     t.ws.actions.setInput("x");

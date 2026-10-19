@@ -111,7 +111,8 @@ test("a failed first build returns to the entry with the text restored and an al
   await page.route("**/api/sessions/**", (route) => route.abort());
   await send(page, "Giải giúp mình bài này");
   // Next's route announcer is an empty role=alert too, so match the one with words.
-  await expect(page.getByRole("alert").filter({ hasText: /\S/ })).toBeVisible();
+  // The page first waits for a build that may have outlived the connection (five failed status checks, about 10 s).
+  await expect(page.getByRole("alert").filter({ hasText: /\S/ })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole("heading", { name: copy.entryTitle })).toBeVisible();
   await expect(composer(page)).toHaveValue("Giải giúp mình bài này");
 });

@@ -687,16 +687,16 @@ describe("PetLayer in the lane", () => {
       return { left, right: left + Math.min(300, avail) };
     };
 
-    it("in a narrow lane (stage 1440) the bubble sits above the pet and stays right of the doc column", () => {
+    it("in a narrow lane (stage 1440) the bubble sits above the pet and reaches at most 24px into the doc sheet", () => {
       mockRects(() => (live.layer = live.scroller = { left: 0, top: 0, right: 1440, bottom: 900 }));
       render(ui({}, say));
       expect(bubble().dataset.side).toBe("above");
       expect(bubble().style.bottom).toBe(`${900 - 276 + 8}px`);
       expect(bubble().style.right).toBe("");
       const b = box();
-      expect(b.left).toBeGreaterThanOrEqual(R.column.right + 8);
+      expect(b.left).toBeGreaterThanOrEqual(R.column.right - 24); // inside the sheet's side padding, over no text
       expect(b.right).toBeLessThanOrEqual(1440 - 16);
-      expect(b.right - b.left).toBeGreaterThanOrEqual(200); // the narrowest lane still leaves a readable bubble
+      expect(b.right - b.left).toBeGreaterThanOrEqual(232); // the narrowest lane still leaves a readable bubble
     });
 
     it("beside the pet (stage 1700) the bubble is also right of the column and inside the stage", () => {

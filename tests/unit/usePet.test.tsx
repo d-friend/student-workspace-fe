@@ -53,28 +53,28 @@ afterEach(() => {
 });
 
 describe("usePet", () => {
-  it("(a) a workspace turn with no agent bubble thinks, then idles when it ends silently", () => {
+  it("(a) a workspace turn with no agent bubble works, then idles when it ends silently", () => {
     const { to, mood } = setup();
     to({ busy: true });
-    expect(mood()).toBe("thinking");
+    expect(mood()).toBe("working");
     to({ busy: false });
     expect(mood()).toBe("idle");
   });
 
-  it("(b) a waiting agent bubble is typing, but thinking while building", () => {
+  it("(b) a waiting agent bubble is thinking, but working while building", () => {
     const { to, mood } = setup();
     to({ busy: true, bubbles: [student(1), agent(2, true)] });
-    expect(mood()).toBe("typing");
-    to({ building: true });
     expect(mood()).toBe("thinking");
+    to({ building: true });
+    expect(mood()).toBe("working");
     to({ building: false }); // the build is over, the reply is about to arrive
-    expect(mood()).toBe("typing");
+    expect(mood()).toBe("thinking");
   });
 
-  it("(b) the first long build of a typed turn shows thinking, not dots", () => {
+  it("(b) the first long build of a typed turn shows working, not dots", () => {
     const { to, mood } = setup();
     to({ busy: true, building: true, bubbles: [student(1), agent(2, true)] });
-    expect(mood()).toBe("thinking");
+    expect(mood()).toBe("working");
   });
 
   it("(c) streaming text is talking, and stays talking 1.8 s after the turn ends", () => {
@@ -93,7 +93,7 @@ describe("usePet", () => {
   it("(c) a workspace turn whose agent speaks talks too", () => {
     const { to, mood, wait } = setup();
     to({ busy: true });
-    expect(mood()).toBe("thinking");
+    expect(mood()).toBe("working");
     to({ bubbles: [agent(1)] });
     expect(mood()).toBe("talking");
     to({ busy: false });
@@ -148,7 +148,7 @@ describe("usePet", () => {
     type(input);
     expect(mood()).toBe("doubt");
     to({ checking: 1 });
-    expect(mood()).toBe("thinking");
+    expect(mood()).toBe("working");
     to({ checking: 0 });
     expect(mood()).toBe("doubt");
     to({ verdict: verdict(2, "ok") });
@@ -254,7 +254,7 @@ describe("usePet", () => {
   it("a typed turn that ends silent (waiting bubble removed) goes idle, not stuck typing", () => {
     const { to, mood, wait } = setup();
     to({ busy: true, bubbles: [student(1), agent(2, true)] });
-    expect(mood()).toBe("typing");
+    expect(mood()).toBe("thinking");
     to({ busy: false, bubbles: [student(1)] });
     expect(mood()).toBe("idle");
     wait(2000);
@@ -264,18 +264,18 @@ describe("usePet", () => {
   it("a workspace turn ignores the previous turn's agent bubble", () => {
     const { to, mood, wait } = setup({ ...base, bubbles: [student(1), agent(2)] });
     to({ busy: true });
-    expect(mood()).toBe("thinking");
+    expect(mood()).toBe("working");
     to({ busy: false });
     expect(mood()).toBe("idle");
     wait(2000);
     expect(mood()).toBe("idle");
   });
 
-  it("the agent's build text is not talking: building shows thinking", () => {
+  it("the agent's build text is not talking: building shows working", () => {
     const { to, mood } = setup();
     to({ busy: true, bubbles: [student(1), agent(2, true)] });
     to({ building: true, bubbles: [student(1), agent(2, false, "Mình đang dựng...")] });
-    expect(mood()).toBe("thinking");
+    expect(mood()).toBe("working");
   });
 
   it("a new turn during the talking hold ends the hold", () => {
@@ -284,7 +284,7 @@ describe("usePet", () => {
     to({ busy: false });
     expect(mood()).toBe("talking");
     to({ busy: true });
-    expect(mood()).toBe("thinking");
+    expect(mood()).toBe("working");
   });
 
   it("unmount clears every timer and the document listeners", () => {

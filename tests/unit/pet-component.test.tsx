@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { Pet } from "@/components/pet/Pet";
 import type { PetMood } from "@/lib/pet";
 
-const moods: PetMood[] = ["idle", "listening", "thinking", "typing", "talking", "happy", "doubt"];
+const moods: PetMood[] = ["idle", "listening", "thinking", "working", "talking", "happy", "doubt"];
 
 afterEach(cleanup);
 

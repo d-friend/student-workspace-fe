@@ -33,6 +33,8 @@ function Doc({ w, p, hidden, tabbed, base, onPhase, hasSolve, taskDone }: {
   const [presses, setPresses] = useState(0);
   const [solved, setSolved] = useState<{ via?: "master" } | null>(null);
   const reported = useRef(false);
+  const quizzesDone = useRef(new Set<string>());
+  const learnReported = useRef(false);
   const level = Math.min(presses, 3);
   const working = p !== "learn";
   const stepsIds = w.doc.blocks.filter((b) => b.type === "steps").map((b) => b.id);
@@ -51,8 +53,22 @@ function Doc({ w, p, hidden, tabbed, base, onPhase, hasSolve, taskDone }: {
     base.report("help_requested", { block_id: stepsId, level: Math.min(presses + 1, 3) });
   };
   const help = { level, onHint, onIdea: p === "solve" ? () => base.report("foundation_requested", {}) : undefined };
+  const quizIds = w.doc.blocks.filter((b) => b.type === "quiz").map((b) => b.id);
+  // A quiz is finished like Quiz.tsx decides: open (sent), correct, or a second try. When the last one of a learn doc
+  // is, the master is told: correct quiz answers alone never wake it, and it offers what comes next.
+  const report: BlockCtx["report"] = (type, data) => {
+    base.report(type, data);
+    if (p !== "learn" || type !== "quiz_answered") return;
+    const a = data as { block_id: string; ok?: boolean; tries?: number };
+    if (a.ok === undefined || a.ok === true || (a.tries ?? 0) >= 2) quizzesDone.current.add(a.block_id);
+    if (!learnReported.current && quizIds.length > 0 && quizIds.every((id) => quizzesDone.current.has(id))) {
+      learnReported.current = true;
+      base.report("learn_completed", {});
+    }
+  };
   const ctx: BlockCtx = {
     ...base,
+    report,
     hintCount: presses,
     help,
     hidden,

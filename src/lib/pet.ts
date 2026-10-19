@@ -1,4 +1,4 @@
-export type PetMood = "idle" | "listening" | "thinking" | "typing" | "talking" | "happy" | "doubt";
+export type PetMood = "idle" | "listening" | "thinking" | "working" | "talking" | "happy" | "doubt";
 
 // usePet time-boxes each flag; priority is the order below (spec §4.1).
 export type PetInputs = {
@@ -12,10 +12,10 @@ export type PetInputs = {
 
 export function petMood(i: PetInputs): PetMood {
   if (i.celebrating) return "happy";
-  if (i.composing) return "typing";
+  if (i.composing) return "thinking";
   if (i.talking) return "talking";
   if (i.doubting) return "doubt";
-  if (i.working) return "thinking";
+  if (i.working) return "working";
   if (i.typing) return "listening";
   return "idle";
 }

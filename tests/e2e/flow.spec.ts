@@ -84,9 +84,9 @@ test("a student gesture starts a turn, new problem, photo, tracking rows without
   await send(page, "__learn");
   await closeChat(page);
   await page.getByRole("tab", { name: copy.phaseLearn }).click();
-  await page.getByLabel(copy.answer).fill(ANSWER);
+  await page.getByLabel(copy.answer).first().fill(ANSWER); // a learn doc has two quizzes; answer the first
   const checked = page.waitForResponse((r) => r.url().includes("/check"));
-  await page.getByRole("tabpanel").getByRole("button", { name: copy.answer }).click(); // the bubble has a "Trả lời" too
+  await page.getByRole("tabpanel").getByRole("button", { name: copy.answer }).first().click(); // the bubble has a "Trả lời" too
   await checked;
 
   // The server stores a turn when its stream ends: wait for it before leaving the session.

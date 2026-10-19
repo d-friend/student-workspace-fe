@@ -5,7 +5,7 @@
 .pet[data-state="idle"] .open, .pet[data-state="idle"] .smile, .pet[data-state="idle"] .calm,
 .pet[data-state="listening"] .down, .pet[data-state="listening"] .smile, .pet[data-state="listening"] .calm,
 .pet[data-state="thinking"] .up, .pet[data-state="thinking"] .o, .pet[data-state="thinking"] .think,
-.pet[data-state="typing"] .down, .pet[data-state="typing"] .o,
+.pet[data-state="working"] .down, .pet[data-state="working"] .o,
 .pet[data-state="talking"] .open, .pet[data-state="talking"] .talk, .pet[data-state="talking"] .calm,
 .pet[data-state="happy"] .happyEyes, .pet[data-state="happy"] .grin, .pet[data-state="happy"] .spark,
 .pet[data-state="doubt"] .doubtEyes, .pet[data-state="doubt"] .flat, .pet[data-state="doubt"] .q { display: inline; }
@@ -33,7 +33,7 @@
 .td3 { animation-delay: .4s; }
 @keyframes pop { 0%, 100% { opacity: .25; transform: scale(.68) rotate(0deg); } 50% { opacity: 1; transform: scale(1.08) rotate(18deg); } }
 
-.pet[data-state="typing"] .body { animation: jitter .35s cubic-bezier(.4, 0, .6, 1) infinite alternate; }
+.pet[data-state="working"] .body { animation: jitter .35s cubic-bezier(.4, 0, .6, 1) infinite alternate; }
 @keyframes jitter { 0% { transform: translateY(0) rotate(-2deg); } 100% { transform: translateY(-4px) rotate(2deg) scale(1.02, .98); } }
 .pet[data-state="talking"] .body { animation: float 1.2s ease-in-out infinite; }
 .mouth { transform-box: fill-box; transform-origin: 50% 50%; animation: talk .22s steps(2, end) infinite alternate; }

@@ -143,6 +143,7 @@ export async function sendEvents(
 
 export type TurnEvent =
   | { event: "announce"; text: string }
+  | { event: "reset" }
   | { event: "status"; stage: "planning" | "searching" | "reading" | "failed"; label?: string; phase?: Phase }
   | { event: "workspace"; workspaceId: string; phase: Phase; doc: WorkspaceDoc }
   | { event: "phase"; phase: Phase }
@@ -164,7 +165,7 @@ export async function turn(
   try {
     for await (const { event, data } of readSse(res)) {
       if (event === "text") onDelta((data as { delta: string }).delta);
-      else if (event === "announce" || event === "status" || event === "phase") onEvent?.({ event, ...(data as object) } as TurnEvent);
+      else if (event === "announce" || event === "reset" || event === "status" || event === "phase") onEvent?.({ event, ...(data as object) } as TurnEvent);
       else if (event === "workspace") {
         const d = data as { workspace_id: string; phase: Phase; doc: WorkspaceDoc };
         onEvent?.({ event, workspaceId: d.workspace_id, phase: d.phase, doc: d.doc });

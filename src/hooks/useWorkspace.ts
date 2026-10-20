@@ -379,9 +379,14 @@ export function createWorkspace(deps: WorkspaceDeps) {
       }
     };
 
+    let raw = "";
     const onEvent = (e: TurnEvent) => {
       sawEvent = true;
-      if (e.event === "announce") {
+      if (e.event === "reset") {
+        // Text written before a tool call is not for the student: start the reply over.
+        raw = "";
+        show(parse(raw), false);
+      } else if (e.event === "announce") {
         announceText = e.text;
         announceRestate = e.text.startsWith(RESTATE);
         const b: NewBubble = { kind: "agent", text: e.text, waiting: false, line: null, offer: false, restate: announceRestate, opts: null, ask: null };
@@ -432,7 +437,6 @@ export function createWorkspace(deps: WorkspaceDeps) {
         sessionId = (await api.createSession(via ?? (shot ? "photo" : "typed"))).sessionId;
         sessionConfirmed = true;
       }
-      let raw = "";
       await api.turn(sessionId, messages.at(-1)!, (delta) => {
         raw += delta;
         const view = parse(raw);

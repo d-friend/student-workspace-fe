@@ -141,6 +141,11 @@ export async function sendEvents(
   return res.json();
 }
 
+export async function sendFeedback(message: string): Promise<void> {
+  const res = await post("/api/feedback", { message });
+  if (!res.ok) throw await toApiError(res);
+}
+
 // The static blocks written so far; every other block is a stub that only holds its place.
 export type PreviewBlock = Block | { type: "stub"; id: string };
 export type Preview = { phase: Phase; title: string | null; blocks: PreviewBlock[] };

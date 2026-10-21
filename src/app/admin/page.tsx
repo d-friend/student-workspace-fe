@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { adminGet, clearToken, readToken, saveToken } from "@/lib/admin";
-import { CostSection, GuestsSection, GuestTimeline, HealthSection, LatencySection, ThesisSection, UsersSection } from "./sections";
+import { CostSection, FeedbackSection, GuestsSection, GuestTimeline, HealthSection, LatencySection, ThesisSection, UsersSection } from "./sections";
 import styles from "./admin.module.css";
 
 const DAYS = [
@@ -102,6 +102,7 @@ export default function AdminPage() {
         <LatencySection token={token} days={days} onGuestOpen={setOpenGuest} />
         <UsersSection token={token} days={days} />
         <ThesisSection token={token} days={days} />
+        <FeedbackSection token={token} onGuestOpen={setOpenGuest} />
         {openGuest ? <GuestTimeline token={token} guestId={openGuest} onClose={() => setOpenGuest(null)} /> : <GuestsSection token={token} onGuestOpen={setOpenGuest} />}
       </div>
     </main>

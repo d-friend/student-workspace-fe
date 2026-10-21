@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import * as realApi from "@/lib/api";
-import { ApiError, TurnError, type Message, type StartedVia, type TurnEvent } from "@/lib/api";
+import { ApiError, TurnError, type Message, type Preview, type StartedVia, type TurnEvent } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import {
   customFrames,
@@ -33,6 +33,7 @@ const STATUS_LABEL = {
   planning: copy.statusPlanning,
   searching: copy.statusSearching,
   reading: copy.statusReading,
+  simulating: copy.statusSimulating,
 } as const;
 
 const FLUSH_DELAY_MS = 800;
@@ -76,6 +77,9 @@ export type WorkspaceState = {
   photo: string | null;
   html: string | null; // legacy iframe workspace, only when there are no structured workspaces
   workspaces: Partial<Record<Phase, Workspace>>;
+  simulationVersions: Record<string, number>;
+  simulationFailures: Record<string, boolean>;
+  simulationPending: Record<string, boolean>;
   phase: Phase | null;
   // SSE line_state and task_done, by workspace id (block ids are unique per doc only).
   overrides: Record<string, BlockCtx["overrides"]>;
@@ -83,6 +87,7 @@ export type WorkspaceState = {
   building: boolean;
   status: string | null; // the pet bubble's status label from the latest SSE status
   buildingPhase: Phase | null;
+  preview: Preview | null; // the planner's text blocks so far, shown while the rest of the doc is written
   buildFailed: boolean; // the planner failed and there is nothing to show
   screen: Screen;
   watching: boolean;
@@ -150,12 +155,16 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let photoNoteId: number | null = null;
   let html: string | null = null;
   let workspaces: Partial<Record<Phase, Workspace>> = {};
+  let simulationVersions: WorkspaceState["simulationVersions"] = {};
+  let simulationFailures: WorkspaceState["simulationFailures"] = {};
+  let simulationPending: WorkspaceState["simulationPending"] = {};
   let phase: Phase | null = null;
   let overrides: WorkspaceState["overrides"] = {};
   let taskDone: WorkspaceState["taskDone"] = {};
   let building = false;
   let status: string | null = null;
   let buildingPhase: Phase | null = null;
+  let preview: Preview | null = null;
   let buildFailed = false;
   let sessionId: string | null = null;
   // True once the server has confirmed the session (created, restored or used by a turn); events go out
@@ -196,12 +205,16 @@ export function createWorkspace(deps: WorkspaceDeps) {
       photo,
       html,
       workspaces,
+      simulationVersions,
+      simulationFailures,
+      simulationPending,
       phase,
       overrides,
       taskDone,
       building,
       status,
       buildingPhase,
+      preview,
       buildFailed: buildFailed && !shown && !busy, // a retry while a turn streams would be a no-op
       screen,
       watching: shown && !busy && watching(messages),
@@ -389,18 +402,27 @@ export function createWorkspace(deps: WorkspaceDeps) {
         announceId = agentId === null ? addBubble(b) : insertBubbleBefore(agentId, b);
       } else if (e.event === "status") {
         buildFailed = e.stage === "failed";
+        if (buildFailed) preview = null;
         status = e.stage === "failed" ? null : STATUS_LABEL[e.stage];
         building = e.stage !== "failed";
         buildingPhase = e.stage === "failed" ? null : (e.phase ?? buildingPhase);
+      } else if (e.event === "workspace_partial") {
+        preview = { phase: e.phase, title: e.title, blocks: e.blocks };
       } else if (e.event === "workspace") {
         const old = workspaces[e.phase];
         const replaced = old !== undefined;
         workspaces = { ...workspaces, [e.phase]: { id: e.workspaceId, doc: e.doc } };
+        const slot = e.doc.blocks.find((b) => b.type === "custom");
+        if (e.phase === "learn" && slot?.type === "custom" && slot.html === null) {
+          simulationPending = { ...simulationPending, [`${e.workspaceId}:${slot.id}`]: true };
+        }
+        simulationVersions = Object.fromEntries(Object.entries(simulationVersions).filter(([key]) => !key.startsWith(`${e.workspaceId}:`)));
         activate(e.phase);
         gotWorkspace = true;
         building = false;
         status = null;
         buildingPhase = null;
+        preview = null;
         // Drop the replaced doc's line states and master completions.
         if (old) {
           overrides = { ...overrides };
@@ -415,6 +437,29 @@ export function createWorkspace(deps: WorkspaceDeps) {
         track("workspace_shown", { ms_since_send: Math.max(0, now() - sentAt), replaced }, sid());
       } else if (e.event === "phase") {
         if (workspaces[e.phase]) activate(e.phase);
+      } else if (e.event === "simulation") {
+        const entry = Object.entries(workspaces).find(([, w]) => w?.id === e.workspaceId);
+        if (entry) {
+          const [p, workspace] = entry as [Phase, Workspace];
+          const block = workspace.doc.blocks.find((b) => b.id === e.blockId && b.type === "custom");
+          if (block?.type === "custom") {
+            const update = block.html !== null;
+            const versionKey = `${e.workspaceId}:${e.blockId}`;
+            workspaces = {
+              ...workspaces,
+              [p]: { ...workspace, doc: { ...workspace.doc, blocks: workspace.doc.blocks.map((b) =>
+                b.id === e.blockId && b.type === "custom" ? { ...b, html: e.html, height: e.height } : b) } },
+            };
+            simulationVersions = { ...simulationVersions, [versionKey]: (simulationVersions[versionKey] ?? 0) + 1 };
+            simulationFailures = { ...simulationFailures, [versionKey]: false };
+            simulationPending = { ...simulationPending, [versionKey]: false };
+            track("simulation_shown", { ms_since_send: Math.max(0, now() - sentAt), update }, sid());
+          }
+        }
+      } else if (e.event === "simulation_failed") {
+        const versionKey = `${e.workspaceId}:${e.blockId}`;
+        simulationFailures = { ...simulationFailures, [versionKey]: true };
+        simulationPending = { ...simulationPending, [versionKey]: false };
       } else if (e.event === "line_state") {
         const w = overrides[e.workspaceId] ?? {};
         overrides = { ...overrides, [e.workspaceId]: { ...w, [e.blockId]: { ...w[e.blockId], [e.line]: e.state } } };
@@ -511,6 +556,8 @@ export function createWorkspace(deps: WorkspaceDeps) {
       building = false;
       status = null;
       buildingPhase = null;
+      preview = null;
+      simulationPending = {};
       publish();
       if (typed) dom.focusInput(failed);
       if (!keepEvents) flush();
@@ -587,6 +634,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
     sessionConfirmed = true;
     const structured = Object.keys(saved.workspaces).length > 0;
     workspaces = saved.workspaces;
+    simulationVersions = {};
+    simulationFailures = {};
+    simulationPending = {};
     phase = saved.phase && workspaces[saved.phase] ? saved.phase : ((Object.keys(workspaces)[0] as Phase) ?? null);
     html = structured ? null : saved.html;
     overrides = {};
@@ -813,6 +863,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
       bubbles = [];
       html = null;
       workspaces = {};
+      simulationVersions = {};
+      simulationFailures = {};
+      simulationPending = {};
       phase = null;
       verdict = { seq: verdictSeq, state: null, done: false };
       overrides = {};
@@ -820,6 +873,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       building = false;
       status = null;
       buildingPhase = null;
+      preview = null;
       buildFailed = false;
       sessionId = null;
       sessionConfirmed = false;

@@ -33,7 +33,7 @@ export type Block =
       circles?: { center: string; through: string }[];
       tools: GeometryTool[];
     }
-  | { type: "custom"; id: string; html: string; height: number; reason: string };
+  | { type: "custom"; id: string; html: string | null; height: number | null; reason: string; spec?: string | null; events?: { type: string; data: string }[] };
 
 export type WorkspaceDoc = {
   version: 1;
@@ -65,6 +65,9 @@ export type BlockCtx = {
   onSolved: (blockId: string) => void; // a steps block reached its final checkpoint
   help: { level: number; onHint: () => void; onIdea?: () => void } | null; // Doc sets it; Steps shows it in its active row
   hidden?: boolean; // Doc sets it: this doc is not the shown phase (it stays mounted), so its blocks give up the pet anchor
+  simulationPending?: Record<string, boolean>;
+  simulationVersions?: Record<string, number>;
+  simulationFailures?: Record<string, boolean>;
 };
 
 export type BlockProps<B> = { block: B; ctx: BlockCtx };

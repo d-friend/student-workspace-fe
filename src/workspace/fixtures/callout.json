@@ -8,6 +8,13 @@
       "id": "c1",
       "tone": "idea",
       "md": "Đạo hàm là **hệ số góc** của tiếp tuyến."
+    },
+    {
+      "type": "custom",
+      "id": "sim1",
+      "html": "<p>Thử mô phỏng</p>",
+      "height": 360,
+      "reason": "Mô phỏng minh họa."
     }
   ],
   "sources": []

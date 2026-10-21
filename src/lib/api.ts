@@ -1,4 +1,4 @@
-import type { CheckResponse, Phase, Workspace, WorkspaceDoc } from "@/workspace/types";
+import type { Block, CheckResponse, Phase, Workspace, WorkspaceDoc } from "@/workspace/types";
 import { readSse } from "./sse";
 
 // Typed client for spec 4.2 to 4.6. A 401 no_guest makes one guest call and one retry.
@@ -141,10 +141,17 @@ export async function sendEvents(
   return res.json();
 }
 
+// The static blocks written so far; every other block is a stub that only holds its place.
+export type PreviewBlock = Block | { type: "stub"; id: string };
+export type Preview = { phase: Phase; title: string | null; blocks: PreviewBlock[] };
+
 export type TurnEvent =
   | { event: "announce"; text: string }
-  | { event: "status"; stage: "planning" | "searching" | "reading" | "failed"; label?: string; phase?: Phase }
+  | { event: "status"; stage: "planning" | "searching" | "reading" | "simulating" | "failed"; label?: string; phase?: Phase }
+  | ({ event: "workspace_partial" } & Preview)
   | { event: "workspace"; workspaceId: string; phase: Phase; doc: WorkspaceDoc }
+  | { event: "simulation"; workspaceId: string; blockId: string; html: string; height: number }
+  | { event: "simulation_failed"; workspaceId: string; blockId: string }
   | { event: "phase"; phase: Phase }
   | { event: "line_state"; workspaceId: string; blockId: string; line: number; state: "ok" | "review" }
   | { event: "task_done"; workspaceId: string; blockId: string };
@@ -164,7 +171,7 @@ export async function turn(
   try {
     for await (const { event, data } of readSse(res)) {
       if (event === "text") onDelta((data as { delta: string }).delta);
-      else if (event === "announce" || event === "status" || event === "phase") onEvent?.({ event, ...(data as object) } as TurnEvent);
+      else if (event === "announce" || event === "status" || event === "phase" || event === "workspace_partial") onEvent?.({ event, ...(data as object) } as TurnEvent);
       else if (event === "workspace") {
         const d = data as { workspace_id: string; phase: Phase; doc: WorkspaceDoc };
         onEvent?.({ event, workspaceId: d.workspace_id, phase: d.phase, doc: d.doc });
@@ -174,6 +181,12 @@ export async function turn(
       } else if (event === "task_done") {
         const d = data as { workspace_id: string; block_id: string };
         onEvent?.({ event, workspaceId: d.workspace_id, blockId: d.block_id });
+      }
+      else if (event === "simulation" || event === "simulation_failed") {
+        const d = data as { workspace_id: string; block_id: string; html?: string; height?: number };
+        onEvent?.(event === "simulation"
+          ? { event, workspaceId: d.workspace_id, blockId: d.block_id, html: d.html!, height: d.height! }
+          : { event, workspaceId: d.workspace_id, blockId: d.block_id });
       }
       else if (event === "done") {
         const done = data as { turn_id: string; stop_reason: string | null };

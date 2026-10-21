@@ -189,3 +189,12 @@ test("turnStatus reads in_flight", async () => {
   expect(await turnStatus("s1")).toBe(true);
   expect(fetchMock.mock.calls[0][0]).toBe("/api/sessions/s1/turn-status");
 });
+
+test("turn passes a partial doc to onEvent", async () => {
+  const data = { phase: "learn", title: "T", blocks: [{ type: "stub", id: "c1" }] };
+  const body = `event: workspace_partial\ndata: ${JSON.stringify(data)}\n\nevent: done\ndata: {"turn_id": "t9", "stop_reason": null}\n\n`;
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
+  const events: TurnEvent[] = [];
+  await turn("s1", { role: "user", content: "hi" }, () => {}, (e) => events.push(e));
+  expect(events).toEqual([{ event: "workspace_partial", ...data }]);
+});

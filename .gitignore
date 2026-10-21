@@ -3,7 +3,10 @@ node_modules/
 out/
 build/
 .env*.local
-public/vendor/
+# jsxgraph is copied in by postinstall; the lib@version folders are committed (see MANIFEST.md)
+public/vendor/*
+!public/vendor/*@*/
+!public/vendor/MANIFEST.md
 test-results/
 playwright-report/
 coverage/

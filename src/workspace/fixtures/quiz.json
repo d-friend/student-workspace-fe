@@ -14,6 +14,13 @@
         "$x^2$"
       ],
       "explanation_md": "Theo quy tắc lũy thừa, $(x^2)' = 2x$."
+    },
+    {
+      "type": "custom",
+      "id": "sim1",
+      "html": "<p>Thử mô phỏng</p>",
+      "height": 360,
+      "reason": "Mô phỏng minh họa."
     }
   ],
   "sources": []

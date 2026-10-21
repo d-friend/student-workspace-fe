@@ -8,6 +8,13 @@
       "id": "h1",
       "text": "Đạo hàm là gì?",
       "level": 2
+    },
+    {
+      "type": "custom",
+      "id": "sim1",
+      "html": "<p>Thử mô phỏng</p>",
+      "height": 360,
+      "reason": "Mô phỏng minh họa."
     }
   ],
   "sources": []

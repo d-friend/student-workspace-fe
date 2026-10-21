@@ -10,6 +10,13 @@
       "level": 2
     },
     {
+      "type": "custom",
+      "id": "sim1",
+      "html": "<p>Thử mô phỏng</p>",
+      "height": 360,
+      "reason": "Mô phỏng minh họa."
+    },
+    {
       "type": "text",
       "id": "t1",
       "md": "Đạo hàm của hàm số $y = f(x)$ tại $x_0$ cho biết hàm số thay đổi nhanh hay chậm khi $x$ thay đổi một chút quanh $x_0$.\n\nVề hình học, $f'(x_0)$ là hệ số góc của tiếp tuyến của đồ thị tại điểm có hoành độ $x_0$."

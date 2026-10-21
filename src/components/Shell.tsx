@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { copy } from "@/lib/copy";
+import { FeedbackButton } from "./FeedbackButton";
 import { ThemeToggle } from "./ThemeToggle";
 import styles from "./Shell.module.css";
 
@@ -25,6 +26,7 @@ export function Shell({
         <main aria-label={copy.workLabel} className={styles.work}>
           {work}
         </main>
+        <FeedbackButton />
         <ThemeToggle />
       </div>
       {layer}

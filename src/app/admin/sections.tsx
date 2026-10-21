@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { adminGet, adminPut, type Cost, type GuestDetail, type GuestRow, type Health, type Latency, type Pct, type Thesis, type Users } from "@/lib/admin";
+import { adminGet, adminPut, type Cost, type FeedbackRow, type GuestDetail, type GuestRow, type Health, type Latency, type Pct, type Thesis, type Users } from "@/lib/admin";
 import styles from "./admin.module.css";
 
 type Props = { token: string; days: number; onGuestOpen?: (guestId: string) => void };
@@ -100,6 +100,15 @@ export function GuestsSection({ token, onGuestOpen }: Omit<Props, "days">) {
     }
   };
   return <Section title="Guests">{error && <p className={styles.error} role="alert">{error}</p>}{!guests ? error ? null : <p>Loading…</p> : guests.length === 0 ? <Empty /> : <div className={styles.tableWrap}><table><thead><tr><th>Guest</th><th>Created</th><th>Last seen</th><th>Sessions</th><th>Turns</th><th>Completions</th><th>USD</th><th>Internal</th></tr></thead><tbody>{guests.map((guest) => <tr key={guest.id}><td><button className={styles.idButton} type="button" title={guest.id} onClick={() => onGuestOpen?.(guest.id)}>{guest.id.slice(0, 8)}</button></td><td>{when(guest.created_at)}</td><td>{when(guest.last_seen_at)}</td><td>{guest.sessions}</td><td>{guest.turns}</td><td>{guest.completions}</td><td>{money(guest.usd)}</td><td><input type="checkbox" aria-label={`Mark internal for ${guest.id}`} checked={guest.internal} disabled={saving === guest.id} onChange={() => void toggle(guest)} /></td></tr>)}</tbody></table></div>}</Section>;
+}
+
+export function FeedbackSection({ token, onGuestOpen }: Omit<Props, "days">) {
+  const [rows, setRows] = useState<FeedbackRow[] | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    void adminGet<FeedbackRow[]>("/feedback", token).then(setRows, () => setError(true));
+  }, [token]);
+  return <Section title="Feedback">{error ? <Failure /> : !rows ? <p>Loading…</p> : rows.length === 0 ? <Empty /> : <div className={styles.tableWrap}><table><thead><tr><th>When</th><th>Guest</th><th>Message</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td>{when(row.created_at)}</td><td><button className={styles.idButton} type="button" title={row.guest_id} onClick={() => onGuestOpen?.(row.guest_id)}>{row.guest_id.slice(0, 8)}</button>{row.internal && " (internal)"}</td><td style={{ whiteSpace: "pre-wrap", minWidth: 320 }}>{row.message}</td></tr>)}</tbody></table></div>}</Section>;
 }
 
 export function GuestTimeline({ token, guestId, onClose }: { token: string; guestId: string; onClose: () => void }) {

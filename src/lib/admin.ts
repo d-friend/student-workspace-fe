@@ -87,6 +87,8 @@ export type GuestDetail = {
   }[];
 };
 
+export type FeedbackRow = { id: number; guest_id: string; created_at: string; message: string; internal: boolean };
+
 const TOKEN_KEY = "df_admin_token";
 
 async function errorFor(res: Response): Promise<ApiError> {

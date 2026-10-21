@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test } from "vitest";
 import { frameDoc } from "@/lib/frame";
@@ -22,7 +22,8 @@ test("manifest identifies and hashes every versioned vendor file", () => {
   }
 });
 
-test("every library load in the planner table resolves to a vendored file", () => {
+// The prompt lives in the sibling backend repo, which CI does not check out.
+test.skipIf(!existsSync("../backend/app/agent/simulator.md"))("every library load in the planner table resolves to a vendored file", () => {
   const prompt = readFileSync("../backend/app/agent/simulator.md", "utf8");
   const table = prompt.split("\n").filter((line) => line.startsWith("| ") && line.includes("<script"));
   expect(table).toHaveLength(5);

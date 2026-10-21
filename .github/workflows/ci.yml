@@ -17,8 +17,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
-      - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
         env:
           BACKEND_URL: http://127.0.0.1:8000
+      # After build: it generates the gitignored next-env.d.ts that types image imports.
+      - run: pnpm typecheck

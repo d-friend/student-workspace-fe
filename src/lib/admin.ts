@@ -33,6 +33,7 @@ export type Latency = {
   master_first_text_ms: Pct;
   master_total_ms: Pct;
   planner_total_ms: Pct;
+  simulator_total_ms: Pct;
   time_to_first_workspace_ms: Pct;
   workspace_shown_ms: Pct;
   slowest: {
@@ -44,6 +45,15 @@ export type Latency = {
     first_text_ms: number | null;
     model: string | null;
     ok: boolean | null;
+    error_code: string | null;
+  }[];
+  slowest_calls: {
+    turn_id: string;
+    guest_id: string;
+    started_at: string;
+    role: string;
+    total_ms: number;
+    model: string | null;
     error_code: string | null;
   }[];
 };

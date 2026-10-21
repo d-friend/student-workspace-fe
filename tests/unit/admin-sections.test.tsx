@@ -16,9 +16,10 @@ const cost: Cost = {
   per_active_guest_day_usd: 0.625, per_completed_problem_usd: 1.25, cache_read_ratio: 0.4, searches: 2,
 };
 const latency: Latency = {
-  master_first_text_ms: { p50: 20, p90: 30, n: 2 }, master_total_ms: { p50: 50, p90: 70, n: 2 }, planner_total_ms: { p50: 10, p90: 20, n: 2 },
+  master_first_text_ms: { p50: 20, p90: 30, n: 2 }, master_total_ms: { p50: 50, p90: 70, n: 2 }, planner_total_ms: { p50: 10, p90: 20, n: 2 }, simulator_total_ms: { p50: 5, p90: 6, n: 1 },
   time_to_first_workspace_ms: { p50: 100, p90: null, n: 1 }, workspace_shown_ms: { p50: 40, p90: 50, n: 2 },
   slowest: [{ turn_id: "turn-1", guest_id: "guest-12345678", started_at: "2026-10-19T00:00:00Z", route: "master", total_ms: 70, first_text_ms: 30, model: "model", ok: true, error_code: null }],
+  slowest_calls: [{ turn_id: "turn-2", guest_id: "guest-87654321", started_at: "2026-10-19T00:00:00Z", role: "simulator", total_ms: 60, model: "sim-model", error_code: null }],
 };
 const users: Users = {
   new_guests_per_day: [{ day: "2026-10-19", n: 4 }], active_guests_per_day: [{ day: "2026-10-19", n: 3 }],
@@ -58,6 +59,9 @@ test("Latency lists the slowest turns and the guest id is a button", async () =>
   mockedAdminGet.mockResolvedValue(latency);
   render(<LatencySection token="token" days={7} />);
   expect(await screen.findByRole("button", { name: "guest-12345678" })).toBeTruthy();
+  expect(screen.getByText("Simulator total")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "guest-87654321" })).toBeTruthy();
+  expect(screen.getByText("sim-model")).toBeTruthy();
   expect(screen.getByText("turn-1")).toBeTruthy();
 });
 

@@ -1,19 +1,41 @@
+import type { Preview } from "@/lib/api";
 import { copy } from "@/lib/copy";
+import { MdInline } from "@/workspace/md";
+import { renderBlock } from "@/workspace/blocks";
+import type { BlockCtx } from "@/workspace/types";
 import styles from "./BuildingSkeleton.module.css";
+
+// The preview only holds text blocks, which never read the ctx.
+const PREVIEW_CTX = {} as BlockCtx;
 
 // Grey shapes in the shape of the doc being built: learn is a title, text and an image; solve (also practice) is a
 // problem card and step rows.
 export function BuildingSkeleton({
   variant = "solve",
   problem,
+  preview,
 }: {
   variant?: "learn" | "solve";
   problem?: string; // what the student sent: the unfold's card lands here, so it must not turn into grey bars
+  preview?: Preview | null; // the doc as far as the planner has written it: text shows, the rest is grey
 }) {
   const b = (cls: string) => <span className={`${styles.block} ${cls}`} />;
   return (
     <section className={styles.wrap} aria-busy="true" data-variant={variant}>
-      {variant === "learn" ? (
+      {variant === "learn" && preview && preview.blocks.length > 0 ? (
+        <div className={styles.stack} data-unfold-target="">
+          {preview.title && (
+            <h1 className={styles.previewTitle}>
+              <MdInline text={preview.title} />
+            </h1>
+          )}
+          {preview.blocks.map((blk) =>
+            blk.type === "stub" ? <div key={blk.id}>{b(styles.box)}</div> : <div key={blk.id}>{renderBlock(blk, PREVIEW_CTX)}</div>,
+          )}
+          {b(styles.line)}
+          {b(styles.lineShort)}
+        </div>
+      ) : variant === "learn" ? (
         <div className={styles.stack} data-unfold-target="">
           {b(styles.title)}
           <div className={styles.lines}>

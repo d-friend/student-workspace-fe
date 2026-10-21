@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { customFrames } from "@/lib/frame";
-import { ApiError, TurnError, type TurnEvent } from "@/lib/api";
+import { ApiError, TurnError, type Preview, type TurnEvent } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { createWorkspace } from "@/hooks/useWorkspace";
 import { fixtures } from "@/workspace/fixtures";
@@ -888,6 +888,31 @@ describe("structured workspace", () => {
     expect(t.track).toHaveBeenCalledWith("workspace_shown", { ms_since_send: expect.any(Number), replaced: false }, "s1");
   });
 
+  it("simulation patches the current block and preserves workspace quiz state", async () => {
+    const doc = structuredClone(LEARN);
+    const slot = doc.blocks.find((b) => b.type === "custom");
+    if (!slot || slot.type !== "custom") throw new Error("fixture needs a custom slot");
+    slot.html = null;
+    slot.height = null;
+    const t = await boot(stream([
+      shown("L-sim", doc),
+      { event: "line_state", workspaceId: "L-sim", blockId: "q1", line: 1, state: "ok" },
+      { event: "task_done", workspaceId: "L-sim", blockId: "q1" },
+      { event: "simulation", workspaceId: "L-sim", blockId: slot.id, html: "<p>v1</p>", height: 360 },
+      { event: "simulation", workspaceId: "L-sim", blockId: slot.id, html: "<p>v2</p>", height: 420 },
+      "Đã sửa.",
+    ]));
+    await typed(t);
+    const current = t.state().workspaces.learn!;
+    const custom = current.doc.blocks.find((b) => b.type === "custom");
+    expect(current.id).toBe("L-sim");
+    expect(custom).toMatchObject({ html: "<p>v2</p>", height: 420 });
+    expect(t.state().overrides["L-sim"]).toEqual({ q1: { 1: "ok" } });
+    expect(t.state().taskDone["L-sim"]).toEqual(["q1"]);
+    expect(t.state().simulationVersions[`L-sim:${slot.id}`]).toBe(2);
+    expect(t.track).toHaveBeenLastCalledWith("simulation_shown", { ms_since_send: expect.any(Number), update: true }, "s1");
+  });
+
   it("rebuild replaces one phase only", async () => {
     const t = await boot(
       stream([
@@ -1210,6 +1235,24 @@ describe("structured workspace", () => {
     const t = await boot(stream([snap, { event: "status", stage: "planning", phase: "learn" }, snap, shown("L1", LEARN), snap, "ok"]));
     await typed(t);
     expect(seen).toEqual([null, "learn", null]);
+  });
+
+  it("the partial doc shows while building and is gone once the workspace lands", async () => {
+    const seen: unknown[] = [];
+    const snap = () => seen.push(t.state().preview?.blocks.map((b) => b.id) ?? null);
+    const blocks: Preview["blocks"] = [{ type: "text", id: "t1", md: "đọc" }, { type: "stub", id: "c1" }];
+    const t = await boot(
+      stream([
+        { event: "status", stage: "planning", phase: "learn" },
+        { event: "workspace_partial", phase: "learn", title: "T", blocks },
+        snap,
+        shown("L1", LEARN),
+        snap,
+        "ok",
+      ]),
+    );
+    await typed(t);
+    expect(seen).toEqual([["t1", "c1"], null]);
   });
 
   it("failed build with no workspace offers retry", async () => {

@@ -132,4 +132,25 @@ body {
 }
 .df-done small { font-size: 14px; opacity: 0.85; }
 .df-done b { font-size: 20px; }
+
+/* Simulation controls: ready-made so the simulator writes markup, not CSS (fewer tokens, less wait). */
+.sim-stage { display: block; width: 100%; background: var(--panel); border: 1px solid var(--hairline); border-radius: 14px; overflow: hidden; }
+.sim-stage canvas, .sim-stage svg { display: block; max-width: 100%; }
+.sim-controls {
+  display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 12px 0 0; padding: 14px 16px;
+  background: var(--panel); border: 1px solid var(--hairline); border-radius: 14px;
+}
+.sim-btn {
+  font: inherit; min-height: 44px; padding: 0 18px; cursor: pointer; font-size: 15px; font-weight: 600;
+  color: var(--text); background: var(--panel); border: 1px solid var(--control-border); border-radius: 10px;
+}
+.sim-btn.primary { color: var(--accent-text); background: var(--accent); border-color: var(--accent); }
+.sim-btn[aria-pressed="true"] { color: var(--accent-text); background: var(--accent); border-color: var(--accent); }
+.sim-btn:disabled { opacity: 0.45; cursor: default; }
+.sim-range { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; flex: 1 1 200px; font-size: 14px; }
+.sim-range input { grid-column: 1 / -1; width: 100%; min-height: 32px; accent-color: var(--accent); }
+.sim-range output { font-weight: 600; font-variant-numeric: tabular-nums; }
+.sim-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 15px; cursor: pointer; }
+.sim-toggle input { width: 20px; height: 20px; accent-color: var(--accent); }
+.sim-readout { margin: 8px 0 0; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
 `;

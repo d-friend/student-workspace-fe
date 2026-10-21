@@ -10,6 +10,13 @@
       "level": 2
     },
     {
+      "type": "custom",
+      "id": "sim1",
+      "html": "<p>Thử mô phỏng</p>",
+      "height": 360,
+      "reason": "Mô phỏng minh họa."
+    },
+    {
       "type": "text",
       "id": "t1",
       "md": "Năm 938, quân Nam Hán kéo thủy quân sang xâm lược nước ta. **Ngô Quyền** lãnh đạo nhân dân đánh trả, kết thúc hơn một nghìn năm Bắc thuộc."

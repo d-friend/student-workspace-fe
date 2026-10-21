@@ -22,6 +22,7 @@ export type TrackEvents = {
   restate_confirmed: NoProps;
   restate_corrected: NoProps;
   workspace_shown: { ms_since_send: number; replaced: boolean };
+  simulation_shown: { ms_since_send: number; update: boolean };
   watching_cue_shown: NoProps;
   similar_offer_answered: { accepted: boolean };
   new_problem_clicked: { turns_in_session: number };

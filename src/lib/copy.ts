@@ -92,6 +92,9 @@ export const copy = {
   statusPlanning: "Đang dựng…",
   statusSearching: "Đang tìm tài liệu…",
   statusReading: "Đang đọc tài liệu…",
+  statusSimulating: "Đang sửa mô phỏng…",
+  simulationBuilding: "Đang dựng mô phỏng…",
+  simulationFailed: "Chưa dựng được mô phỏng. Nhắn mình nếu bạn muốn thử lại.",
   rebuildMessage: "Dựng lại giúp mình",
   geoTools: {
     point: "Điểm",

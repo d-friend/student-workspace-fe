@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { expect, test } from "vitest";
 import { KIT_CSS } from "@/lib/workspace-kit";
 import {
@@ -131,4 +132,14 @@ test("frame head declares be vietnam pro", () => {
 
 test("kit control edges use --control-border", () => {
   expect(KIT_CSS).not.toMatch(/\.df-hint \{[^}]*1px solid var\(--border\)/);
+});
+
+test("frame head maps three to files that exist, before any author script", () => {
+  const doc = frameDoc("<script>x</script>", O);
+  const map = JSON.parse(doc.match(/<script type="importmap">(.*?)<\/script>/)![1]).imports as Record<string, string>;
+  expect(Object.keys(map)).toEqual(["three", "three/addons/"]);
+  for (const url of Object.values(map)) expect(url.startsWith(`${O}/vendor/three@`)).toBe(true);
+  expect(existsSync(`public${map.three.slice(O.length)}`)).toBe(true);
+  expect(existsSync(`public${map["three/addons/"].slice(O.length)}controls/OrbitControls.js`)).toBe(true);
+  expect(doc.indexOf("importmap")).toBeLessThan(doc.indexOf("<script>x"));
 });

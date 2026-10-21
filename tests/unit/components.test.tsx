@@ -56,6 +56,17 @@ test("the building skeleton carries no status; the pet bubble reports progress",
   expect(screen.queryByRole("status")).toBeNull();
 });
 
+test("the building skeleton shows the text blocks written so far and greys the rest", () => {
+  const preview = {
+    phase: "learn" as const,
+    title: "Vì sao có bốn mùa?",
+    blocks: [{ type: "text" as const, id: "t1", md: "Trục nghiêng" }, { type: "stub" as const, id: "c1" }],
+  };
+  render(<BuildingSkeleton variant="learn" preview={preview} />);
+  expect(screen.getByText("Vì sao có bốn mùa?")).toBeTruthy();
+  expect(screen.getByText("Trục nghiêng")).toBeTruthy();
+});
+
 test("the building skeleton takes the shape of the target phase", () => {
   const { container, rerender } = render(<BuildingSkeleton variant="learn" />);
   expect(container.querySelector("section")?.dataset.variant).toBe("learn");

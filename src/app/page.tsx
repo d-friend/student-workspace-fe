@@ -82,6 +82,9 @@ export default function Page() {
   const makeCtx = (w: Workspace): BlockCtx => ({
     workspaceId: w.id,
     phase: w.doc.phase,
+    simulationPending: ws.simulationPending,
+    simulationVersions: ws.simulationVersions,
+    simulationFailures: ws.simulationFailures,
     report: ws.report,
     check: (blockId, answer, previous, item) => ws.check(w.id, blockId, answer, previous, item),
     overrides: ws.overrides[w.id] ?? {},
@@ -121,6 +124,7 @@ export default function Page() {
     stage = (
       <BuildingSkeleton
         variant={ws.buildingPhase === "learn" ? "learn" : "solve"}
+        preview={ws.preview}
         problem={firstSent?.kind === "student" ? firstSent.text : undefined}
       />
     );

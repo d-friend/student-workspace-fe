@@ -23,7 +23,7 @@ describe("workspace fixtures", () => {
         }
         if (b.type === "example") expect(b.steps.length).toBeGreaterThanOrEqual(1);
         if (b.type === "example") expect(b.steps.length).toBeLessThanOrEqual(8);
-        if (b.type === "custom") expect(b.height >= 200 && b.height <= 900).toBe(true);
+        if (b.type === "custom" && b.height !== null) expect(b.height >= 200 && b.height <= 900).toBe(true);
         if (b.type === "image") expect([b.alt, b.credit, b.source_url].every(Boolean), b.id).toBe(true);
         if (b.type === "steps") expect(d.blocks.some((p) => p.type === "problem" && p.id === b.problem_id), b.id).toBe(true);
       }

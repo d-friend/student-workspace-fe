@@ -6,6 +6,9 @@ import { KIT_CSS } from "./workspace-kit";
 // Built from parts so this source file never contains a literal closing script tag.
 const SCRIPT_END = "</scr" + "ipt>";
 
+// Must match the three@ folder under public/vendor (MANIFEST.md).
+const THREE_VERSION = "0.186.1";
+
 const LATIN = "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD";
 const VIETNAMESE = "U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB";
 
@@ -22,7 +25,7 @@ const fontFaces = (origin: string) =>
 // Iframes of mounted `custom` blocks; the workspace hook accepts bridge messages from these too.
 export const customFrames = new Set<Window>();
 
-const head = (origin: string) => `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'unsafe-inline' data: blob:; script-src 'unsafe-inline' 'unsafe-eval' ${origin}/vendor/; style-src 'unsafe-inline' ${origin}/vendor/; font-src ${origin}/vendor/"><base target="_blank"><script>
+const head = (origin: string) => `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'unsafe-inline' data: blob:; script-src 'unsafe-inline' 'unsafe-eval' ${origin}/vendor/; style-src 'unsafe-inline' ${origin}/vendor/; font-src ${origin}/vendor/"><base target="_blank"><script type="importmap">{"imports":{"three":"${origin}/vendor/three@${THREE_VERSION}/three.module.min.js","three/addons/":"${origin}/vendor/three@${THREE_VERSION}/addons/"}}${SCRIPT_END}<script>
 (() => {
 let lastTouch = -Infinity, errored = false;
 const touch = (e) => { if (e.isTrusted) lastTouch = Date.now(); };

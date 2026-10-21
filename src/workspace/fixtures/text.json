@@ -7,6 +7,13 @@
       "type": "text",
       "id": "t1",
       "md": "Đạo hàm đo **tốc độ thay đổi** của hàm số tại một điểm, ví dụ $f'(x) = 2x$."
+    },
+    {
+      "type": "custom",
+      "id": "sim1",
+      "html": "<p>Thử mô phỏng</p>",
+      "height": 360,
+      "reason": "Mô phỏng minh họa."
     }
   ],
   "sources": []

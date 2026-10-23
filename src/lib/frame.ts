@@ -39,6 +39,25 @@ addEventListener("message", (e) => { const t = e.data && e.data.dfriendTheme; if
 const fail = (message) => { if (errored) return; errored = true; window.dfriend.report("workspace_error", { message }); };
 addEventListener("error", (e) => fail(String(e.message)));
 addEventListener("unhandledrejection", (e) => fail(String(e.reason?.message ?? e.reason)));
+addEventListener("error", (e) => { if (e.target instanceof HTMLScriptElement) fail("script failed to load: " + (e.target.src || "inline")); }, true);
+const postHeight = () => parent.postMessage({ dfriendHeight: Math.ceil(document.documentElement.getBoundingClientRect().height) }, "*");
+new ResizeObserver(postHeight).observe(document.documentElement);
+// Silent failures throw nothing: check once, after the page had time to draw, that the stage shows something and nothing covers it.
+addEventListener("load", () => setTimeout(() => {
+  const stage = document.querySelector(".sim-stage");
+  if (!stage) return;
+  const r = stage.getBoundingClientRect();
+  if (r.width === 0 || r.height === 0) return fail("stage has no size");
+  const top = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, innerHeight - r.top - 1));
+  if (top && !stage.contains(top)) return fail("stage is covered by " + top.tagName.toLowerCase());
+  const c = stage.querySelector("canvas");
+  if (!c) return;
+  if (!c.width || !c.height) return fail("canvas has no size");
+  const ctx = c.getContext("2d"); // null for a WebGL canvas, whose pixels cannot be read back here
+  if (!ctx) return;
+  const px = new Uint32Array(ctx.getImageData(0, 0, c.width, c.height).data.buffer);
+  if (px.every((v) => v === px[0])) fail("canvas is blank");
+}, 3000));
 })();
 ${SCRIPT_END}<style>${fontFaces(origin)}${KIT_CSS}</style>`;
 

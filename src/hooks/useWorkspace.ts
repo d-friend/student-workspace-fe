@@ -712,6 +712,21 @@ export function createWorkspace(deps: WorkspaceDeps) {
           has_workspace: applied.html !== null || Object.keys(applied.workspaces).length > 0,
         });
       }
+      // The landing page hands over the problem it was typed as ?q=. Consume it once (reload must not resend).
+      const q = new URLSearchParams(location.search).get("q")?.trim();
+      if (q) {
+        const url = new URL(location.href);
+        url.searchParams.delete("q");
+        history.replaceState(null, "", url);
+        if (applied || busy) {
+          // A problem is already open: prefill the composer rather than replace it.
+          input = q;
+          publish();
+        } else {
+          input = q;
+          void actions.submit();
+        }
+      }
     })();
   }
 

@@ -1315,3 +1315,35 @@ describe("structured workspace", () => {
     expect(t.state()).toMatchObject({ overrides: {}, taskDone: {}, buildFailed: false, workspaces: {}, phase: null });
   });
 });
+
+describe("problem handed over from the landing page (?q=)", () => {
+  afterEach(() => history.replaceState(null, "", "/"));
+
+  it("sends q as the first typed turn and removes it from the URL", async () => {
+    history.replaceState(null, "", "/?q=" + encodeURIComponent("Ném bóng 20 m/s, góc 45° & bay xa?"));
+    const t = await boot();
+    expect(t.api.createSession).toHaveBeenCalledWith("typed");
+    expect(t.state().bubbles[0]).toMatchObject({ kind: "student", text: "Ném bóng 20 m/s, góc 45° & bay xa?" });
+    expect(location.search).toBe("");
+  });
+
+  it("ignores a blank q", async () => {
+    history.replaceState(null, "", "/?q=%20%20");
+    const t = await boot();
+    expect(t.api.turn).not.toHaveBeenCalled();
+    expect(t.state().input).toBe("");
+  });
+
+  it("prefills instead of sending when a problem is already open", async () => {
+    history.replaceState(null, "", "/?q=" + encodeURIComponent("bài mới"));
+    const t = await boot(undefined, {
+      sessionId: "srv1",
+      messages: [{ role: "user", content: "bài cũ" }, { role: "assistant", content: HTML_REPLY }],
+      html: "<p>x</p>",
+      workspaces: {},
+      phase: null,
+    });
+    expect(t.api.turn).not.toHaveBeenCalled();
+    expect(t.state().input).toBe("bài mới");
+  });
+});

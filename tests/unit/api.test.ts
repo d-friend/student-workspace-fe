@@ -39,14 +39,14 @@ test("turn streams deltas and resolves on done", async () => {
   expect(result).toEqual({ turnId: "t9", stopReason: "end_turn" });
 });
 
-test("turn posts only the new message", async () => {
+test("turn posts the new message and the UI language", async () => {
   const done = 'event: done\ndata: {"turn_id": "t1", "stop_reason": "end_turn"}\n\n';
   const fetchMock = vi.fn().mockResolvedValue(new Response(done, { status: 200 }));
   vi.stubGlobal("fetch", fetchMock);
   await turn("s1", { role: "user", content: "hi" }, () => {});
   const [url, init] = fetchMock.mock.calls[0];
   expect(url).toBe("/api/sessions/s1/turns");
-  expect(Object.keys(JSON.parse(init.body))).toEqual(["message"]);
+  expect(Object.keys(JSON.parse(init.body))).toEqual(["message", "lang"]);
   expect(JSON.parse(init.body).message).toEqual({ role: "user", content: "hi" });
 });
 

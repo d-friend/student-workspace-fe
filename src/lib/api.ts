@@ -1,4 +1,5 @@
 import type { Block, CheckResponse, Phase, Workspace, WorkspaceDoc } from "@/workspace/types";
+import { getLocale } from "./copy";
 import { readSse } from "./sse";
 
 // Typed client for spec 4.2 to 4.6. A 401 no_guest makes one guest call and one retry.
@@ -169,7 +170,7 @@ export async function turn(
   onEvent?: (e: TurnEvent) => void,
 ): Promise<{ turnId: string; stopReason: string | null }> {
   // A request that never connects may still have reached the server, so it is as recoverable as a dropped stream.
-  const res = await post(`/api/sessions/${sessionId}/turns`, { message }).catch((e) => {
+  const res = await post(`/api/sessions/${sessionId}/turns`, { message, lang: getLocale() }).catch((e) => {
     throw new TurnError("stream_lost", e instanceof Error ? e.message : "request failed");
   });
   if (!res.ok) throw await toApiError(res);

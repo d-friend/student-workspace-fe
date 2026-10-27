@@ -2,7 +2,8 @@ import { copy } from "@/lib/copy";
 import type { Phase } from "./types";
 import styles from "./PhaseSwitch.module.css";
 
-const LABEL: Record<Phase, string> = { learn: copy.phaseLearn, solve: copy.phaseSolve, practice: copy.phasePractice };
+// Read per render: copy follows the browser language, which is only known after the module loads.
+const label = (p: Phase): string => ({ learn: copy.phaseLearn, solve: copy.phaseSolve, practice: copy.phasePractice })[p];
 
 export function PhaseSwitch({ phases, phase, onPhase }: { phases: Phase[]; phase: Phase; onPhase: (p: Phase) => void }) {
   return (
@@ -18,7 +19,7 @@ export function PhaseSwitch({ phases, phase, onPhase }: { phases: Phase[]; phase
           className={styles.seg}
           onClick={() => onPhase(p)}
         >
-          {LABEL[p]}
+          {label(p)}
         </button>
       ))}
     </div>

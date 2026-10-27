@@ -1,5 +1,5 @@
-// Every Vietnamese string in the UI (plan-frontend "Copy"). No em-dashes, no emoji.
-export const copy = {
+// Every string in the UI (plan-frontend "Copy"), in Vietnamese and English. No em-dashes, no emoji.
+const vi = {
   emptyTitle: "Kẹt bài nào? Chụp lên, mình gỡ cùng bạn.",
   emptySub: "Mình đọc lại đề trước, rồi dựng chỗ để bạn tự làm từng bước.",
   entryTitle: "Hôm nay mình làm bài gì?",
@@ -120,4 +120,158 @@ export const copy = {
   geoToolbar: "Công cụ dựng hình",
   geoBoard: (points: string[]) => `Bảng dựng hình, các điểm ${points.join(", ")}`,
   graphBoard: (labels: string[]) => `Đồ thị của ${labels.join(", ")}`,
-} as const;
+  starterPrompts: {
+    derivative:
+      "Cho f(x) = x². Dùng định nghĩa đạo hàm để tính f′(2). Mình không hiểu trực giác của đạo hàm. Giúp mình tự hiểu, đừng đưa đáp án luôn.",
+    geometry:
+      "Cho tam giác ABC cân tại A, M là trung điểm BC. Chứng minh AM vuông góc với BC. Mình muốn tự làm, chỉ nhắc khi mình sai hoặc nhờ gợi ý.",
+  },
+};
+
+const en: typeof vi = {
+  emptyTitle: "Stuck on a problem? Snap it, and we'll work through it together.",
+  emptySub: "I'll restate the problem first, then set up a space for you to work each step yourself.",
+  entryTitle: "What are we working on today?",
+  entrySub: "Got a problem, or any topic you want to work through? I'll help you here.",
+  entryFoot: "No sign-in needed",
+  brand: "D-Friend",
+  snap: "Snap the problem",
+  typeProblem: "Type the problem",
+  samplesLabel: "Or try a sample",
+  starter1: "Derivative of x² at 2",
+  starter1Sub: "Calculus, build the intuition before computing",
+  starter2: "A proof in an isosceles triangle",
+  starter2Sub: "Geometry, build the figure and reason it out",
+  railEmpty: "Send a photo or type the problem. I'll restate it so you can check before we start.",
+  photoTitle: "Is this photo readable?",
+  photoSub: "Every word of the problem needs to be clear. If the photo has several problems, say which one in the note box.",
+  photoAlt: "The photo of the problem you just took",
+  photoChip: "Problem photo",
+  sendPhoto: "Send this problem",
+  retake: "Retake",
+  noteLabel: "Add a note (optional)",
+  inputLabel: "Message to D-Friend",
+  placeholderEmpty: "Type your problem or question",
+  placeholderWorking: "Ask D-Friend",
+  send: "Send",
+  pickPhoto: "Take or choose a photo of the problem",
+  removePhoto: "Remove photo",
+  photoUnreadable: "I can't read this photo. Try retaking it.",
+  thinking: "Thinking…",
+  building: "Setting up your workspace…",
+  built: "A new workspace is ready.",
+  restateYes: "That's right",
+  restateNo: "Fix the problem",
+  restatePrefill: "The problem is: ",
+  reviewLabel: (n: number) => `About line ${n}`,
+  offerYes: "Try a similar problem",
+  offerLater: "Later",
+  writeOwn: "Write my own",
+  otherWay: "I have another way",
+  blankLabel: (n: number) => `Line ${n}, fill in the blank`,
+  offerYesMessage: "Let me try a similar problem",
+  watching: "I'm watching you work. Press Hint if you need it.",
+  newProblem: "New problem",
+  petOpen: "Open the conversation with D-Friend",
+  petClose: "Close the conversation with D-Friend",
+  petUnread: "Unread message",
+  petHint: "See the conversation",
+  bubbleClose: "Collapse message",
+  drawerLabel: "Conversation with D-Friend",
+  drawerSub: "Work together, not for you",
+  drawerClose: "Close",
+  problemRecap: "Problem",
+  themeDark: "Switch to dark theme",
+  themeLight: "Switch to light theme",
+  feedbackOpen: "Send feedback",
+  feedbackTitle: "Feedback for D-Friend",
+  feedbackHint: "What isn't working, or what would you like to see?",
+  feedbackSend: "Send",
+  feedbackCancel: "Cancel",
+  feedbackThanks: "Thank you, I got it.",
+  feedbackFailed: "Couldn't send. Please try again.",
+  errConnect: (reason: string) => `Couldn't connect to D-Friend: ${reason}`,
+  errTooLong: "This conversation is too long. Press “New problem” to start another.",
+  errRateLimited: (minutes: number) => `You're sending a bit fast. Try again in ${minutes} minutes.`,
+  errBudget: "D-Friend is overloaded today. Please come back later.",
+  errEnded: "This problem is closed. Press “New problem” to keep going.",
+  chatLabel: "Chat",
+  workLabel: "Workspace",
+  workspaceTitle: "Workspace",
+  check: "Check",
+  answer: "Answer",
+  nextStep: "Next step",
+  showAll: "Show all",
+  hint: "Hint",
+  hintLevel: (n: number) => `${n}/3 hints used`,
+  idea: "I don't get the idea",
+  backToProblem: "Back to the problem",
+  retry: "Try again",
+  calloutIdea: "Key idea",
+  calloutRemember: "Remember",
+  calloutWarning: "Watch out",
+  problemLabel: "Problem",
+  lineLabel: (n: number) => `Line ${n}`,
+  doneLabel: "Problem done",
+  doneHints: (n: number) => `Hints used: ${n}`,
+  phaseLearn: "Theory",
+  phaseSolve: "Your problem",
+  phasePractice: "Practice",
+  stateOk: "Correct",
+  stateReview: "Review",
+  sent: "Sent",
+  checkFailed: "Couldn't check yet",
+  blockFailed: "This part couldn't be shown",
+  sources: "Sources",
+  statusPlanning: "Setting up…",
+  statusSearching: "Searching for sources…",
+  statusReading: "Reading sources…",
+  statusSimulating: "Fixing the simulation…",
+  simulationBuilding: "Building the simulation…",
+  simulationFailed: "Couldn't build the simulation. Message me if you want to try again.",
+  rebuildMessage: "Please rebuild it",
+  geoTools: {
+    point: "Point",
+    segment: "Segment",
+    line: "Line",
+    circle: "Circle",
+    midpoint: "Midpoint",
+    perpendicular: "Perpendicular",
+    parallel: "Parallel",
+    angle: "Angle",
+  },
+  geoIdle: "Pick a tool",
+  geoClickBoard: "Click the board",
+  geoPickPoints: (n: number) => `Pick ${n} points`,
+  geoPickLine: "Pick 1 line",
+  geoToolbar: "Construction tools",
+  geoBoard: (points: string[]) => `Construction board, points ${points.join(", ")}`,
+  graphBoard: (labels: string[]) => `Graph of ${labels.join(", ")}`,
+  starterPrompts: {
+    derivative:
+      "Given f(x) = x². Use the definition of the derivative to find f′(2). I don't get the intuition behind derivatives. Help me work it out myself, don't just give the answer.",
+    geometry:
+      "Triangle ABC is isosceles at A, and M is the midpoint of BC. Prove that AM is perpendicular to BC. I want to do it myself, only step in when I'm wrong or ask for a hint.",
+  },
+};
+
+export type Locale = "vi" | "en";
+
+let locale: Locale = "vi";
+export const setLocale = (l: Locale) => {
+  locale = l;
+};
+
+// First browser language we ship wins; anything else keeps the Vietnamese default.
+export const detectLocale = (langs: readonly string[]): Locale => {
+  for (const l of langs) {
+    const base = l.toLowerCase().split("-")[0];
+    if (base === "vi" || base === "en") return base;
+  }
+  return "vi";
+};
+
+// Read at render time, so LocaleBoundary only has to call setLocale before its children render.
+export const copy: typeof vi = new Proxy(vi, {
+  get: (_, key) => (locale === "en" ? en : vi)[key as keyof typeof vi],
+});

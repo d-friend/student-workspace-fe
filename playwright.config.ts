@@ -7,7 +7,7 @@ export default defineConfig({
   testDir: "tests/e2e",
   timeout: 60_000,
   workers: 1,
-  use: { baseURL: WEB },
+  use: { baseURL: WEB, locale: "vi-VN" }, // the specs assert Vietnamese copy
   webServer: [
     {
       command: "uv run fastapi run app/main.py --host 127.0.0.1 --port 8000",

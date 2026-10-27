@@ -3,6 +3,7 @@ import { Be_Vietnam_Pro, Bricolage_Grotesque } from "next/font/google";
 import Script from "next/script";
 import type { ReactNode } from "react";
 import "katex/dist/katex.min.css";
+import { LocaleBoundary } from "@/components/LocaleBoundary";
 import { THEME_INIT } from "@/lib/theme";
 import "../styles/tokens.css";
 import "./globals.css";
@@ -32,7 +33,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="vi" className={`${beVietnamPro.variable} ${bricolage.variable}`} suppressHydrationWarning>
       <body>
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
-        {children}
+        <LocaleBoundary>{children}</LocaleBoundary>
       </body>
     </html>
   );

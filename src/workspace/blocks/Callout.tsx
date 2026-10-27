@@ -4,10 +4,11 @@ import { Md } from "../md";
 import type { Block, BlockProps } from "../types";
 import styles from "./blocks.module.css";
 
+// Getters: copy follows the browser language, which is only known after the module loads.
 const TONES = {
-  idea: { Icon: IconBulb, label: copy.calloutIdea },
-  remember: { Icon: IconBookmark, label: copy.calloutRemember },
-  warning: { Icon: IconAlertTriangle, label: copy.calloutWarning },
+  idea: { Icon: IconBulb, get label() { return copy.calloutIdea; } },
+  remember: { Icon: IconBookmark, get label() { return copy.calloutRemember; } },
+  warning: { Icon: IconAlertTriangle, get label() { return copy.calloutWarning; } },
 };
 
 export function Callout({ block }: BlockProps<Extract<Block, { type: "callout" }>>) {

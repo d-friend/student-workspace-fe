@@ -21,20 +21,9 @@ import { readPhoto as realReadPhoto, type PhotoResult } from "@/lib/photo";
 import { track as realTrack, type TrackFn } from "@/lib/track";
 import type { BlockCtx, CheckResponse, Phase, Workspace } from "@/workspace/types";
 
-// shortcut: starter prompts live here, not in copy.ts (another task's file); move them there later.
-const STARTER_PROMPTS = {
-  derivative:
-    "Cho f(x) = x². Dùng định nghĩa đạo hàm để tính f′(2). Mình không hiểu trực giác của đạo hàm. Giúp mình tự hiểu, đừng đưa đáp án luôn.",
-  geometry:
-    "Cho tam giác ABC cân tại A, M là trung điểm BC. Chứng minh AM vuông góc với BC. Mình muốn tự làm, chỉ nhắc khi mình sai hoặc nhờ gợi ý.",
-} as const;
-
-const STATUS_LABEL = {
-  planning: copy.statusPlanning,
-  searching: copy.statusSearching,
-  reading: copy.statusReading,
-  simulating: copy.statusSimulating,
-} as const;
+// Read per call: copy follows the browser language, which is only known after the module loads.
+const statusLabel = (stage: "planning" | "searching" | "reading" | "simulating") =>
+  ({ planning: copy.statusPlanning, searching: copy.statusSearching, reading: copy.statusReading, simulating: copy.statusSimulating })[stage];
 
 const FLUSH_DELAY_MS = 800;
 const RECOVER_MS = 120_000; // how long to wait for a build that outlived its connection (the planner caps at 90 s)
@@ -403,7 +392,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       } else if (e.event === "status") {
         buildFailed = e.stage === "failed";
         if (buildFailed) preview = null;
-        status = e.stage === "failed" ? null : STATUS_LABEL[e.stage];
+        status = e.stage === "failed" ? null : statusLabel(e.stage);
         building = e.stage !== "failed";
         buildingPhase = e.stage === "failed" ? null : (e.phase ?? buildingPhase);
       } else if (e.event === "workspace_partial") {
@@ -799,7 +788,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     startStarter(starter: "derivative" | "geometry"): Promise<void> {
       if (busy) return Promise.resolve();
       track("starter_clicked", { starter }, sid());
-      return runTurn(true, STARTER_PROMPTS[starter], null, null, `starter_${starter}`);
+      return runTurn(true, copy.starterPrompts[starter], null, null, `starter_${starter}`);
     },
 
     confirmRestate() {

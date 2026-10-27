@@ -16,7 +16,7 @@ import {
   withPhoto,
   type WorkspaceEvent,
 } from "@/lib/frame";
-import { parse, RESTATE, type Parsed } from "@/lib/parse";
+import { isRestate, parse, type Parsed } from "@/lib/parse";
 import { readPhoto as realReadPhoto, type PhotoResult } from "@/lib/photo";
 import { track as realTrack, type TrackFn } from "@/lib/track";
 import type { BlockCtx, CheckResponse, Phase, Workspace } from "@/workspace/types";
@@ -385,7 +385,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       sawEvent = true;
       if (e.event === "announce") {
         announceText = e.text;
-        announceRestate = e.text.startsWith(RESTATE);
+        announceRestate = isRestate(e.text);
         const b: NewBubble = { kind: "agent", text: e.text, waiting: false, line: null, offer: false, restate: announceRestate, opts: null, ask: null };
         // Its own bubble, before the waiting one, which keeps "thinking" until the reply text arrives.
         announceId = agentId === null ? addBubble(b) : insertBubbleBefore(agentId, b);

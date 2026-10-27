@@ -16,7 +16,8 @@ export type Parsed = {
 const OPEN = "```html";
 const CLOSE = "\n```";
 const SILENT = "[silent]";
-export const RESTATE = "Mình đọc đề là:";
+export const RESTATES = ["Mình đọc đề là:", "I read the problem as:"];
+export const isRestate = (chat: string) => RESTATES.some((p) => chat.startsWith(p));
 
 // Leading tags, in this order: [mode:X], then [how]|[why], then [line N] (N >= 1), then [offer], then [opts: A | B].
 // Whitespace may separate them.
@@ -120,14 +121,14 @@ function parseTags(raw: string): Parsed {
       html: null,
       building: false,
       silent: chat === SILENT,
-      restate: chat.startsWith(RESTATE),
+      restate: isRestate(chat),
     };
   }
 
   const before = body.slice(0, open).trim();
   if (building) {
     const chat = hidePartial(before);
-    return { ...common, chat, html: null, building: true, silent: false, restate: chat.startsWith(RESTATE) };
+    return { ...common, chat, html: null, building: true, silent: false, restate: isRestate(chat) };
   }
 
   const after = body.slice(close + CLOSE.length).trim();
@@ -138,6 +139,6 @@ function parseTags(raw: string): Parsed {
     html: body.slice(nl + 1, close),
     building: false,
     silent: false,
-    restate: chat.startsWith(RESTATE),
+    restate: isRestate(chat),
   };
 }

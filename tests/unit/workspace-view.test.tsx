@@ -129,3 +129,13 @@ test("a quiz in a solve doc never reports learn_completed", () => {
   fireEvent.click(screen.getByRole("button", { name: copy.answer }));
   expect((ctx.report as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0])).toEqual(["quiz_answered"]);
 });
+
+test("a master-completed steps block stops asking for another line", () => {
+  const doc = fixtures["solve-tangent.json"];
+  const props = { workspaces: { solve: ws(doc) }, phase: "solve" as const, onPhase: vi.fn(), makeCtx: () => ({ ...mk(), phase: "solve" as const }) };
+  const { rerender } = render(<WorkspaceView {...props} />);
+  expect(screen.getByRole("button", { name: copy.check })).toBeTruthy(); // still open
+
+  rerender(<WorkspaceView {...props} taskDone={{ [doc.phase]: ["s1"] }} />);
+  expect(screen.queryByRole("button", { name: copy.check })).toBeNull();
+});

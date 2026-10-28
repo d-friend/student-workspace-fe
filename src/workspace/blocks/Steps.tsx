@@ -18,7 +18,8 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [free, setFree] = useState(false);
-  const anchorRef = usePetAnchorRef(!done && !ctx.hidden);
+  const finished = done || !!ctx.finished; // the master can complete a block the code could not (prose lines)
+  const anchorRef = usePetAnchorRef(!finished && !ctx.hidden);
   const inputId = useId();
   const promptId = useId();
   const group = useRef<HTMLDivElement>(null);
@@ -42,7 +43,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   });
 
   async function run(a: Attempt) {
-    if (busy || done || !a.answer.trim()) return;
+    if (busy || finished || !a.answer.trim()) return;
     setBusy(true);
     setFailed(null);
     // shortcut: previous scaffold lines may not parse as SymPy, so code-side checkpoint progress can lag; the master covers it.
@@ -94,7 +95,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
           </li>
         )}
       </ol>
-      {!done && (
+      {!finished && (
         <div ref={anchorRef} data-pet-anchor data-n={pos + 1} className={styles.active}>
           {item?.kind === "choice" ? (
             <>

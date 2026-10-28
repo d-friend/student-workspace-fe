@@ -72,6 +72,7 @@ function Doc({ w, p, hidden, tabbed, base, onPhase, hasSolve, taskDone }: {
     hintCount: presses,
     help,
     hidden,
+    finished: fin !== null,
     onSolved: (id) => {
       base.onSolved(id);
       setSolved((f) => f ?? {});

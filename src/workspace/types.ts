@@ -64,6 +64,7 @@ export type BlockCtx = {
   hintCount: number; // "Gợi ý" presses in this doc
   onSolved: (blockId: string) => void; // a steps block reached its final checkpoint
   help: { level: number; onHint: () => void; onIdea?: () => void } | null; // Doc sets it; Steps shows it in its active row
+  finished?: boolean; // Doc sets it: the task is solved (by the code or by the master's complete_task), so Steps asks for no more lines
   hidden?: boolean; // Doc sets it: this doc is not the shown phase (it stays mounted), so its blocks give up the pet anchor
   simulationPending?: Record<string, boolean>;
   simulationVersions?: Record<string, number>;

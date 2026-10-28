@@ -24,12 +24,13 @@ type PhotoSource = "snap_button" | "composer_button" | "retake" | "paste" | "dro
 export default function Page() {
   const ws = useWorkspace();
   const fileInput = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
   const entryInput = useRef<HTMLTextAreaElement>(null);
   const source = useRef<PhotoSource>("snap_button");
 
-  const pick = (from: PhotoSource) => {
+  const pick = (from: PhotoSource, input = fileInput) => {
     source.current = from;
-    fileInput.current?.click();
+    input.current?.click();
   };
   const onFile = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -99,6 +100,7 @@ export default function Page() {
     onChange: ws.setInput,
     onSend: () => void ws.submit(),
     onPickPhoto: () => pick("composer_button"),
+    onSnapPhoto: () => pick("composer_button", cameraInput),
     placeholder: ws.hasMessages ? copy.placeholderWorking : copy.placeholderEmpty,
     sendDisabled: ws.sendDisabled,
     photo: photoSrc ? { src: photoSrc, onRemove: ws.removePhoto } : null,
@@ -254,6 +256,7 @@ export default function Page() {
     <PetAnchorProvider>
       <Shell bar={!flying && bar} work={work} layer={layer} chatOpen={drawerOpen} inert={drawerOpen && !desktop} />
       <input ref={fileInput} type="file" accept="image/*" hidden onChange={onFile} />
+      <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={onFile} />
     </PetAnchorProvider>
   );
 }

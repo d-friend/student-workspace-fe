@@ -1,6 +1,7 @@
 import { type KeyboardEvent, type Ref, useId, useImperativeHandle, useLayoutEffect, useRef } from "react";
-import { IconCamera } from "@tabler/icons-react";
+import { IconCamera, IconPhoto } from "@tabler/icons-react";
 import { copy } from "@/lib/copy";
+import { useDesktop } from "@/hooks/useDesktop";
 import { PhotoChip } from "./PhotoChip";
 import styles from "./Composer.module.css";
 
@@ -9,6 +10,8 @@ export type ComposerProps = {
   onChange: (value: string) => void;
   onSend: () => void;
   onPickPhoto: () => void;
+  // Opens the camera directly; shown below the desktop breakpoint, where the OS picker may not offer it.
+  onSnapPhoto?: () => void;
   placeholder: string;
   sendDisabled?: boolean;
   // With a photo attached, the chip shows, the note label is visible, and the camera button hides.
@@ -27,6 +30,7 @@ export function Composer({
   onChange,
   onSend,
   onPickPhoto,
+  onSnapPhoto,
   placeholder,
   sendDisabled = false,
   photo,
@@ -34,6 +38,7 @@ export function Composer({
   entry = false,
 }: ComposerProps) {
   const id = useId();
+  const snap = !useDesktop() && onSnapPhoto !== undefined;
   const field = useRef<HTMLTextAreaElement>(null);
   useImperativeHandle(inputRef, () => field.current as HTMLTextAreaElement);
 
@@ -78,9 +83,14 @@ export function Composer({
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
         />
+        {!photo && snap && (
+          <button type="button" aria-label={copy.snapPhoto} className={styles.camera} onClick={onSnapPhoto}>
+            <IconCamera size={20} aria-hidden="true" />
+          </button>
+        )}
         {!photo && (
           <button type="button" aria-label={copy.pickPhoto} className={styles.camera} onClick={onPickPhoto}>
-            <IconCamera size={20} aria-hidden="true" />
+            {snap ? <IconPhoto size={20} aria-hidden="true" /> : <IconCamera size={20} aria-hidden="true" />}
           </button>
         )}
         <button type="submit" className={styles.send} disabled={sendDisabled}>

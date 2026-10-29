@@ -58,7 +58,7 @@
 .legal a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .sheet .email { overflow-wrap: anywhere; }
 .sheet form { display: flex; flex-direction: column; gap: 8px; }
-.sheet input {
+.sheet input:not([type="checkbox"]) {
   min-width: 0;
   min-height: 44px;
   box-sizing: border-box;
@@ -66,8 +66,8 @@
   font: inherit;
   color: var(--text);
   background: var(--bg);
-  border: 1px solid var(--control-border);
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
 }
 .sheet button, .google {
   min-height: 44px;
@@ -80,14 +80,30 @@
   border-radius: 999px;
   cursor: pointer;
 }
-.google { text-align: center; text-decoration: none; }
+.sheet .google {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 10px 8px;
+  font-size: 14px;
+  line-height: 1.25;
+  white-space: nowrap;
+  text-align: center;
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: var(--accent);
+}
 .sheet button[type="submit"] { color: var(--accent-text); background: var(--accent); border-color: var(--accent); }
 .sheet button:disabled, .sheet input:disabled { opacity: 0.5; cursor: default; }
-.actions { display: flex; justify-content: flex-end; }
+.actions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.actions .close { flex: 0 0 auto; padding-inline: 12px; font-size: 14px; white-space: nowrap; }
 .sheet .error { color: var(--error-text); }
 .open:focus-visible, .sheet:focus-visible, .sheet button:focus-visible, .sheet a:focus-visible, .sheet input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
+}
+.sheet input:not([type="checkbox"]):focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 
 @media (max-width: 799px) {
@@ -104,5 +120,18 @@
   .open { transition: none; }
 }
 .age { display: grid; gap: 4px; font-size: 13px; }
-.legal label { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px; }
-.sheet button:disabled { opacity: 0.5; cursor: not-allowed; }
+.legal label {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+.legal input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}

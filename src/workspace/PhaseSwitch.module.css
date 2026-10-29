@@ -4,6 +4,10 @@
   z-index: 1;
   display: flex;
   gap: 4px;
+  max-width: 100%;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
   padding: 4px;
   margin-bottom: 24px;
   background: var(--bg);
@@ -12,7 +16,10 @@
 }
 
 .seg {
-  flex: 1;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-height: 40px;
   padding: 0 12px;
   font: 600 15px/1.4 var(--font-sans);
@@ -42,5 +49,23 @@
 @media (prefers-reduced-motion: reduce) {
   .seg:active {
     transform: none;
+  }
+}
+
+.bar::-webkit-scrollbar {
+  display: none;
+}
+
+.title {
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The row sticks under the floating buttons, not behind them. */
+@media (max-width: 799px) {
+  .bar {
+    top: 60px;
   }
 }

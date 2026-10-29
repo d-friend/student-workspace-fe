@@ -4,6 +4,10 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { copy } from "../../src/lib/copy";
 
+// History/login/roadmap spec §4.1: tabs show their workspace titles.
+const SOLVE = "Tiếp tuyến của y = x³ − 2x";
+const LEARN = "Phương trình bậc nhất";
+
 // Runs against the MOCK=true backend (see playwright.config.ts): "__build" builds the tangent solve workspace,
 // "__learn" a learn workspace.
 
@@ -40,6 +44,11 @@ test("works without opening the chat", async ({ page }) => {
 
   // A second phase without the chat: the agent builds it through the API (the same turn the drawer would send), then a
   // reload restores both phases. Nothing here clicks the pet.
+  // §3.3: the checked line is now persisted, so wait for that save before reloading.
+  await expect.poll(async () => {
+    const saved = await (await page.request.get("/api/sessions/current")).json();
+    return saved.tabs.find((tab: { phase: string }) => tab.phase === "solve")?.state?.blocks?.s1?.entries;
+  }).toEqual([expect.objectContaining({ text: "f'(x)=3x^2-2", state: "ok" })]);
   const { session_id } = await (await page.request.get("/api/sessions/current")).json();
   const turn = await page.request.post(`/api/sessions/${session_id}/turns`, {
     data: { message: { role: "user", content: "__learn" } },
@@ -48,11 +57,11 @@ test("works without opening the chat", async ({ page }) => {
   await turn.body(); // the server stores the turn when its stream ends
   await page.reload();
   await expect(page.getByRole("tab")).toHaveCount(2);
-  await page.getByRole("tab", { name: copy.phaseLearn }).click();
+  await page.getByRole("tab", { name: LEARN, exact: true }).click();
   await expect(page.getByRole("heading", { name: "Ý tưởng" })).toBeVisible();
-  await page.getByRole("tab", { name: copy.phaseSolve }).click();
-  await page.getByRole("button", { name: copy.otherWay }).click(); // a reload restores the scaffold
-  await expect(page.getByLabel(copy.lineLabel(1))).toBeVisible();
+  await page.getByRole("tab", { name: SOLVE, exact: true }).click();
+  await expect(page.getByText(copy.stateOk, { exact: true })).toBeVisible();
+  await expect(page.getByLabel(copy.lineLabel(2))).toBeVisible();
 });
 
 test("the pet opens the conversation; Escape closes it and focus returns", async ({ page }) => {

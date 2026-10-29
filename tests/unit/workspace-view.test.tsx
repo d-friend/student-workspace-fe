@@ -23,7 +23,7 @@ const view = (
   phase: Phase,
   onPhase = vi.fn(),
   ctx = mk(),
-) => <WorkspaceView workspaces={workspaces} phase={phase} onPhase={onPhase} makeCtx={() => ctx} />;
+) => <WorkspaceView tabs={Object.values(workspaces).map((w) => ({ ...w!, phase: w!.doc.phase }))} activeId={workspaces[phase]?.id ?? ""} onActive={onPhase} makeCtx={() => ctx} />;
 
 test("renders every content fixture", () => {
   for (const name of ["heading", "text", "math", "image", "callout", "example", "quiz", "learn-derivative", "learn-history"]) {
@@ -45,7 +45,7 @@ test("phase switch shows only present phases and calls onPhase", () => {
   expect(screen.getByRole("tablist")).toBeTruthy();
   expect(screen.getAllByRole("tab")).toHaveLength(2);
   expect(screen.queryByRole("tab", { name: copy.phasePractice })).toBeNull();
-  fireEvent.click(screen.getByRole("tab", { name: copy.phaseSolve }));
+  fireEvent.click(screen.getByRole("tab", { name: fixtures["solve-tangent.json"].title }));
   expect(onPhase).toHaveBeenCalledWith("solve");
 });
 
@@ -132,10 +132,43 @@ test("a quiz in a solve doc never reports learn_completed", () => {
 
 test("a master-completed steps block stops asking for another line", () => {
   const doc = fixtures["solve-tangent.json"];
-  const props = { workspaces: { solve: ws(doc) }, phase: "solve" as const, onPhase: vi.fn(), makeCtx: () => ({ ...mk(), phase: "solve" as const }) };
+  const props = { tabs: [{ ...ws(doc), phase: doc.phase }], activeId: "solve", onActive: vi.fn(), makeCtx: () => ({ ...mk(), phase: "solve" as const }) };
   const { rerender } = render(<WorkspaceView {...props} />);
   expect(screen.getByRole("button", { name: copy.check })).toBeTruthy(); // still open
 
   rerender(<WorkspaceView {...props} taskDone={{ [doc.phase]: ["s1"] }} />);
   expect(screen.queryByRole("button", { name: copy.check })).toBeNull();
+});
+
+
+test("renders ordered same-phase tabs with distinct panels, keeps inputs mounted, and reveals the active tab", () => {
+  const solve = { ...fixtures["solve-tangent.json"], title: "First solve" };
+  const tabs = [
+    { id: "S1", phase: "solve" as const, doc: solve },
+    { id: "S2", phase: "solve" as const, doc: { ...solve, title: "Second solve" } },
+    { id: "L1", phase: "learn" as const, doc: fixtures["learn-derivative.json"] },
+  ];
+  const onActive = vi.fn();
+  const props = { tabs, onActive, makeCtx: (w: Workspace) => ({ ...mk(), workspaceId: w.id, phase: w.doc.phase }) };
+  const { container, rerender } = render(<WorkspaceView {...props} activeId="S1" />);
+  expect(screen.getAllByRole("tab").map((t) => t.id)).toEqual(["tab-S1", "tab-S2", "tab-L1"]);
+  expect(screen.getAllByRole("tabpanel", { hidden: true }).map((p) => p.id)).toEqual(["panel-S1", "panel-S2", "panel-L1"]);
+  const input = screen.getByRole("textbox", { name: copy.lineLabel(1) });
+  fireEvent.change(input, { target: { value: "my first answer" } });
+  const secondTab = screen.getByRole("tab", { name: "Second solve" });
+  secondTab.focus();
+  expect(document.activeElement).toBe(secondTab);
+  fireEvent.click(secondTab);
+  expect(onActive).toHaveBeenCalledWith("S2");
+  const scrollIntoView = vi.fn();
+  secondTab.scrollIntoView = scrollIntoView;
+  rerender(<WorkspaceView {...props} activeId="S2" />);
+  expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
+  expect(container.querySelector("#panel-S1")?.hasAttribute("hidden")).toBe(true);
+  expect(secondTab.getAttribute("aria-selected")).toBe("true");
+  expect(secondTab.getAttribute("aria-controls")).toBe("panel-S2");
+  expect(screen.getByRole("textbox", { name: copy.lineLabel(1) })).not.toBe(input);
+  rerender(<WorkspaceView {...props} activeId="S1" />);
+  expect(screen.getByRole("textbox", { name: copy.lineLabel(1) })).toBe(input);
+  expect((input as HTMLInputElement).value).toBe("my first answer");
 });

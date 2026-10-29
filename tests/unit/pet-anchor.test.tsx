@@ -72,7 +72,7 @@ const ws = (phase: Phase): Workspace => ({
 test("switching phases moves the anchor to the visible doc; the column and scroller are exposed", () => {
   const ws2 = { learn: ws("learn"), solve: ws("solve") };
   const view = (phase: Phase) =>
-    within(<WorkspaceView workspaces={ws2} phase={phase} onPhase={() => {}} makeCtx={(w) => ({ ...mk(), workspaceId: w.id })} />);
+    within(<WorkspaceView tabs={Object.values(ws2).map((w) => ({ ...w, phase: w.doc.phase }))} activeId={phase} onActive={() => {}} makeCtx={(w) => ({ ...mk(), workspaceId: w.id })} />);
   const { container, rerender } = render(view("learn"));
   const owner = (p: Phase) => container.querySelector(`[data-phase="${p}"] [data-pet-anchor]`);
   expect(seen.anchor).toBe(owner("learn"));

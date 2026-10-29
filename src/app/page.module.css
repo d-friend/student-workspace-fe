@@ -6,14 +6,6 @@
   display: flex;
 }
 
-/* Room on the right for the theme toggle, which floats over the stage corner. */
-.topBar {
-  flex: none;
-  display: flex;
-  align-items: center;
-  padding: 8px 68px 8px clamp(16px, 4vw, 48px);
-}
-
 /* Holds the entry and the stage. Transparent to layout, except during the unfold (spec §6), when the stage lies over
    the fading entry and opens as a circle from the composer. The custom properties are set by page.tsx. */
 .unfold {
@@ -53,10 +45,6 @@
   to {
     clip-path: circle(150vmax at var(--reveal-x) var(--reveal-y));
   }
-}
-
-.unfold[data-unfold="flying"] .topBar {
-  animation: rise 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) 0.5s both;
 }
 
 @keyframes rise {
@@ -151,8 +139,3 @@
   border-radius: 8px;
 }
 
-@media (max-width: 799px) {
-  .unfold[data-unfold="flying"] .topBar {
-    animation-delay: 0.55s;
-  }
-}

@@ -10,31 +10,32 @@ import { PhaseSwitch } from "./PhaseSwitch";
 import type { BlockCtx, Phase, Workspace } from "./types";
 import styles from "./WorkspaceView.module.css";
 
-const ORDER: Phase[] = ["learn", "solve", "practice"];
-
 type Props = {
-  workspaces: Partial<Record<Phase, Workspace>>;
-  phase: Phase;
-  onPhase: (p: Phase) => void;
+  tabs: (Workspace & { phase: Phase })[];
+  activeId: string;
+  onActive: (id: string) => void;
   makeCtx: (w: Workspace) => BlockCtx;
   taskDone?: Record<string, string[]>; // master completions (SSE task_done), by workspace id
 };
 
-function Doc({ w, p, hidden, tabbed, base, onPhase, hasSolve, taskDone }: {
+function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone }: {
   w: Workspace;
   p: Phase;
   hidden: boolean;
   tabbed: boolean; // a PhaseSwitch exists, so this is a tab panel
   base: BlockCtx;
-  onPhase: (p: Phase) => void;
   hasSolve: boolean;
   taskDone: string[];
 }) {
   const [presses, setPresses] = useState(0);
-  const [solved, setSolved] = useState<{ via?: "master" } | null>(null);
-  const reported = useRef(false);
-  const quizzesDone = useRef(new Set<string>());
-  const learnReported = useRef(false);
+  const restoredDone = Object.values(w.state?.blocks ?? {}).some((b) => b.type === "steps" && b.done);
+  const [solved, setSolved] = useState<{ via?: "master" } | null>(restoredDone ? {} : null);
+  const reported = useRef(!!w.restored && (restoredDone || (w.state?.taskDone?.length ?? 0) > 0));
+  const restoredQuizzes = new Set(Object.entries(w.state?.blocks ?? {})
+    .filter(([, b]) => b.type === "quiz" && b.done).map(([id]) => id));
+  const quizzesDone = useRef(restoredQuizzes);
+  const learnReported = useRef(w.doc.blocks.filter((b) => b.type === "quiz").length > 0 &&
+    w.doc.blocks.filter((b) => b.type === "quiz").every((b) => restoredQuizzes.has(b.id)));
   const level = Math.min(presses, 3);
   const working = p !== "learn";
   const stepsIds = w.doc.blocks.filter((b) => b.type === "steps").map((b) => b.id);
@@ -68,6 +69,7 @@ function Doc({ w, p, hidden, tabbed, base, onPhase, hasSolve, taskDone }: {
   };
   const ctx: BlockCtx = {
     ...base,
+    state: w.state,
     report,
     hintCount: presses,
     help,
@@ -80,7 +82,7 @@ function Doc({ w, p, hidden, tabbed, base, onPhase, hasSolve, taskDone }: {
   };
 
   return (
-    <section id={`panel-${p}`} {...(tabbed && { role: "tabpanel", "aria-labelledby": `tab-${p}` })} hidden={hidden} className={styles.doc} data-phase={p}>
+    <section id={`panel-${w.id}`} {...(tabbed && { role: "tabpanel", "aria-labelledby": `tab-${w.id}` })} hidden={hidden} className={styles.doc} data-phase={p}>
       <h1 className={styles.title}><MdInline text={w.doc.title} /></h1>
       {w.doc.blocks.map((b) => (
         <BlockBoundary key={b.id} blockId={b.id} report={ctx.report}>
@@ -109,7 +111,6 @@ function Doc({ w, p, hidden, tabbed, base, onPhase, hasSolve, taskDone }: {
           className={styles.back}
           onClick={() => {
             ctx.report("foundation_done", {});
-            onPhase("solve");
           }}
         >
           {copy.backToProblem}
@@ -119,17 +120,16 @@ function Doc({ w, p, hidden, tabbed, base, onPhase, hasSolve, taskDone }: {
   );
 }
 
-export function WorkspaceView({ workspaces, phase, onPhase, makeCtx, taskDone = {} }: Props) {
-  const present = ORDER.filter((p) => workspaces[p]);
-  // Hidden docs share this scroller, so a switch would carry the offset over; keep one per phase.
+export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {} }: Props) {
+  // Hidden docs share this scroller; keep an independent offset for each workspace.
   const scroller = useRef<HTMLDivElement>(null);
-  const tops = useRef<Partial<Record<Phase, number>>>({});
-  const shown = useRef(phase);
+  const tops = useRef<Record<string, number>>({});
+  const shown = useRef(activeId);
   const petScroller = usePetScrollerRef();
   useLayoutEffect(() => {
-    shown.current = phase;
-    if (scroller.current) scroller.current.scrollTop = tops.current[phase] ?? 0;
-  }, [phase]);
+    shown.current = activeId;
+    if (scroller.current) scroller.current.scrollTop = tops.current[activeId] ?? 0;
+  }, [activeId]);
   return (
     <div
       ref={(el) => {
@@ -138,13 +138,10 @@ export function WorkspaceView({ workspaces, phase, onPhase, makeCtx, taskDone = 
       }}
       className={styles.scroll} onScroll={(e) => (tops.current[shown.current] = e.currentTarget.scrollTop)}>
       <div className={styles.view} data-pet-column>
-        {present.length > 1 && <PhaseSwitch phases={present} phase={phase} onPhase={onPhase} />}
-        {present.map((p) => {
-          const w = workspaces[p]!;
-          return (
-            <Doc key={w.id} w={w} p={p} hidden={p !== phase} tabbed={present.length > 1} base={makeCtx(w)} onPhase={onPhase} hasSolve={!!workspaces.solve} taskDone={taskDone[w.id] ?? []} />
-          );
-        })}
+        <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} />
+        {tabs.map((w) => (
+          <Doc key={w.id} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} />
+        ))}
       </div>
     </div>
   );

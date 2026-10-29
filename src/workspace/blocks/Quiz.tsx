@@ -8,13 +8,15 @@ import styles from "./blocks.module.css";
 type Quiz = Extract<Block, { type: "quiz" }>;
 
 export function Quiz({ block, ctx }: BlockProps<Quiz>) {
-  const [tries, setTries] = useState(0);
-  const [done, setDone] = useState(false);
-  const [text, setText] = useState("");
+  const saved = ctx.state?.blocks?.[block.id];
+  const initial = saved?.type === "quiz" ? saved : null;
+  const [tries, setTries] = useState(initial?.tries ?? 0);
+  const [done, setDone] = useState(initial?.done ?? false);
+  const [text, setText] = useState(initial?.text ?? "");
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [answered, setAnswered] = useState<{ option: string; ok: boolean } | null>(null); // set only when a check returned
+  const [selected, setSelected] = useState<string | null>(initial?.selected ?? null);
+  const [answered, setAnswered] = useState<{ option: string; ok: boolean } | null>(initial?.answered ?? null); // set only when a check returned
   const inputId = useId();
   const qId = useId();
   const optRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -26,6 +28,7 @@ export function Quiz({ block, ctx }: BlockProps<Quiz>) {
     if (isOpen) {
       setTries(n);
       setDone(true);
+      ctx.saveBlock?.(block.id, { type: "quiz", tries: n, done: true, text: answer, selected: null, answered: null });
       // No ok: code never judges an open answer, so the router sends it to the master.
       ctx.report("quiz_answered", { block_id: block.id, answer, tries: n });
       return;
@@ -40,6 +43,7 @@ export function Quiz({ block, ctx }: BlockProps<Quiz>) {
       setTries(n);
       setAnswered({ option: answer, ok: r.ok });
       if (r.ok || n >= 2) setDone(true);
+      ctx.saveBlock?.(block.id, { type: "quiz", tries: n, done: r.ok || n >= 2, text: block.answer === "choice" ? "" : answer, selected: answer, answered: { option: answer, ok: r.ok } });
       ctx.report("quiz_answered", { block_id: block.id, answer, ok: r.ok, tries: n });
     } catch {
       setFailed(true);

@@ -5,6 +5,10 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { copy } from "../../src/lib/copy";
 
+// History/login/roadmap spec §4.1: tab labels identify workspace titles, not phases.
+const SOLVE = "Tiếp tuyến của y = x³ − 2x";
+const LEARN = "Phương trình bậc nhất";
+
 // The backend runs with MOCK=true (see playwright.config.ts): replies come from backend/app/agent/mock.py,
 // where "__build" builds the tangent solve workspace and "__learn" builds a learn workspace.
 
@@ -48,9 +52,9 @@ test("build, check a line, add a learn phase, switch keeping input, reload", asy
   await send(page, "__learn");
   await closeChat(page);
   await expect(page.getByRole("tab")).toHaveCount(2);
-  await page.getByRole("tab", { name: copy.phaseLearn }).click();
+  await page.getByRole("tab", { name: LEARN, exact: true }).click();
   await expect(page.getByRole("heading", { name: "Ý tưởng" })).toBeVisible();
-  await page.getByRole("tab", { name: copy.phaseSolve }).click();
+  await page.getByRole("tab", { name: SOLVE, exact: true }).click();
   await expect(page.getByLabel(copy.lineLabel(2))).toHaveValue("f'(2)=1");
 
   // The server stores a turn when its stream ends: wait for it, or the reload races the turn.
@@ -59,8 +63,8 @@ test("build, check a line, add a learn phase, switch keeping input, reload", asy
     .toContain("Phương trình bậc nhất");
   await page.reload();
   await expect(page.getByRole("tab")).toHaveCount(2);
-  await expect(page.getByRole("tab", { name: copy.phaseLearn })).toBeVisible();
-  await expect(page.getByRole("tab", { name: copy.phaseSolve })).toBeVisible();
+  await expect(page.getByRole("tab", { name: LEARN, exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: SOLVE, exact: true })).toBeVisible();
 });
 
 // Typed content that must never reach the turns or events tables: a line the checker rejects, and a quiz answer.
@@ -83,7 +87,7 @@ test("a student gesture starts a turn, new problem, photo, tracking rows without
   await chat(page);
   await send(page, "__learn");
   await closeChat(page);
-  await page.getByRole("tab", { name: copy.phaseLearn }).click();
+  await page.getByRole("tab", { name: LEARN, exact: true }).click();
   await page.getByLabel(copy.answer).first().fill(ANSWER); // a learn doc has two quizzes; answer the first
   const checked = page.waitForResponse((r) => r.url().includes("/check"));
   await page.getByRole("tabpanel").getByRole("button", { name: copy.answer }).first().click(); // the bubble has a "Trả lời" too
@@ -100,7 +104,7 @@ test("a student gesture starts a turn, new problem, photo, tracking rows without
   await expect(page.getByRole("tab")).toHaveCount(0);
 
   // Photo flow: PhotoCheck, send, the restatement with its chips.
-  await page.locator('input[type="file"]').setInputFiles(path.join(__dirname, "../fixtures/photo.jpg"));
+  await page.locator('input[type="file"]:not([capture])').setInputFiles(path.join(__dirname, "../fixtures/photo.jpg"));
   await expect(page.getByRole("heading", { name: copy.photoTitle })).toBeVisible();
   await page.getByRole("button", { name: copy.sendPhoto }).click();
   await expect(page.getByText(/Mình đọc đề là/)).toBeVisible();

@@ -19,7 +19,7 @@
   position: fixed;
   top: 64px;
   right: 12px;
-  z-index: 3;
+  z-index: 31; /* above the pet layer (30), which would cover the form */
   width: min(360px, calc(100vw - 24px));
   display: flex;
   flex-direction: column;

@@ -6,7 +6,6 @@ import { copy } from "@/lib/copy";
 import { Bubble } from "@/components/rail/Bubble";
 import { ChatLog } from "@/components/rail/ChatLog";
 import { Composer, type ComposerProps } from "@/components/rail/Composer";
-import { NewProblemButton } from "@/components/rail/NewProblemButton";
 import { OfferChips } from "@/components/rail/OfferChips";
 import { OptChips } from "@/components/rail/OptChips";
 import { RestateChips } from "@/components/rail/RestateChips";
@@ -18,7 +17,6 @@ export const JPEG_PREFIX = "data:image/jpeg;base64,";
 
 export type ChatState = Pick<WorkspaceState, "bubbles" | "hasMessages" | "watching" | "restateChips" | "offerChips" | "optChips">;
 export type ChatActions = {
-  onNewProblem: () => void;
   onConfirmRestate: () => void;
   onCorrectRestate: () => void;
   onAcceptOffer: () => void;
@@ -79,7 +77,6 @@ export function ChatDrawer({
             <p className={styles.name}>D-Friend</p>
             <p className={styles.sub}>{copy.drawerSub}</p>
           </div>
-          {state.hasMessages && <NewProblemButton onClick={actions.onNewProblem} />}
           <button type="button" className={styles.close} aria-label={copy.drawerClose} onClick={onClose}>
             <IconX size={20} aria-hidden="true" />
           </button>
@@ -134,7 +131,7 @@ export function ChatDrawer({
           })}
           {state.watching && <WatchingCue />}
         </ChatLog>
-        <Composer {...composer} inputRef={composerRef} />
+        {!leaving && <Composer {...composer} inputRef={composerRef} />}
       </div>
     </>
   );

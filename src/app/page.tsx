@@ -3,9 +3,10 @@
 import { type ChangeEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Entry } from "@/components/Entry";
 import { Shell } from "@/components/Shell";
+import { Sidebar } from "@/components/sidebar/Sidebar";
+import { useSidebar } from "@/components/sidebar/useSidebar";
 import { PetAnchorProvider } from "@/components/pet/PetAnchor";
 import { PetLayer } from "@/components/pet/PetLayer";
-import { NewProblemButton } from "@/components/rail/NewProblemButton";
 import { BuildingSkeleton } from "@/components/work/BuildingSkeleton";
 import { WorkspaceFrame } from "@/components/work/WorkspaceFrame";
 import { useDesktop } from "@/hooks/useDesktop";
@@ -78,10 +79,12 @@ export default function Page() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const desktop = useDesktop();
+  const side = useSidebar();
 
   // WorkspaceView wraps hintCount and onSolved per doc itself.
   const makeCtx = (w: Workspace): BlockCtx => ({
     workspaceId: w.id,
+    saveBlock: (blockId, state) => ws.saveBlock(w.id, blockId, state),
     phase: w.doc.phase,
     simulationPending: ws.simulationPending,
     simulationVersions: ws.simulationVersions,
@@ -107,13 +110,13 @@ export default function Page() {
   };
 
   let stage;
-  if (ws.phase !== null) {
+  if (ws.activeId !== null) {
     stage = (
       <div className={styles.viewWrap}>
         <WorkspaceView
-          workspaces={ws.workspaces}
-          phase={ws.phase}
-          onPhase={ws.setPhase}
+          tabs={ws.tabs}
+          activeId={ws.activeId}
+          onActive={ws.setActive}
           makeCtx={makeCtx}
           taskDone={ws.taskDone}
         />
@@ -183,15 +186,9 @@ export default function Page() {
     for (const [k, v] of Object.entries(vars)) box.style.setProperty(k, v);
   }, [flying]);
 
-  const bar = ws.hasMessages && !entry && (
-    <div className={styles.topBar}>
-      <NewProblemButton onClick={ws.newProblem} />
-    </div>
-  );
-
   const work = (
     <div ref={unfoldRef} className={styles.unfold} data-unfold={unfold}>
-      {(entry || flying) && (
+      {!drawerOpen && (entry || flying) && (
         <Entry
           composer={composer}
           inputRef={entryInput}
@@ -217,7 +214,6 @@ export default function Page() {
       {/* The same element before, during and after the flight, so a doc that arrives mid-flight is not remounted. */}
       {stage !== undefined && (
         <div className={styles.stage}>
-          {flying && bar}
           {stage}
         </div>
       )}
@@ -243,7 +239,6 @@ export default function Page() {
       entryInputRef={entryInput}
       onOpenChange={setDrawerOpen}
       onChatOpened={ws.chatOpened}
-      onNewProblem={ws.newProblem}
       onConfirmRestate={ws.confirmRestate}
       onCorrectRestate={ws.correctRestate}
       onAcceptOffer={() => void ws.answerOffer(true)}
@@ -254,7 +249,9 @@ export default function Page() {
   );
   return (
     <PetAnchorProvider>
-      <Shell bar={!flying && bar} work={work} layer={layer} chatOpen={drawerOpen} inert={drawerOpen && !desktop} />
+      <Shell work={work} layer={layer} chatOpen={drawerOpen} inert={(drawerOpen || side.drawerOpen) && !desktop}
+        sidebar={<Sidebar side={side} busy={ws.busy} onNewProblem={ws.newProblem} refreshKey={`${ws.newProblemCount}|${ws.hasMessages}|${ws.phase}`} />}
+        side={desktop ? side.mode : undefined} />
       <input ref={fileInput} type="file" accept="image/*" hidden onChange={onFile} />
       <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={onFile} />
     </PetAnchorProvider>

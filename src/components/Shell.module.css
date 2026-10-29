@@ -1,4 +1,6 @@
 .shell {
+  --side-w: 0px;
+  --menu-clear: 0px;
   --chat-w: clamp(340px, 34vw, 430px);
   --ease: cubic-bezier(0.2, 0.9, 0.25, 1);
   --pet-clear: calc(88px + 24px + 16px + env(safe-area-inset-bottom)); /* pet + its dock offset + a gap */
@@ -48,4 +50,24 @@
   .stage {
     transition: none;
   }
+}
+
+.sidebar {
+  flex: none;
+  box-sizing: border-box;
+  width: var(--side-w);
+  min-height: 0;
+  background: var(--bg);
+  transition: width 0.2s var(--ease);
+}
+@media (min-width: 800px) {
+  .shell[data-side="open"] { --side-w: 260px; --head-display: none; }
+  .shell[data-side="rail"] { --side-w: 56px; }
+  .shell[data-sidebar] .sidebar { border-right: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
+}
+@media (max-width: 799px) {
+  .shell[data-sidebar] { --menu-clear: 56px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
 }

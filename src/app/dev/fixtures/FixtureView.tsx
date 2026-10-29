@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import { Shell } from "@/components/Shell";
-import type { BlockCtx, Phase, WorkspaceDoc } from "@/workspace/types";
+import type { BlockCtx, WorkspaceDoc } from "@/workspace/types";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
 import styles from "../../page.module.css";
 
 const noop = () => {};
 
 export function FixtureView({ doc }: { doc: WorkspaceDoc }) {
-  const [phase, setPhase] = useState<Phase>(doc.phase);
+  const [activeId, setActive] = useState("fx");
   const w = { id: "fx", doc };
   const makeCtx = (): BlockCtx => ({
     workspaceId: "fx",
@@ -26,7 +26,7 @@ export function FixtureView({ doc }: { doc: WorkspaceDoc }) {
       layer={null}
       work={
         <div className={styles.viewWrap}>
-          <WorkspaceView workspaces={{ [doc.phase]: w }} phase={phase} onPhase={setPhase} makeCtx={makeCtx} />
+          <WorkspaceView tabs={[{ ...w, phase: doc.phase }]} activeId={activeId} onActive={setActive} makeCtx={makeCtx} />
         </div>
       }
     />

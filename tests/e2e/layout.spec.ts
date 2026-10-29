@@ -40,17 +40,22 @@ async function restore(page: Page) {
           session_id: "s1",
           messages: [],
           html: null,
-          phase: "solve",
-          workspaces: { learn: { workspace_id: "L1", doc: learn }, solve: { workspace_id: "S1", doc: solve } },
+          // History/login/roadmap spec §4.2: restore tabs by workspace id.
+          active_workspace_id: "S1",
+          tabs: [
+            { workspace_id: "L1", phase: "learn", doc: learn },
+            { workspace_id: "S1", phase: "solve", doc: solve },
+          ],
         },
       });
     }
     if (path === "/api/guest") return route.fulfill({ json: { guest_id: "g", created: false } });
     if (path === "/api/events") return route.fulfill({ json: { accepted: 0, rejected: [] } });
+    if (path === "/api/sessions/s1/active") return route.fulfill({ status: 204 });
     return route.fulfill({ status: 404, json: { error: { code: "unmocked", message: path } } });
   });
   await page.goto("/");
-  await expect(page.getByRole("tab", { name: copy.phaseSolve })).toBeVisible();
+  await expect(page.getByRole("tab", { name: solve.title, exact: true })).toBeVisible();
 }
 
 // The one element the doc scrolls in: the deepest overflow:auto box under main that holds the doc.
@@ -60,7 +65,7 @@ const scroller = (page: Page) =>
 test("a long unbroken word does not widen the doc at 360px", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
   await restore(page);
-  for (const tab of [copy.phaseSolve, copy.phaseLearn]) {
+  for (const tab of [solve.title, learn.title]) {
     await page.getByRole("tab", { name: tab }).click();
     const s = await scroller(page);
     expect(await s.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
@@ -88,12 +93,12 @@ test("each phase keeps its own scroll position", async ({ page }) => {
   const top = () => s.evaluate((el) => el.scrollTop);
 
   expect(await scrollTo(300)).toBe(300);
-  await page.getByRole("tab", { name: copy.phaseLearn }).click();
+  await page.getByRole("tab", { name: learn.title, exact: true }).click();
   expect(await top()).toBe(0);
   expect(await scrollTo(120)).toBe(120);
-  await page.getByRole("tab", { name: copy.phaseSolve }).click();
+  await page.getByRole("tab", { name: solve.title, exact: true }).click();
   await expect.poll(top).toBe(300);
-  await page.getByRole("tab", { name: copy.phaseLearn }).click();
+  await page.getByRole("tab", { name: learn.title, exact: true }).click();
   await expect.poll(top).toBe(120);
 });
 

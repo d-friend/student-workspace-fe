@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { IconMessageReport } from "@tabler/icons-react";
 import { sendFeedback } from "@/lib/api";
 import { copy } from "@/lib/copy";
@@ -10,11 +10,35 @@ export function FeedbackButton() {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [state, setState] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+  const sheet = useRef<HTMLFormElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
 
   const close = () => {
     setOpen(false);
     setState("idle");
   };
+
+  // Only one corner sheet at a time: they share a spot.
+  useEffect(() => {
+    const other = (event: Event) => { if ((event as CustomEvent).detail !== "feedback") setOpen(false); };
+    window.addEventListener("df-sheet-open", other);
+    return () => window.removeEventListener("df-sheet-open", other);
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    window.dispatchEvent(new CustomEvent("df-sheet-open", { detail: "feedback" }));
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") close(); };
+    const outside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!sheet.current?.contains(target) && !trigger.current?.contains(target)) close();
+    };
+    document.addEventListener("keydown", escape);
+    document.addEventListener("pointerdown", outside);
+    return () => {
+      document.removeEventListener("keydown", escape);
+      document.removeEventListener("pointerdown", outside);
+    };
+  }, [open]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -31,11 +55,11 @@ export function FeedbackButton() {
 
   return (
     <>
-      <button type="button" className={styles.open} aria-label={copy.feedbackOpen} onClick={() => (open ? close() : setOpen(true))}>
+      <button ref={trigger} type="button" className={styles.open} aria-label={copy.feedbackOpen} onClick={() => (open ? close() : setOpen(true))}>
         <IconMessageReport size={20} aria-hidden="true" />
       </button>
       {open && (
-        <form className={styles.sheet} onSubmit={submit} aria-label={copy.feedbackTitle}>
+        <form ref={sheet} className={styles.sheet} onSubmit={submit} aria-label={copy.feedbackTitle}>
           <h2>{copy.feedbackTitle}</h2>
           {state === "sent" ? (
             <>

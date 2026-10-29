@@ -3,7 +3,8 @@
   --pet-size: 88px;
   --pet-edge: 24px;
   position: absolute;
-  inset: 0;
+  /* Span the stage area so the pet never covers the sidebar. */
+  inset: 0 0 0 var(--side-w, 0px);
   z-index: 30;
   pointer-events: none;
 }

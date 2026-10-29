@@ -43,7 +43,17 @@ export type WorkspaceDoc = {
   sources: { url: string; title: string }[];
 };
 
-export type Workspace = { id: string; doc: WorkspaceDoc };
+export type SavedBlockState =
+  | { type: "quiz"; tries: number; done: boolean; text: string; selected: string | null; answered: { option: string; ok: boolean } | null }
+  | { type: "steps"; entries: { text: string; state: "ok" | "review"; answer?: string; item?: number }[]; done: boolean; free: boolean };
+
+export type StudentWork = {
+  blocks?: Record<string, SavedBlockState>;
+  overrides?: Record<string, Record<number, "ok" | "review">>;
+  taskDone?: string[];
+};
+
+export type Workspace = { id: string; doc: WorkspaceDoc; state?: StudentWork | null; restored?: boolean };
 
 export type CheckResponse = {
   ok: boolean;
@@ -57,6 +67,8 @@ export type LineState = "ok" | "review" | "pending" | "error";
 
 export type BlockCtx = {
   workspaceId: string;
+  state?: StudentWork | null;
+  saveBlock?: (blockId: string, state: SavedBlockState) => void;
   phase: Phase;
   report: (type: string, data?: unknown) => void;
   check: (blockId: string, answer: string, previous: string[], item?: number) => Promise<CheckResponse>; // item: scaffold index

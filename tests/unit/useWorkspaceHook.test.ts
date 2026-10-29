@@ -67,7 +67,7 @@ it("keeps input across phase switch", async () => {
   });
   render(createElement(Page));
   await send("đề bài");
-  expect(screen.getByRole("tab", { name: copy.phaseSolve }).getAttribute("aria-selected")).toBe("true");
+  expect(screen.getByRole("tab", { name: solve.title }).getAttribute("aria-selected")).toBe("true");
 
   const line = screen.getByRole("textbox", { name: copy.lineLabel(1) });
   fireEvent.change(line, { target: { value: "y' = 3x^2" } });
@@ -75,9 +75,9 @@ it("keeps input across phase switch", async () => {
   fireEvent.click(screen.getByRole("button", { name: copy.petOpen }));
   fireEvent.change(screen.getByRole("textbox", { name: copy.inputLabel }), { target: { value: "đang gõ" } });
   fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
-  fireEvent.click(screen.getByRole("tab", { name: copy.phaseLearn }));
-  expect(screen.getByRole("tab", { name: copy.phaseLearn }).getAttribute("aria-selected")).toBe("true");
-  fireEvent.click(screen.getByRole("tab", { name: copy.phaseSolve }));
+  fireEvent.click(screen.getByRole("tab", { name: learn.title }));
+  expect(screen.getByRole("tab", { name: learn.title }).getAttribute("aria-selected")).toBe("true");
+  fireEvent.click(screen.getByRole("tab", { name: solve.title }));
 
   expect(screen.getByRole("textbox", { name: copy.lineLabel(1) })).toBe(line);
   expect((line as HTMLInputElement).value).toBe("y' = 3x^2");
@@ -105,7 +105,7 @@ it("a master task_done marks only its own workspace when block ids repeat across
   vi.mocked(api.turn).mockImplementationOnce(async (_s, _m, onDelta, onEvent) => {
     onEvent!({ event: "workspace", workspaceId: "S1", phase: "solve", doc: solve });
     onEvent!({ event: "workspace", workspaceId: "P1", phase: "practice", doc: practice });
-    onEvent!({ event: "phase", phase: "solve" });
+    onEvent!({ event: "active", workspaceId: "S1" });
     onEvent!({ event: "task_done", workspaceId: "S1", blockId: "s1" });
     onDelta("Xong rồi.");
     return DONE;
@@ -113,8 +113,8 @@ it("a master task_done marks only its own workspace when block ids repeat across
   vi.mocked(api.turn).mockImplementationOnce(async () => DONE); // the completion's own turn
   const { container } = render(createElement(Page));
   await send("đề bài");
-  expect(container.querySelector("#panel-solve")!.textContent).toContain(copy.doneLabel);
-  expect(container.querySelector("#panel-practice")!.textContent).not.toContain(copy.doneLabel);
+  expect(container.querySelector("#panel-S1")!.textContent).toContain(copy.doneLabel);
+  expect(container.querySelector("#panel-P1")!.textContent).not.toContain(copy.doneLabel);
 
   // The completion is sent on its own as soon as the build turn ends; it does not wait for the next message.
   await waitFor(() => expect(api.turn).toHaveBeenCalledTimes(2));
@@ -157,4 +157,12 @@ it("a retyped line is judged on its own after the master withdrew an ok", async 
   await screen.findByText(copy.stateOk);
   expect(screen.queryByText(copy.stateReview)).toBeNull();
   expect(screen.getByRole("textbox", { name: copy.lineLabel(2) })).toBeTruthy();
+});
+
+
+it("renders a restored legacy HTML workspace without tabs", async () => {
+  vi.mocked(api.currentSession).mockResolvedValueOnce({ sessionId: "legacy", messages: [{ role: "assistant", content: "Hello" }], html: "<p>Legacy work</p>", tabs: [], activeId: null });
+  const { container } = render(createElement(Page));
+  await waitFor(() => expect(container.querySelector("iframe")?.getAttribute("srcdoc")).toContain("Legacy work"));
+  expect(screen.queryByRole("tablist")).toBeNull();
 });

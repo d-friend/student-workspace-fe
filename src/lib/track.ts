@@ -3,6 +3,8 @@ import { sendEvents, type EventPayload } from "./api";
 // Client event catalog, mirroring spec 6.3. Props are exactly these keys and no others: a key that
 // is not here is a compile error, and the backend rejects it anyway (extra="forbid").
 export type TrackEvents = {
+  tab_switched: { from_phase: "learn" | "solve" | "practice"; to_phase: "learn" | "solve" | "practice" };
+  history_opened: { sessions: number };
   app_opened: { path: string; referrer_host?: string; viewport_w: number; viewport_h: number; restored: boolean };
   empty_state_shown: NoProps;
   starter_clicked: { starter: "derivative" | "geometry" };
@@ -25,6 +27,9 @@ export type TrackEvents = {
   simulation_shown: { ms_since_send: number; update: boolean };
   watching_cue_shown: NoProps;
   similar_offer_answered: { accepted: boolean };
+  next_topic_offered: NoProps;
+  next_topic_accepted: NoProps;
+  similar_problem_accepted: NoProps;
   new_problem_clicked: { turns_in_session: number };
   turn_failed: { status?: number; code: string };
   session_restored: { messages: number; has_workspace: boolean };

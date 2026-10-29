@@ -19,7 +19,7 @@ import {
 import { isRestate, parse, type Parsed } from "@/lib/parse";
 import { readPhoto as realReadPhoto, type PhotoResult } from "@/lib/photo";
 import { track as realTrack, type TrackFn } from "@/lib/track";
-import type { BlockCtx, CheckResponse, Phase, Workspace } from "@/workspace/types";
+import type { BlockCtx, CheckResponse, Phase, SavedBlockState, Workspace } from "@/workspace/types";
 
 // Read per call: copy follows the browser language, which is only known after the module loads.
 const statusLabel = (stage: "planning" | "searching" | "reading" | "simulating") =>
@@ -65,7 +65,8 @@ export type WorkspaceState = {
   input: string;
   photo: string | null;
   html: string | null; // legacy iframe workspace, only when there are no structured workspaces
-  workspaces: Partial<Record<Phase, Workspace>>;
+  tabs: (Workspace & { phase: Phase })[];
+  activeId: string | null;
   simulationVersions: Record<string, number>;
   simulationFailures: Record<string, boolean>;
   simulationPending: Record<string, boolean>;
@@ -92,7 +93,7 @@ export type WorkspaceState = {
 };
 
 export type WorkspaceDeps = {
-  api: Pick<typeof realApi, "createGuest" | "currentSession" | "createSession" | "endSession" | "turn" | "turnStatus" | "check">;
+  api: Pick<typeof realApi, "createGuest" | "currentSession" | "createSession" | "endSession" | "turn" | "turnStatus" | "check" | "setActiveWorkspace"> & Partial<Pick<typeof realApi, "putWorkspaceState">>;
   track: TrackFn;
   readPhoto: (file: Blob) => Promise<PhotoResult>;
   now?: () => number;
@@ -143,11 +144,12 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let photo: string | null = null;
   let photoNoteId: number | null = null;
   let html: string | null = null;
-  let workspaces: Partial<Record<Phase, Workspace>> = {};
+  let tabs: WorkspaceState["tabs"] = [];
+  let activeId: string | null = null;
   let simulationVersions: WorkspaceState["simulationVersions"] = {};
   let simulationFailures: WorkspaceState["simulationFailures"] = {};
   let simulationPending: WorkspaceState["simulationPending"] = {};
-  let phase: Phase | null = null;
+  const activePhase = () => tabs.find((w) => w.id === activeId)?.phase ?? null;
   let overrides: WorkspaceState["overrides"] = {};
   let taskDone: WorkspaceState["taskDone"] = {};
   let building = false;
@@ -164,7 +166,36 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let optsClosedId: number | null = null;
   let checking = 0;
   let verdictSeq = 0;
-  let verdict: WorkspaceState["verdict"] = { seq: 0, state: null, done: false };
+  let verdicts: Record<string, WorkspaceState["verdict"]> = {};
+
+  const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const saveQueues = new Map<string, Promise<void>>();
+
+  function sendState(id: string) {
+    clearTimeout(saveTimers.get(id));
+    saveTimers.delete(id);
+    const tab = tabs.find((w) => w.id === id);
+    if (!tab?.state || !api.putWorkspaceState) return;
+    const state = tab.state;
+    // Serialize writes to each workspace so a slower old request cannot overwrite newer work.
+    const queued = (saveQueues.get(id) ?? Promise.resolve()).then(() => api.putWorkspaceState!(id, state)).catch(() => {});
+    saveQueues.set(id, queued);
+    void queued.finally(() => { if (saveQueues.get(id) === queued) saveQueues.delete(id); });
+  }
+
+  function scheduleSave(id: string) {
+    const tab = tabs.find((w) => w.id === id);
+    if (!tab) return;
+    tabs = tabs.map((w) => w.id === id ? { ...w, state: {
+      ...w.state, overrides: overrides[id] ?? {}, taskDone: taskDone[id] ?? [],
+    } } : w);
+    clearTimeout(saveTimers.get(id));
+    saveTimers.set(id, setTimeout(() => sendState(id), FLUSH_DELAY_MS));
+  }
+
+  function flushSaves() {
+    for (const id of saveTimers.keys()) sendState(id);
+  }
 
   const sid = () => (sessionConfirmed ? sessionId : null);
 
@@ -175,6 +206,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   function compute(): WorkspaceState {
     const lastAgent = [...bubbles].reverse().find((b) => b.kind === "agent");
     const agent = lastAgent?.kind === "agent" ? lastAgent : null;
+    const phase = activePhase();
     const shown = phase !== null || html !== null;
     const screen: Screen = shown
       ? "workspace"
@@ -193,7 +225,8 @@ export function createWorkspace(deps: WorkspaceDeps) {
       input,
       photo,
       html,
-      workspaces,
+      tabs,
+      activeId,
       simulationVersions,
       simulationFailures,
       simulationPending,
@@ -208,21 +241,19 @@ export function createWorkspace(deps: WorkspaceDeps) {
       screen,
       watching: shown && !busy && watching(messages),
       restateChips: !busy && !!agent?.restate && restateClosedId !== agent.id,
-      offerChips: !busy && !!agent?.offer && offerClosedId !== agent.id,
+      offerChips: !busy && !!agent?.offer && !agent.opts && offerClosedId !== agent.id, // offer + opts is the next-topic offer: its chips are the opts
       optChips: !busy && agent?.opts && optsClosedId !== agent.id ? agent.opts : null,
       hasMessages: messages.length > 0,
       newProblemCount: newProblems,
       inputDisabled,
       sendDisabled: inputDisabled || queued !== null,
-      verdict,
+      verdict: (activeId && verdicts[activeId]) || { seq: verdictSeq, state: null, done: false },
       checking,
     };
   }
 
-  // A different active phase clears the old phase's verdict; seq keeps counting.
-  function activate(p: Phase) {
-    if (p !== phase) verdict = { seq: verdictSeq, state: null, done: false };
-    phase = p;
+  function activate(id: string) {
+    if (tabs.some((w) => w.id === id)) activeId = id;
   }
 
   function publish() {
@@ -398,15 +429,16 @@ export function createWorkspace(deps: WorkspaceDeps) {
       } else if (e.event === "workspace_partial") {
         preview = { phase: e.phase, title: e.title, blocks: e.blocks };
       } else if (e.event === "workspace") {
-        const old = workspaces[e.phase];
+        const old = tabs.find((w) => w.id === e.replaces);
         const replaced = old !== undefined;
-        workspaces = { ...workspaces, [e.phase]: { id: e.workspaceId, doc: e.doc } };
+        const tab = { id: e.workspaceId, doc: e.doc, phase: e.phase };
+        tabs = old ? tabs.map((w) => w.id === old.id ? tab : w) : [...tabs, tab];
         const slot = e.doc.blocks.find((b) => b.type === "custom");
         if (e.phase === "learn" && slot?.type === "custom" && slot.html === null) {
           simulationPending = { ...simulationPending, [`${e.workspaceId}:${slot.id}`]: true };
         }
         simulationVersions = Object.fromEntries(Object.entries(simulationVersions).filter(([key]) => !key.startsWith(`${e.workspaceId}:`)));
-        activate(e.phase);
+        activate(e.workspaceId);
         gotWorkspace = true;
         building = false;
         status = null;
@@ -418,27 +450,30 @@ export function createWorkspace(deps: WorkspaceDeps) {
           delete overrides[old.id];
           taskDone = { ...taskDone };
           delete taskDone[old.id];
+          verdicts = { ...verdicts };
+          delete verdicts[old.id];
+          simulationVersions = Object.fromEntries(Object.entries(simulationVersions).filter(([key]) => !key.startsWith(`${old.id}:`)));
+          simulationFailures = Object.fromEntries(Object.entries(simulationFailures).filter(([key]) => !key.startsWith(`${old.id}:`)));
+          simulationPending = Object.fromEntries(Object.entries(simulationPending).filter(([key]) => !key.startsWith(`${old.id}:`)));
           // Pending events about blocks that only the old doc had are stale. A shared id is ambiguous, so it stays.
           const gone = new Set(old.doc.blocks.map((b) => b.id));
-          for (const w of Object.values(workspaces)) if (w.id !== e.workspaceId) w.doc.blocks.forEach((b) => gone.delete(b.id));
+          for (const w of tabs) if (w.id !== e.workspaceId) w.doc.blocks.forEach((b) => gone.delete(b.id));
           pending = pending.filter((p) => !gone.has((p.data as { block_id?: string } | null)?.block_id ?? ""));
         }
         track("workspace_shown", { ms_since_send: Math.max(0, now() - sentAt), replaced }, sid());
-      } else if (e.event === "phase") {
-        if (workspaces[e.phase]) activate(e.phase);
+      } else if (e.event === "active") {
+        activate(e.workspaceId);
       } else if (e.event === "simulation") {
-        const entry = Object.entries(workspaces).find(([, w]) => w?.id === e.workspaceId);
-        if (entry) {
-          const [p, workspace] = entry as [Phase, Workspace];
+        const workspace = tabs.find((w) => w.id === e.workspaceId);
+        if (workspace) {
           const block = workspace.doc.blocks.find((b) => b.id === e.blockId && b.type === "custom");
           if (block?.type === "custom") {
             const update = block.html !== null;
             const versionKey = `${e.workspaceId}:${e.blockId}`;
-            workspaces = {
-              ...workspaces,
-              [p]: { ...workspace, doc: { ...workspace.doc, blocks: workspace.doc.blocks.map((b) =>
-                b.id === e.blockId && b.type === "custom" ? { ...b, html: e.html, height: e.height } : b) } },
-            };
+            tabs = tabs.map((w) => w.id === e.workspaceId
+              ? { ...w, doc: { ...w.doc, blocks: w.doc.blocks.map((b) =>
+                b.id === e.blockId && b.type === "custom" ? { ...b, html: e.html, height: e.height } : b) } }
+              : w);
             simulationVersions = { ...simulationVersions, [versionKey]: (simulationVersions[versionKey] ?? 0) + 1 };
             simulationFailures = { ...simulationFailures, [versionKey]: false };
             simulationPending = { ...simulationPending, [versionKey]: false };
@@ -452,9 +487,11 @@ export function createWorkspace(deps: WorkspaceDeps) {
       } else if (e.event === "line_state") {
         const w = overrides[e.workspaceId] ?? {};
         overrides = { ...overrides, [e.workspaceId]: { ...w, [e.blockId]: { ...w[e.blockId], [e.line]: e.state } } };
-        verdict = { seq: ++verdictSeq, state: e.state, done: false };
+        verdicts = { ...verdicts, [e.workspaceId]: { seq: ++verdictSeq, state: e.state, done: false } };
+        scheduleSave(e.workspaceId);
       } else {
         taskDone = { ...taskDone, [e.workspaceId]: [...(taskDone[e.workspaceId] ?? []), e.blockId] };
+        scheduleSave(e.workspaceId);
       }
       publish();
     };
@@ -486,6 +523,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
         agentId = null;
       } else {
         show(view, true);
+        if (view.offer && view.opts) track("next_topic_offered", {}, sid());
       }
       if (view.html !== null) {
         pending = [];
@@ -603,6 +641,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   };
 
   const onVisibility = () => {
+    if (document.visibilityState === "hidden") flushSaves();
     track("visibility_changed", { visible: document.visibilityState === "visible" }, sid());
   };
 
@@ -614,22 +653,25 @@ export function createWorkspace(deps: WorkspaceDeps) {
       window.removeEventListener("message", onMessage);
       document.removeEventListener("visibilitychange", onVisibility);
       clearTimer();
+      flushSaves();
     };
   }
 
   function restore(saved: Saved) {
+    flushSaves();
     messages = saved.messages;
     sessionId = saved.sessionId;
     sessionConfirmed = true;
-    const structured = Object.keys(saved.workspaces).length > 0;
-    workspaces = saved.workspaces;
+    const structured = saved.tabs.length > 0;
+    tabs = saved.tabs.map((w) => ({ ...w, restored: true }));
     simulationVersions = {};
     simulationFailures = {};
     simulationPending = {};
-    phase = saved.phase && workspaces[saved.phase] ? saved.phase : ((Object.keys(workspaces)[0] as Phase) ?? null);
+    activeId = tabs.some((w) => w.id === saved.activeId) ? saved.activeId : (tabs.at(-1)?.id ?? null);
+    verdicts = {};
     html = structured ? null : saved.html;
-    overrides = {};
-    taskDone = {};
+    overrides = Object.fromEntries(tabs.map((w) => [w.id, w.state?.overrides ?? {}]));
+    taskDone = Object.fromEntries(tabs.map((w) => [w.id, w.state?.taskDone ?? []]));
     buildFailed = false;
     bubbles = [];
     restateClosedId = null;
@@ -698,7 +740,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       if (applied) {
         track("session_restored", {
           messages: applied.messages.length,
-          has_workspace: applied.html !== null || Object.keys(applied.workspaces).length > 0,
+          has_workspace: applied.html !== null || applied.tabs.length > 0,
         });
       }
       // The landing page hands over the problem it was typed as ?q=. Consume it once (reload must not resend).
@@ -720,6 +762,16 @@ export function createWorkspace(deps: WorkspaceDeps) {
   }
 
   const actions = {
+    saveBlock(workspaceId: string, blockId: string, state: SavedBlockState) {
+      const tab = tabs.find((w) => w.id === workspaceId);
+      const block = tab?.doc.blocks.find((b) => b.id === blockId);
+      if (!tab || block?.type !== state.type) return;
+      tabs = tabs.map((w) => w.id === workspaceId
+        ? { ...w, state: { ...w.state, blocks: { ...w.state?.blocks, [blockId]: state } } } : w);
+      scheduleSave(workspaceId);
+      publish();
+    },
+
     setInput(value: string) {
       input = value;
       publish();
@@ -813,6 +865,10 @@ export function createWorkspace(deps: WorkspaceDeps) {
     },
 
     answerOpt(text: string): Promise<void> {
+      const last = bubbles.findLast((b) => b.kind === "agent");
+      if (last?.kind === "agent" && last.offer && last.opts) {
+        track(last.opts[0] === text ? "next_topic_accepted" : "similar_problem_accepted", {}, sid());
+      }
       return dispatch(text, null);
     },
 
@@ -822,18 +878,25 @@ export function createWorkspace(deps: WorkspaceDeps) {
       enqueue({ type, data: data ?? null, byStudent, gesture: byStudent ? now() : undefined });
     },
 
-    setPhase(p: Phase) {
-      activate(p);
-      actions.report("phase_viewed", { phase: p });
+    setActive(id: string) {
+      const tab = tabs.find((w) => w.id === id);
+      if (!tab || id === activeId) return;
+      const from = activePhase();
+      activate(id);
+      if (sessionId !== null) api.setActiveWorkspace(sessionId, id).catch(() => {}); // best effort: the turn then sees the older tab
+      if (from) track("tab_switched", { from_phase: from, to_phase: tab.phase }, sid());
+      actions.report("phase_viewed", { phase: tab.phase, workspace_id: id });
     },
 
     check(workspaceId: string, blockId: string, answer: string, previous: string[], item?: number): Promise<CheckResponse> {
-      const w = Object.values(workspaces).find((x) => x.id === workspaceId);
+      const w = tabs.find((x) => x.id === workspaceId);
       if (!w || sessionId === null) return Promise.reject(new Error(`no workspace ${workspaceId}`));
       checking++;
       publish();
       return api.check(sessionId, { workspaceId, blockId, answer, previous, ...(item !== undefined && { item }) }).then((r) => {
-        verdict = { seq: ++verdictSeq, state: r.state, done: r.done };
+        if (tabs.some((tab) => tab.id === workspaceId)) {
+          verdicts = { ...verdicts, [workspaceId]: { seq: ++verdictSeq, state: r.state, done: r.done } };
+        }
         // A master line_state judged the attempt it was issued for, not the next one at that line.
         // shortcut: the line is previous.length + 1, which is Steps' contract; other blocks hold no overrides.
         const line = previous.length + 1;
@@ -857,6 +920,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
     newProblem() {
       if (busy) return;
+      flushSaves();
       newProblems++;
       track("new_problem_clicked", { turns_in_session: Math.floor(messages.length / 2) }, sid());
       if (sessionId) api.endSession(sessionId, "new_problem").catch(() => {});
@@ -866,12 +930,12 @@ export function createWorkspace(deps: WorkspaceDeps) {
       queued = null;
       bubbles = [];
       html = null;
-      workspaces = {};
+      tabs = [];
       simulationVersions = {};
       simulationFailures = {};
       simulationPending = {};
-      phase = null;
-      verdict = { seq: verdictSeq, state: null, done: false };
+      activeId = null;
+      verdicts = {};
       overrides = {};
       taskDone = {};
       building = false;

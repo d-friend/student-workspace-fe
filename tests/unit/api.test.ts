@@ -58,7 +58,7 @@ test("currentSession is null on 204 and maps session_id on 200", async () => {
 
   const messages = [{ role: "user", content: "hi" }];
   fetchMock.mockResolvedValueOnce(json(200, { session_id: "s1", messages, html: "<p>x</p>" }));
-  expect(await currentSession()).toEqual({ sessionId: "s1", messages, html: "<p>x</p>", workspaces: {}, phase: null });
+  expect(await currentSession()).toEqual({ sessionId: "s1", messages, html: "<p>x</p>", tabs: [], activeId: null });
 });
 
 test("a 401 no_guest on currentSession creates the guest once and retries", async () => {
@@ -89,9 +89,9 @@ test("turn relays every new event in order", async () => {
   const body =
     sse("announce", { text: "hi" }) +
     sse("status", { stage: "planning", label: "L", phase: "learn" }) +
-    sse("workspace", { workspace_id: "w1", phase: "learn", doc }) +
+    sse("workspace", { workspace_id: "w1", phase: "learn", doc, replaces: "broken" }) +
     sse("text", { delta: "x" }) +
-    sse("phase", { phase: "solve" }) +
+    sse("active", { workspace_id: "w1" }) +
     sse("line_state", { workspace_id: "w1", block_id: "b1", line: 2, state: "review" }) +
     sse("task_done", { workspace_id: "w1", block_id: "b1" }) +
     sse("done", { turn_id: "t1", stop_reason: "end_turn" });
@@ -103,8 +103,8 @@ test("turn relays every new event in order", async () => {
   expect(events).toEqual([
     { event: "announce", text: "hi" },
     { event: "status", stage: "planning", label: "L", phase: "learn" },
-    { event: "workspace", workspaceId: "w1", phase: "learn", doc },
-    { event: "phase", phase: "solve" },
+    { event: "workspace", workspaceId: "w1", phase: "learn", doc, replaces: "broken" },
+    { event: "active", workspaceId: "w1" },
     { event: "line_state", workspaceId: "w1", blockId: "b1", line: 2, state: "review" },
     { event: "task_done", workspaceId: "w1", blockId: "b1" },
   ]);
@@ -118,19 +118,19 @@ test("unknown events are ignored", async () => {
   expect(events).toEqual([]);
 });
 
-test("currentSession maps workspaces", async () => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue(
-      json(200, { session_id: "s1", messages: [], html: null, workspaces: { learn: { workspace_id: "w1", doc } }, phase: "learn" }),
-    ),
-  );
+test("currentSession maps ordered tabs and active workspace", async () => {
+  const tabs = [
+    { workspace_id: "S1", phase: "solve", doc: { ...doc, phase: "solve" } },
+    { workspace_id: "S2", phase: "solve", doc: { ...doc, phase: "solve" } },
+    { workspace_id: "L1", phase: "learn", doc },
+  ];
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, {
+    session_id: "s1", messages: [], html: null, tabs, active_workspace_id: "S2",
+  })));
   expect(await currentSession()).toEqual({
-    sessionId: "s1",
-    messages: [],
-    html: null,
-    workspaces: { learn: { id: "w1", doc } },
-    phase: "learn",
+    sessionId: "s1", messages: [], html: null,
+    tabs: tabs.map((w) => ({ id: w.workspace_id, phase: w.phase, doc: w.doc })),
+    activeId: "S2",
   });
 });
 

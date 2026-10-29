@@ -19,6 +19,13 @@
   overflow-wrap: anywhere; /* a long URL or term wraps instead of widening the column */
 }
 
+/* Under 800px the menu, feedback and theme buttons float over the page's top 56px: start below them. */
+@media (max-width: 799px) {
+  .view {
+    padding-top: 60px;
+  }
+}
+
 /* From 800px the work area is a desk (dot grid) and the doc column is the sheet lying on it. */
 @media (min-width: 800px) {
   .scroll {

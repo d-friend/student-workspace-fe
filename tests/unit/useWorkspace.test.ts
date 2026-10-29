@@ -27,8 +27,8 @@ type Current = {
   sessionId: string;
   messages: unknown[];
   html: string | null;
-  workspaces: Partial<Record<Phase, Workspace>>;
-  phase: Phase | null;
+  tabs: (Workspace & { phase: Phase })[];
+  activeId: string | null;
 };
 
 // `current` is what GET /api/sessions/current returns: a session, null (204), an Error (network failure),
@@ -44,6 +44,7 @@ function setup(turn: Turn = reply(HTML_REPLY), current: CurrentArg = null) {
     }),
     createSession: vi.fn(async () => ({ sessionId: `s${++session}` })),
     endSession: vi.fn().mockResolvedValue(undefined),
+    setActiveWorkspace: vi.fn().mockResolvedValue(undefined),
     turn: vi.fn(turn),
     turnStatus: vi.fn().mockResolvedValue(false),
   };
@@ -423,8 +424,8 @@ describe("restore from the server", () => {
       { role: "assistant", content: "[silent]" },
     ],
     html: "<p>x</p>",
-    workspaces: {},
-    phase: null,
+    tabs: [],
+    activeId: null,
   };
 
   it("restores bubbles and the workspace html from currentSession on init", async () => {
@@ -548,8 +549,8 @@ describe("a stream lost mid-turn (a locked phone)", () => {
       { role: "assistant", content: "ok" },
     ],
     html: "<p>x</p>",
-    workspaces: {},
-    phase: null,
+    tabs: [],
+    activeId: null,
   };
   const lose = (t: Awaited<ReturnType<typeof boot>>) => {
     t.api.turn.mockRejectedValueOnce(new TurnError("stream_lost", "network error"));
@@ -683,6 +684,44 @@ describe("chips", () => {
   });
 });
 
+describe("next-topic offer", () => {
+  const OFFER = "[offer] [opts: Học tiếp: Đạo hàm hàm hợp | Bài tương tự] Bạn xong rồi.";
+
+  it("an offer with opts shows only the opts chips and tracks offered, then the tapped chip", async () => {
+    const t = await boot(reply(OFFER));
+    t.ws.actions.setInput("x");
+    await t.ws.actions.submit();
+    expect(t.state().offerChips).toBe(false);
+    expect(t.state().optChips).toEqual(["Học tiếp: Đạo hàm hàm hợp", "Bài tương tự"]);
+    expect(t.track).toHaveBeenCalledWith("next_topic_offered", {}, "s1");
+
+    t.api.turn.mockImplementationOnce(reply("Ok."));
+    await t.ws.actions.answerOpt("Học tiếp: Đạo hàm hàm hợp");
+    expect(t.track).toHaveBeenCalledWith("next_topic_accepted", {}, "s1");
+    expect(lastContent(t.api)).toBe("Học tiếp: Đạo hàm hàm hợp");
+  });
+
+  it("the second chip is a similar problem", async () => {
+    const t = await boot(reply(OFFER));
+    t.ws.actions.setInput("x");
+    await t.ws.actions.submit();
+    t.api.turn.mockImplementationOnce(reply("Ok."));
+    await t.ws.actions.answerOpt("Bài tương tự");
+    expect(t.track).toHaveBeenCalledWith("similar_problem_accepted", {}, "s1");
+    expect(t.track).not.toHaveBeenCalledWith("next_topic_accepted", {}, "s1");
+  });
+
+  it("plain opts are not tracked as an offer", async () => {
+    const t = await boot(reply("[opts: Có | Không] Bạn chắc chưa?"));
+    t.ws.actions.setInput("x");
+    await t.ws.actions.submit();
+    t.api.turn.mockImplementationOnce(reply("Ok."));
+    await t.ws.actions.answerOpt("Có");
+    expect(t.track).not.toHaveBeenCalledWith("next_topic_offered", {}, "s1");
+    expect(t.track).not.toHaveBeenCalledWith("similar_problem_accepted", {}, "s1");
+  });
+});
+
 describe("answer options", () => {
   it("optChips shows the latest agent opts until the student sends", async () => {
     const t = await boot(reply("[opts: Có | Không] Bạn chắc chưa?"));
@@ -783,7 +822,7 @@ describe("tracking", () => {
 describe("structured workspace", () => {
   const SOLVE = fixtures["solve-tangent.json"]; // blocks p1, s1
   const LEARN = fixtures["learn-derivative.json"];
-  const shown = (id: string, doc = SOLVE): TurnEvent => ({ event: "workspace", workspaceId: id, phase: doc.phase, doc });
+  const shown = (id: string, doc = SOLVE): Extract<TurnEvent, { event: "workspace" }> => ({ event: "workspace", workspaceId: id, phase: doc.phase, doc });
   // Plays text deltas (strings) and events in order; `at` runs between items, for mid-turn checks.
   const stream =
     (items: (string | TurnEvent | (() => void))[]): Turn =>
@@ -883,7 +922,7 @@ describe("structured workspace", () => {
       { screen: "building", building: true, status: copy.statusSearching, phase: null },
       { screen: "workspace", building: false, status: null, phase: "solve" },
     ]);
-    expect(t.state().workspaces).toEqual({ solve: { id: "w1", doc: SOLVE } });
+    expect(t.state().tabs).toEqual([{ id: "w1", doc: SOLVE, phase: "solve" }]);
     expect(t.state().html).toBeNull();
     expect(t.track).toHaveBeenCalledWith("workspace_shown", { ms_since_send: expect.any(Number), replaced: false }, "s1");
   });
@@ -903,7 +942,7 @@ describe("structured workspace", () => {
       "Đã sửa.",
     ]));
     await typed(t);
-    const current = t.state().workspaces.learn!;
+    const current = t.state().tabs.find((w) => w.id === "L-sim")!;
     const custom = current.doc.blocks.find((b) => b.type === "custom");
     expect(current.id).toBe("L-sim");
     expect(custom).toMatchObject({ html: "<p>v2</p>", height: 420 });
@@ -913,7 +952,7 @@ describe("structured workspace", () => {
     expect(t.track).toHaveBeenLastCalledWith("simulation_shown", { ms_since_send: expect.any(Number), update: true }, "s1");
   });
 
-  it("rebuild replaces one phase only", async () => {
+  it("rebuild replaces only its target workspace", async () => {
     const t = await boot(
       stream([
         shown("L1", LEARN),
@@ -929,11 +968,11 @@ describe("structured workspace", () => {
     expect(t.state().overrides).toEqual({ S1: { s1: { 1: "review" } }, L1: { q1: { 1: "ok" } } });
     expect(t.state().taskDone).toEqual({ S1: ["s1"], L1: ["q1"] });
 
-    t.api.turn.mockImplementation(stream([shown("S2"), { event: "phase", phase: "learn" }, "ok"]));
+    t.api.turn.mockImplementation(stream([{ ...shown("S2"), replaces: "S1" }, { event: "active", workspaceId: "L1" }, "ok"]));
     await typed(t, "dựng lại");
     const s = t.state();
-    expect(s.workspaces.learn?.id).toBe("L1");
-    expect(s.workspaces.solve?.id).toBe("S2");
+    expect(s.tabs.find((w) => w.id === "L1")?.id).toBe("L1");
+    expect(s.tabs.find((w) => w.phase === "solve")?.id).toBe("S2");
     expect(s.phase).toBe("learn");
     // Only the replaced workspace's entries go.
     expect(s.overrides).toEqual({ L1: { q1: { 1: "ok" } } });
@@ -941,7 +980,7 @@ describe("structured workspace", () => {
     expect(t.track).toHaveBeenLastCalledWith("workspace_shown", expect.objectContaining({ replaced: true }), "s1");
   });
 
-  it("replacing a phase doc drops pending events about blocks only the old doc had", async () => {
+  it("replacing a workspace drops pending events about blocks only the old doc had", async () => {
     const t = await boot(stream([shown("S1"), "ok"]));
     await typed(t);
     const lineChecked = { block_id: "s1", line: 1, text: "a", ok: true, state: "ok", retried: false };
@@ -950,7 +989,7 @@ describe("structured workspace", () => {
       stream([
         () => t.ws.actions.report("line_checked", lineChecked), // queued while the rebuild streams
         () => t.ws.actions.report("phase_viewed", { phase: "solve" }),
-        shown("S2", without),
+        { ...shown("S2", without), replaces: "S1" },
         "ok",
       ]),
     );
@@ -1031,14 +1070,14 @@ describe("structured workspace", () => {
     ]);
   });
 
-  it("setPhase reports phase_viewed", async () => {
+  it("setActive reports phase_viewed", async () => {
     const t = await boot(stream([shown("L1", LEARN), shown("S1"), "ok"]));
     await typed(t);
     t.api.turn.mockClear();
-    t.ws.actions.setPhase("learn");
+    t.ws.actions.setActive("L1");
     expect(t.state().phase).toBe("learn");
     await vi.advanceTimersByTimeAsync(800);
-    expect(sentEvents(t.api)).toEqual([expect.objectContaining({ type: "phase_viewed", data: { phase: "learn" }, byStudent: true })]);
+    expect(sentEvents(t.api)).toEqual([expect.objectContaining({ type: "phase_viewed", data: { phase: "learn", workspace_id: "L1" }, byStudent: true })]);
   });
 
   it("check calls the api with the session and the workspace that holds the block", async () => {
@@ -1063,7 +1102,7 @@ describe("structured workspace", () => {
 
   it("check binds to the given workspace even when another phase repeats the block id", async () => {
     const practice = { ...SOLVE, phase: "practice" as const };
-    const t = await boot(stream([shown("S1"), shown("P1", practice), { event: "phase", phase: "solve" }, "ok"]));
+    const t = await boot(stream([shown("S1"), shown("P1", practice), { event: "active", workspaceId: "S1" }, "ok"]));
     const check = vi.fn().mockResolvedValue({ ok: true, state: "ok", done: false });
     Object.assign(t.api, { check });
     await typed(t);
@@ -1140,7 +1179,7 @@ describe("structured workspace", () => {
       expect(t.state().verdict).toEqual({ seq: 1, state: "ok", done: false });
     });
 
-    it("newProblem and a phase switch reset the state but keep counting seq", async () => {
+    it("workspace switches isolate verdicts and newProblem keeps counting seq", async () => {
       const t = await boot(
         stream([
           shown("L1", LEARN),
@@ -1151,19 +1190,21 @@ describe("structured workspace", () => {
       );
       await typed(t);
       expect(t.state().verdict).toEqual({ seq: 1, state: "ok", done: false });
-      t.ws.actions.setPhase("solve"); // already active: no change
+      t.ws.actions.setActive("S1"); // already active: no change
       expect(t.state().verdict.state).toBe("ok");
-      t.ws.actions.setPhase("learn");
+      t.ws.actions.setActive("L1");
       expect(t.state().verdict).toEqual({ seq: 1, state: null, done: false });
       Object.assign(t.api, { check: vi.fn().mockResolvedValue(okCheck) });
       await t.ws.actions.check("S1", "s1", "y", []);
+      expect(t.state().verdict.state).toBeNull();
+      t.ws.actions.setActive("S1");
       expect(t.state().verdict.seq).toBe(2);
       t.ws.actions.newProblem();
       expect(t.state().verdict).toEqual({ seq: 2, state: null, done: false });
     });
   });
 
-  it("restore prefers workspaces over html", async () => {
+  it("restore prefers tabs over html", async () => {
     const t = await boot(undefined, {
       sessionId: "srv",
       messages: [
@@ -1171,13 +1212,13 @@ describe("structured workspace", () => {
         { role: "assistant", content: "Ok." },
       ],
       html: "<p>old</p>",
-      workspaces: { solve: { id: "S1", doc: SOLVE } },
-      phase: "solve",
+      tabs: [{ id: "S1", doc: SOLVE, phase: "solve" }],
+      activeId: "S1",
     });
     const s = t.state();
     expect(s.html).toBeNull();
     expect(s.phase).toBe("solve");
-    expect(s.workspaces.solve?.id).toBe("S1");
+    expect(s.tabs.find((w) => w.phase === "solve")?.id).toBe("S1");
     expect(s.screen).toBe("workspace");
     expect(t.track).toHaveBeenCalledWith("session_restored", { messages: 2, has_workspace: true });
   });
@@ -1193,8 +1234,8 @@ describe("structured workspace", () => {
         { role: "user", content: '[workspace] [{"type":"line_checked"}]' },
       ],
       html: null,
-      workspaces: { solve: { id: "S1", doc: SOLVE } },
-      phase: "solve",
+      tabs: [{ id: "S1", doc: SOLVE, phase: "solve" }],
+      activeId: "S1",
     });
     const s = t.state();
     expect(s.bubbles.map((b) => [b.kind, b.text])).toEqual([
@@ -1207,7 +1248,7 @@ describe("structured workspace", () => {
     expect(s.restateChips).toBe(false);
   });
 
-  it("newProblem clears workspaces", async () => {
+  it("newProblem clears tabs", async () => {
     const t = await boot(
       stream([
         shown("S1"),
@@ -1219,8 +1260,8 @@ describe("structured workspace", () => {
     await typed(t);
     t.ws.actions.newProblem();
     expect(t.state()).toMatchObject({
-      workspaces: {},
-      phase: null,
+      tabs: [],
+      activeId: null,
       overrides: {},
       taskDone: {},
       status: null,
@@ -1276,7 +1317,7 @@ describe("structured workspace", () => {
   });
 
   it("phase is only set to a phase that has a doc", async () => {
-    const t = await boot(stream([shown("S1"), { event: "phase", phase: "practice" }, "ok"]));
+    const t = await boot(stream([shown("S1"), { event: "active", workspaceId: "missing" }, "ok"]));
     await typed(t);
     expect(t.state().phase).toBe("solve");
 
@@ -1284,8 +1325,8 @@ describe("structured workspace", () => {
       sessionId: "srv",
       messages: [{ role: "assistant", content: "Ok." }],
       html: null,
-      workspaces: { solve: { id: "S1", doc: SOLVE } },
-      phase: "learn",
+      tabs: [{ id: "S1", doc: SOLVE, phase: "solve" }],
+      activeId: "missing",
     });
     expect(r.state().phase).toBe("solve");
   });
@@ -1304,16 +1345,90 @@ describe("structured workspace", () => {
       sessionId: "srv",
       messages: [{ role: "user", content: "đề" }],
       html: null,
-      workspaces: {},
-      phase: null,
+      tabs: [],
+      activeId: null,
     } as never);
     t.api.turn.mockImplementationOnce(async (_s, _m, _d, onEvent) => {
       onEvent!({ event: "status", stage: "failed" });
       throw new TurnError("history_conflict", "history changed");
     });
     await typed(t, "y");
-    expect(t.state()).toMatchObject({ overrides: {}, taskDone: {}, buildFailed: false, workspaces: {}, phase: null });
+    expect(t.state()).toMatchObject({ overrides: {}, taskDone: {}, buildFailed: false, tabs: [], activeId: null });
   });
+  it("falls back to the last restored tab when the active id is absent or unknown", async () => {
+    const tabs = [{ id: "S1", doc: SOLVE, phase: "solve" as const }, { id: "S2", doc: SOLVE, phase: "solve" as const }, { id: "L1", doc: LEARN, phase: "learn" as const }];
+    for (const activeId of [null, "missing"]) {
+      const t = await boot(undefined, { sessionId: "srv", messages: [], html: null, tabs, activeId });
+      expect(t.state()).toMatchObject({ activeId: "L1", phase: "learn" });
+    }
+  });
+
+  it("appending activates each new tab and same-phase verdicts and completions stay independent", async () => {
+    const seen: (string | null)[] = [];
+    const snap = () => seen.push(t.state().activeId);
+    const t = await boot(stream([
+      shown("S1"), snap,
+      { event: "line_state", workspaceId: "S1", blockId: "s1", line: 1, state: "ok" },
+      { event: "task_done", workspaceId: "S1", blockId: "s1" },
+      shown("S2"), snap,
+      { event: "line_state", workspaceId: "S2", blockId: "s1", line: 1, state: "review" },
+      "ok",
+    ]));
+    await typed(t);
+    expect(seen).toEqual(["S1", "S2"]);
+    expect(t.state().tabs.map((w) => w.id)).toEqual(["S1", "S2"]);
+    expect(t.state().verdict).toMatchObject({ state: "review", done: false });
+    expect(t.state().overrides).toEqual({ S1: { s1: { 1: "ok" } }, S2: { s1: { 1: "review" } } });
+    expect(t.state().taskDone).toEqual({ S1: ["s1"] });
+    t.ws.actions.setActive("S1");
+    expect(t.state().verdict).toMatchObject({ state: "ok", done: false });
+    t.ws.actions.setActive("S2");
+    expect(t.state().verdict.state).toBe("review");
+    expect(t.track).toHaveBeenCalledWith("tab_switched", { from_phase: "solve", to_phase: "solve" }, "s1");
+  });
+
+  it("replacing a learn tab clears only its simulation state without mutating published snapshots", async () => {
+    const doc = structuredClone(LEARN);
+    const slot = doc.blocks.find((b) => b.type === "custom")!;
+    const t = await boot(stream([
+      shown("L1", doc), shown("L2", doc),
+      { event: "simulation_failed", workspaceId: "L1", blockId: slot.id },
+      { event: "simulation_failed", workspaceId: "L2", blockId: slot.id }, "ok",
+    ]));
+    await typed(t);
+    const before = t.state();
+    t.api.turn.mockImplementationOnce(stream([{ ...shown("L3", doc), replaces: "L1" }, "ok"]));
+    await typed(t);
+    expect(t.state().simulationFailures).toEqual({ [`L2:${slot.id}`]: true });
+    expect(before.simulationFailures).toEqual({ [`L1:${slot.id}`]: true, [`L2:${slot.id}`]: true });
+  });
+
+  describe("workspace tab identity", () => {
+    it("restores two solve tabs and a learn tab in order with the saved active id", async () => {
+      const tabs = [{ id: "S1", doc: SOLVE, phase: "solve" as const }, { id: "S2", doc: SOLVE, phase: "solve" as const }, { id: "L1", doc: LEARN, phase: "learn" as const }];
+      const t = await boot(undefined, { sessionId: "srv", messages: [{ role: "user", content: "x" }], html: null, tabs, activeId: "S2" });
+      expect(t.state()).toMatchObject({ tabs, activeId: "S2", phase: "solve" });
+    });
+
+    it("appends same-phase tabs, replaces in place, and handles active only for known ids", async () => {
+      const t = await boot(stream([shown("S1"), shown("S2"), shown("L1", LEARN), { ...shown("S3"), replaces: "S1" }, { event: "active", workspaceId: "S2" }, { event: "active", workspaceId: "missing" }, "ok"]));
+      await typed(t);
+      expect(t.state().tabs.map((w) => w.id)).toEqual(["S3", "S2", "L1"]);
+      expect(t.state().activeId).toBe("S2");
+    });
+
+    it("clicking a tab reports phase_viewed and content-free tab_switched", async () => {
+      const t = await boot(stream([shown("S1"), shown("S2"), shown("L1", LEARN), "ok"]));
+      await typed(t);
+      t.ws.actions.setActive("S2");
+      expect(t.state().activeId).toBe("S2");
+      expect(t.track).toHaveBeenCalledWith("tab_switched", { from_phase: "learn", to_phase: "solve" }, "s1");
+      expect(t.api.setActiveWorkspace).toHaveBeenCalledWith("s1", "S2");
+      await vi.advanceTimersByTimeAsync(800);
+      expect(sentEvents(t.api)).toContainEqual(expect.objectContaining({ type: "phase_viewed", data: { phase: "solve", workspace_id: "S2" } }));
+    });
+  });
+
 });
 
 describe("problem handed over from the landing page (?q=)", () => {
@@ -1340,10 +1455,11 @@ describe("problem handed over from the landing page (?q=)", () => {
       sessionId: "srv1",
       messages: [{ role: "user", content: "bài cũ" }, { role: "assistant", content: HTML_REPLY }],
       html: "<p>x</p>",
-      workspaces: {},
-      phase: null,
+      tabs: [],
+      activeId: null,
     });
     expect(t.api.turn).not.toHaveBeenCalled();
     expect(t.state().input).toBe("bài mới");
   });
+
 });

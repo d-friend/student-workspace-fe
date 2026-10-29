@@ -435,13 +435,12 @@ describe("PetLayer", () => {
     });
   });
 
-  it("shows the problem recap from the restatement and Bài mới only once there are messages", () => {
+  it("shows the problem recap from the restatement, and no Bài mới button (the sidebar owns it)", () => {
     const s = setup([agent(1, "Mình đọc đề là: x", { restate: true })]);
     render(s.ui);
     fireEvent.click(pet());
     expect(within(screen.getByRole("dialog")).getByText(copy.problemRecap)).toBeTruthy();
-    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: copy.newProblem }));
-    expect(s.props.onNewProblem).toHaveBeenCalledTimes(1);
+    expect(within(screen.getByRole("dialog")).queryByRole("button", { name: copy.newProblem })).toBeNull();
   });
 });
 

@@ -157,8 +157,8 @@ const view = (
   workspaces: Partial<Record<Phase, Workspace>>,
   phase: Phase,
   c: BlockCtx,
-  extra: { onPhase?: (p: Phase) => void; taskDone?: Record<string, string[]> } = {},
-) => <WorkspaceView workspaces={workspaces} phase={phase} onPhase={extra.onPhase ?? vi.fn()} makeCtx={() => c} taskDone={extra.taskDone ?? {}} />;
+  extra: { onPhase?: (id: string) => void; taskDone?: Record<string, string[]> } = {},
+) => <WorkspaceView tabs={Object.values(workspaces).map((w) => ({ ...w!, phase: w!.doc.phase }))} activeId={workspaces[phase]?.id ?? ""} onActive={extra.onPhase ?? vi.fn()} makeCtx={() => c} taskDone={extra.taskDone ?? {}} />;
 const doneCalls = (c: BlockCtx) => (c.report as ReturnType<typeof vi.fn>).mock.calls.filter((a) => a[0] === "task_completed");
 
 test("done reports task_completed once with max_hint and helped", async () => {
@@ -203,13 +203,13 @@ test("idea button only in solve", () => {
   expect(screen.getByRole("button", { name: copy.hint })).toBeTruthy();
 });
 
-test("back to problem reports foundation_done and switches", () => {
+test("back to problem reports foundation_done for the master to switch", () => {
   const c = ctxWith();
   const onPhase = vi.fn();
   render(view({ learn: { id: "l", doc: { ...doc("learn"), blocks: [] } }, solve: ws("solve") }, "learn", c, { onPhase }));
   fireEvent.click(screen.getByRole("button", { name: copy.backToProblem }));
   expect(c.report).toHaveBeenCalledWith("foundation_done", {});
-  expect(onPhase).toHaveBeenCalledWith("solve");
+  expect(onPhase).not.toHaveBeenCalled();
 });
 
 test("steps stops accepting lines once the task is done", async () => {

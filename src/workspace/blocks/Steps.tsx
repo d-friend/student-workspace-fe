@@ -8,16 +8,19 @@ import type { Block, BlockProps } from "../types";
 import styles from "./working.module.css";
 
 type Steps = Extract<Block, { type: "steps" }>;
-type Entry = { text: string; state: "ok" | "review" };
+type Entry = { text: string; state: "ok" | "review"; answer?: string; item?: number };
 type Attempt = { answer: string; text: string; input: "choice" | "blank" | "free"; item?: number };
 
 export function Steps({ block, ctx }: BlockProps<Steps>) {
-  const [entries, setEntries] = useState<Entry[]>([]);
-  const [text, setText] = useState("");
+  const saved = ctx.state?.blocks?.[block.id];
+  const initial = saved?.type === "steps" ? saved : null;
+  const [entries, setEntries] = useState<Entry[]>(initial?.entries ?? []);
+  const last = initial?.entries.at(-1);
+  const [text, setText] = useState(last?.state === "review" ? (last.answer ?? last.text) : "");
   const [failed, setFailed] = useState<Attempt | null>(null);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
-  const [free, setFree] = useState(false);
+  const [done, setDone] = useState(initial?.done ?? false);
+  const [free, setFree] = useState(initial?.free ?? false);
   const finished = done || !!ctx.finished; // the master can complete a block the code could not (prose lines)
   const anchorRef = usePetAnchorRef(!finished && !ctx.hidden);
   const inputId = useId();
@@ -51,7 +54,9 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
     try {
       const r = await ctx.check(block.id, a.answer, previous, ...(a.item === undefined ? [] : [a.item]));
       const retried = dirty.current || ctx.hintCount > hintBase.current;
-      setEntries([...entries.slice(0, pos), { text: a.text, state: r.state }]);
+      const committed = [...entries.slice(0, pos), { text: a.text, state: r.state, answer: a.answer, ...(a.item !== undefined && { item: a.item }) }];
+      setEntries(committed);
+      ctx.saveBlock?.(block.id, { type: "steps", entries: committed, done: r.done, free });
       ctx.report("line_checked", { block_id: block.id, line: pos + 1, text: a.text, ok: r.ok, state: r.state, retried, input: a.input });
       if (r.state === "ok") {
         dirty.current = false;

@@ -31,3 +31,12 @@ test("parses events split mid-line and mid-event, and skips the ping comment", a
 test("an incomplete event at the end of the stream is dropped", async () => {
   expect(await collect(['event: text\ndata: {"delta": "x"}'])).toEqual([]);
 });
+
+
+test("preserves workspace replacement and active ids across chunk boundaries", async () => {
+  const wire = 'event: workspace\ndata: {"workspace_id":"S2","phase":"solve","doc":{},"replaces":"S1"}\n\nevent: active\ndata: {"workspace_id":"L1"}\n\n';
+  expect(await collect(wire.split(""))).toEqual([
+    { event: "workspace", data: { workspace_id: "S2", phase: "solve", doc: {}, replaces: "S1" } },
+    { event: "active", data: { workspace_id: "L1" } },
+  ]);
+});

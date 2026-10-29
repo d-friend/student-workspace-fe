@@ -13,7 +13,7 @@
   top: 24px;
   left: 40px;
   height: 44px;
-  display: flex;
+  display: var(--head-display, flex);
   align-items: center;
   gap: 12px;
   font-family: var(--font-display), var(--font-sans);
@@ -196,7 +196,7 @@
 
   .head {
     top: 16px;
-    left: 16px;
+    left: calc(16px + var(--menu-clear, 0px));
     font-size: 20px;
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useDesktop } from "@/hooks/useDesktop";
 import { usePet } from "@/hooks/usePet";
 import { FLY_MS } from "@/hooks/useUnfold";
@@ -171,7 +171,8 @@ export function PetLayer({
     if (travelling) celebrate();
   }, [travelling, celebrate]);
 
-  useEffect(() => onOpenChange?.(open), [open, onOpenChange]);
+  // Hand the composer over before paint, including when chat opens during the entry's unfold.
+  useLayoutEffect(() => onOpenChange?.(open), [open, onOpenChange]);
 
   useEffect(() => {
     if (wasOpen.current && !open) petRef.current?.focus();

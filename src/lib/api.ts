@@ -70,7 +70,18 @@ const post = (path: string, body: unknown, keepalive = false) =>
   withGuest(() => fetch(path, { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body), keepalive }));
 const get = (path: string) => withGuest(() => fetch(path));
 
-export async function createGuest(locale?: string): Promise<{ guestId: string; created: boolean }> {
+// Parallel first-visit callers (app start, a 401 retry, the first event) share one request: each
+// extra POST without a cookie would mint another guest for the same visitor.
+let guestInFlight: Promise<{ guestId: string; created: boolean }> | null = null;
+
+export function createGuest(locale?: string): Promise<{ guestId: string; created: boolean }> {
+  guestInFlight ??= postGuest(locale).finally(() => {
+    guestInFlight = null;
+  });
+  return guestInFlight;
+}
+
+async function postGuest(locale?: string): Promise<{ guestId: string; created: boolean }> {
   const res = await fetch("/api/guest", {
     method: "POST",
     headers: JSON_HEADERS,
@@ -93,17 +104,16 @@ export async function currentSession(): Promise<{
   sessionId: string;
   messages: Message[];
   html: string | null;
-  workspaces: Partial<Record<Phase, Workspace>>;
-  phase: Phase | null;
+  tabs: (Workspace & { phase: Phase })[];
+  activeId: string | null;
 } | null> {
   const res = await get("/api/sessions/current");
   if (res.status === 204) return null;
   if (!res.ok) throw await toApiError(res);
   const body = await res.json();
-  const workspaces: Partial<Record<Phase, Workspace>> = {};
-  for (const [phase, w] of Object.entries(body.workspaces ?? {}) as [Phase, { workspace_id: string; doc: WorkspaceDoc }][])
-    workspaces[phase] = { id: w.workspace_id, doc: w.doc };
-  return { sessionId: body.session_id, messages: body.messages, html: body.html ?? null, workspaces, phase: body.phase ?? null };
+  const tabs = (body.tabs ?? []).map((w: { workspace_id: string; phase: Phase; doc: WorkspaceDoc; state?: Workspace["state"] }) =>
+    ({ id: w.workspace_id, phase: w.phase, doc: w.doc, state: w.state }));
+  return { sessionId: body.session_id, messages: body.messages, html: body.html ?? null, tabs, activeId: body.active_workspace_id ?? null };
 }
 
 // Whether a turn of this session is still running on the server.
@@ -155,10 +165,10 @@ export type TurnEvent =
   | { event: "announce"; text: string }
   | { event: "status"; stage: "planning" | "searching" | "reading" | "simulating" | "failed"; label?: string; phase?: Phase }
   | ({ event: "workspace_partial" } & Preview)
-  | { event: "workspace"; workspaceId: string; phase: Phase; doc: WorkspaceDoc }
+  | { event: "workspace"; workspaceId: string; phase: Phase; doc: WorkspaceDoc; replaces?: string }
   | { event: "simulation"; workspaceId: string; blockId: string; html: string; height: number }
   | { event: "simulation_failed"; workspaceId: string; blockId: string }
-  | { event: "phase"; phase: Phase }
+  | { event: "active"; workspaceId: string }
   | { event: "line_state"; workspaceId: string; blockId: string; line: number; state: "ok" | "review" }
   | { event: "task_done"; workspaceId: string; blockId: string };
 
@@ -177,10 +187,12 @@ export async function turn(
   try {
     for await (const { event, data } of readSse(res)) {
       if (event === "text") onDelta((data as { delta: string }).delta);
-      else if (event === "announce" || event === "status" || event === "phase" || event === "workspace_partial") onEvent?.({ event, ...(data as object) } as TurnEvent);
+      else if (event === "announce" || event === "status" || event === "workspace_partial") onEvent?.({ event, ...(data as object) } as TurnEvent);
       else if (event === "workspace") {
-        const d = data as { workspace_id: string; phase: Phase; doc: WorkspaceDoc };
-        onEvent?.({ event, workspaceId: d.workspace_id, phase: d.phase, doc: d.doc });
+        const d = data as { workspace_id: string; phase: Phase; doc: WorkspaceDoc; replaces?: string };
+        onEvent?.({ event, workspaceId: d.workspace_id, phase: d.phase, doc: d.doc, ...(d.replaces && { replaces: d.replaces }) });
+      } else if (event === "active") {
+        onEvent?.({ event, workspaceId: (data as { workspace_id: string }).workspace_id });
       } else if (event === "line_state") {
         const d = data as { workspace_id: string; block_id: string; line: number; state: "ok" | "review" };
         onEvent?.({ event, workspaceId: d.workspace_id, blockId: d.block_id, line: d.line, state: d.state });
@@ -208,4 +220,80 @@ export async function turn(
     throw new TurnError("stream_lost", e instanceof Error ? e.message : "stream failed");
   }
   throw new TurnError("stream_lost", "the reply stream ended before done");
+}
+
+export type AuthMethods = { google: boolean; email: boolean };
+export type Me = { signed_in: false } | { signed_in: true; email: string; name: string | null };
+
+// Plain fetch, not get(): asking who is signed in must not create a guest.
+export async function authMethods(): Promise<AuthMethods> {
+  const res = await fetch("/api/auth/methods");
+  if (!res.ok) throw await toApiError(res);
+  return res.json();
+}
+
+export async function getMe(): Promise<Me> {
+  const res = await fetch("/api/me");
+  if (!res.ok) throw await toApiError(res);
+  return res.json();
+}
+
+export async function emailStart(email: string): Promise<void> {
+  const res = await post("/api/auth/email/start", { email });
+  if (!res.ok) throw await toApiError(res);
+}
+
+export async function emailVerify(email: string, code: string): Promise<Extract<Me, { signed_in: true }>> {
+  const res = await post("/api/auth/email/verify", { email, code });
+  if (!res.ok) throw await toApiError(res);
+  return res.json();
+}
+
+export async function logout(): Promise<void> {
+  const res = await post("/api/auth/logout", {});
+  if (!res.ok) throw await toApiError(res);
+}
+
+export type SessionSummary = {
+  id: string;
+  title: string | null;
+  created_at: string;
+  last_active_at: string; // the list is ordered and grouped by this, so a resumed session moves to the top
+  tabs: { phase: "learn" | "solve" | "practice" }[];
+  done: boolean;
+  current: boolean;
+};
+
+export type SessionList = { sessions: SessionSummary[]; next_before: string | null };
+
+export async function listSessions(before?: string, limit = 20): Promise<SessionList> {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (before !== undefined) query.set("before", before);
+  const res = await get(`/api/sessions?${query}`);
+  if (!res.ok) throw await toApiError(res);
+  return res.json();
+}
+
+// The student switched tabs: the server keeps it so the tutor and a reload see the tab they are looking at.
+export async function setActiveWorkspace(sessionId: string, workspaceId: string): Promise<void> {
+  const res = await withGuest(() =>
+    fetch(`/api/sessions/${sessionId}/active`, {
+      method: "PUT", headers: JSON_HEADERS, body: JSON.stringify({ workspace_id: workspaceId }), keepalive: true,
+    }),
+  );
+  if (!res.ok) throw await toApiError(res);
+}
+
+// Opening a past session resumes it on this device: the caller reloads, and the restore path loads it.
+export async function resumeSession(sessionId: string): Promise<void> {
+  const res = await post(`/api/sessions/${sessionId}/resume`, {});
+  if (!res.ok) throw await toApiError(res);
+}
+
+// Content is saved separately from the content-free event stream.
+export async function putWorkspaceState(id: string, state: NonNullable<Workspace["state"]>): Promise<void> {
+  const res = await withGuest(() => fetch(`/api/workspaces/${id}/state`, {
+    method: "PUT", headers: JSON_HEADERS, body: JSON.stringify({ state }), keepalive: true,
+  }));
+  if (!res.ok) throw await toApiError(res);
 }

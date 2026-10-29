@@ -60,6 +60,34 @@ function verify() {
 
 describe("AccountMenu", () => {
   it.each([
+    ["vi", "Em đã đọc Điều khoản và Chính sách quyền riêng tư."],
+    ["en", "I have read the Terms and Privacy Policy."],
+  ] as const)("renders the %s consent as one linked sentence and keeps footer actions together", async (locale, sentence) => {
+    setLocale(locale);
+    methods = { google: true, email: false };
+    render(<AccountMenu />);
+    await open();
+    fireEvent.change(screen.getByRole("spinbutton", { name: copy.authAge }), { target: { value: "15" } });
+    const checkbox = screen.getByRole("checkbox", { name: sentence }) as HTMLInputElement;
+    const label = checkbox.closest("label")!;
+    expect(label.textContent?.replace(/\s+/g, " ").trim()).toBe(sentence);
+    const links = within(label).getAllByRole("link");
+    expect(links.map(link => link.textContent)).toEqual([copy.authTerms, copy.authPrivacy]);
+    expect(links.map(link => link.getAttribute("href"))).toEqual([
+      `${copy.authLegalBase}/terms`, `${copy.authLegalBase}/privacy`,
+    ]);
+    fireEvent.click(label);
+    expect(checkbox.checked).toBe(true);
+    const google = screen.getByRole("button", { name: copy.authGoogle }) as HTMLButtonElement;
+    expect(google.disabled).toBe(true);
+    fireEvent.click(screen.getByRole("checkbox", { name: copy.authParentConsent }).closest("label")!);
+    expect(google.disabled).toBe(false);
+    const close = screen.getByRole("button", { name: copy.drawerClose });
+    expect(close.parentElement).toBe(google.parentElement);
+    expect(Array.from(close.parentElement!.children)).toEqual([close, google]);
+  });
+
+  it.each([
     ["vi", "https://www.dfriend.online", "Bằng việc đăng nhập, bạn đồng ý với Điều khoản và Chính sách quyền riêng tư"],
     ["en", "https://www.dfriend.online/en", "By signing in, you agree to the Terms and Privacy Policy"],
   ] as const)("links the %s login notice to the matching public legal pages", async (locale, base, notice) => {

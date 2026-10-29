@@ -162,13 +162,18 @@ export function AccountMenu({ rail = false, onStatus }: { rail?: boolean; onStat
               )}
               {minor ? (
                 <div className={styles.legal}>
-                  <label><input type="checkbox" checked={parent} onChange={(e) => setParent(e.target.checked)} /> {copy.authParentConsent}</label>
-                  <label><input type="checkbox" checked={read} onChange={(e) => setRead(e.target.checked)} /> {copy.authReadTerms} ({legalLinks})</label>
+                  <label>
+                    <input type="checkbox" checked={parent} onChange={(e) => setParent(e.target.checked)} />
+                    <span>{copy.authParentConsent}</span>
+                  </label>
+                  <label>
+                    <input type="checkbox" checked={read} onChange={(e) => setRead(e.target.checked)} />
+                    <span>{copy.authReadPrefix} {legalLinks}.</span>
+                  </label>
                 </div>
               ) : (
                 <p className={styles.legal}>{copy.authAgreement} {legalLinks}</p>
               )}
-              {methods.google && <button type="button" className={styles.google} disabled={!googleReady} onClick={startGoogle}>{copy.authGoogle}</button>}
               {methods.email && (
                 <form onSubmit={submit} aria-busy={busy}>
                   {step === "email" ? (
@@ -192,7 +197,12 @@ export function AccountMenu({ rail = false, onStatus }: { rail?: boolean; onStat
             </>
           )}
           {error && <p className={styles.error} role="alert">{copy[error]}</p>}
-          <div className={styles.actions}><button type="button" onClick={close}>{copy.drawerClose}</button></div>
+          <div className={styles.actions}>
+            <button type="button" className={styles.close} onClick={close}>{copy.drawerClose}</button>
+            {!me.signed_in && methods.google && (
+              <button type="button" className={styles.google} disabled={!googleReady} onClick={startGoogle}>{copy.authGoogle}</button>
+            )}
+          </div>
         </section>
       )}
     </>

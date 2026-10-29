@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { adminGet, adminPut, type Cost, type FeedbackRow, type GuestDetail, type GuestRow, type Health, type Latency, type Pct, type Thesis, type Users } from "@/lib/admin";
+import { adminGet, adminPut, type Cost, type Features, type FeedbackRow, type GuestDetail, type GuestRow, type Health, type Latency, type Pct, type Thesis, type Users } from "@/lib/admin";
 import styles from "./admin.module.css";
 
 type Props = { token: string; days: number; onGuestOpen?: (guestId: string) => void };
@@ -62,13 +62,59 @@ export function LatencySection({ token, days, onGuestOpen }: Props) {
 
 export function UsersSection({ token, days }: Props) {
   const { data, error } = useAdmin<Users>("/users", token, days);
-  return <Section title="Users">{error ? <Failure /> : !data ? <p>Loading…</p> : <>{data.new_guests_per_day.length || data.active_guests_per_day.length ? <div className={styles.userBars}><div><h3>New guests</h3><BarList rows={data.new_guests_per_day} value={(row) => row.n} /></div><div><h3>Active guests</h3><BarList rows={data.active_guests_per_day} value={(row) => row.n} /></div></div> : <Empty />}<div className={styles.funnel}>{([ ["Opened", data.funnel.opened], ["Sent problem", data.funnel.sent_problem], ["Saw workspace", data.funnel.saw_workspace], ["Completed", data.funnel.completed] ] as const).map(([label, count], index, all) => <div key={label}><span>{label}</span><strong>{count}</strong><small>{index ? (all[index - 1][1] ? `${Math.round((count / all[index - 1][1]) * 100)}%` : "—") : "100%"}</small></div>)}</div></>}</Section>;
+  return <Section title="Users">{error ? <Failure /> : !data ? <p>Loading…</p> : <>
+    <div className={styles.metrics}>
+      <Metric label="Accounts total" value={data.accounts_total} />
+      <Metric label="Accounts under 16" value={data.accounts_under_16} />
+      <Metric label="Accounts with parent consent" value={data.accounts_with_parent_consent} />
+      <Metric label="Linked guests" value={data.guests_linked} />
+    </div>
+    <p className={styles.note}>Account totals cover all time; daily counts and funnels use the selected window. Accounts have at least one non-internal linked guest; the table shows the newest 100.</p>
+    {data.new_guests_per_day.length || data.active_guests_per_day.length || data.new_accounts_per_day.length ? <div className={styles.userBars}>
+      <div><h3>New guests</h3><BarList rows={data.new_guests_per_day} value={(row) => row.n} /></div>
+      <div><h3>Active guests</h3><BarList rows={data.active_guests_per_day} value={(row) => row.n} /></div>
+      <div><h3>New accounts</h3><BarList rows={data.new_accounts_per_day} value={(row) => row.n} /></div>
+    </div> : <Empty />}
+    <h3>Accounts</h3>
+    {data.accounts.length ? <div className={styles.tableWrap}><table>
+      <thead><tr><th>Email</th><th>Name</th><th>Age</th><th>Parent consent</th><th>Created</th><th>Last login</th><th>Guests</th></tr></thead>
+      <tbody>{data.accounts.map(account => <tr key={account.user_id}><td title={account.user_id}>{account.email}</td><td>{account.name ?? "—"}</td><td>{account.age ?? "—"}</td><td>{account.parent_consent ? "Yes" : "No"}</td><td>{when(account.created_at)}</td><td>{account.last_login_at ? when(account.last_login_at) : "—"}</td><td>{account.guests}</td></tr>)}</tbody>
+    </table></div> : <Empty />}
+    <div className={styles.userBars}>{([
+      ["Funnel by guest", data.funnel], ["Funnel by person", data.funnel_by_person],
+    ] as const).map(([title, funnel]) => <div key={title}><h3>{title}</h3><div className={styles.funnel}>{([
+      ["Opened", funnel.opened], ["Sent problem", funnel.sent_problem],
+      ["Saw workspace", funnel.saw_workspace], ["Completed", funnel.completed],
+    ] as const).map(([label, count], index, all) => <div key={label}><span>{label}</span><strong>{count}</strong><small>{index ? (all[index - 1][1] ? percent(count / all[index - 1][1]) : "—") : count ? "100%" : "—"}</small></div>)}</div></div>)}</div>
+  </>}</Section>;
+}
+
+export function FeaturesSection({ token, days }: Props) {
+  const { data, error } = useAdmin<Features>("/features", token, days);
+  return <Section title="Features">{error ? <Failure /> : !data ? <p>Loading…</p> : <>
+    <p className={styles.note}>Persons merge guests linked to the same account. Unsigned guests count as individual persons.</p>
+    {data.events.some(event => event.count > 0) ? <div className={styles.tableWrap}><table>
+      <thead><tr><th>Event type</th><th>Split</th><th>Count</th><th>Guests</th><th>Persons</th></tr></thead>
+      <tbody>{data.events.flatMap(event => [
+        <tr key={event.type}><th>{event.type}</th><td>All</td><td>{event.count}</td><td>{event.guests}</td><td>{event.persons}</td></tr>,
+        ...[
+          ...event.by_method.map(row => ({ label: `Method: ${row.method}`, ...row })),
+          ...event.by_kind.map(row => ({ label: `Kind: ${row.kind}`, ...row })),
+          ...event.by_new_user.map(row => ({ label: `New user: ${row.new_user ? "Yes" : "No"}`, ...row })),
+        ].map(row => <tr key={`${event.type}-${row.label}`}><td>{event.type}</td><td>{row.label}</td><td>{row.count}</td><td>{row.guests}</td><td>{row.persons}</td></tr>),
+      ])}</tbody>
+    </table></div> : <Empty />}
+    <h3>Tabs per session</h3>
+    {data.tabs_per_session.some(row => row.sessions > 0) ? <div className={styles.bars}>{data.tabs_per_session.map(row => <div className={styles.barRow} key={row.tabs}><span>{row.tabs} {row.tabs === "1" ? "tab" : "tabs"}</span><div><i style={{ width: `${row.sessions / Math.max(1, ...data.tabs_per_session.map(item => item.sessions)) * 100}%` }} /></div><b>{row.sessions}</b></div>)}</div> : <Empty />}
+  </>}</Section>;
 }
 
 export function ThesisSection({ token }: Props) {
   const { data, error } = useAdmin<Thesis>("/thesis", token, 7);
+  const [unit, setUnit] = useState<"guest" | "person">("guest");
+  const cohorts = unit === "guest" ? data?.cohorts : data?.cohorts_by_person;
   const cell = (original: number, reinforcement: number) => data?.hint_table.find((item) => item.original_max_hint === original && item.reinforcement_max_hint === reinforcement)?.n ?? 0;
-  return <Section title="Thesis">{error ? <Failure /> : !data ? <p>Loading…</p> : <>{data.cohorts.length ? <div className={styles.tableWrap}><table><thead><tr><th>First completion</th><th>Completers</th><th>D1</th><th>D7</th></tr></thead><tbody>{data.cohorts.map((row) => <tr key={row.first_completion_day}><td>{row.first_completion_day}</td><td>{row.completers}</td><td>{row.eligible_d1 ? `${row.returned_d1} / ${row.eligible_d1}` : "—"}</td><td>{row.eligible_d7 ? `${row.returned_d7} / ${row.eligible_d7}` : "—"}</td></tr>)}</tbody></table></div> : <Empty />}<div className={styles.funnel}>{([ ["Original done", data.funnel.sessions_original_done], ["Offered", data.funnel.sessions_offered], ["Accepted", data.funnel.sessions_accepted], ["Reinforcement done", data.funnel.sessions_reinforcement_done] ] as const).map(([label, count]) => <div key={label}><span>{label}</span><strong>{count}</strong></div>)}</div><p className={styles.note}>{data.pairs.length} {data.pairs.length === 1 ? "pair" : "pairs"}{data.mean_drop === null ? "" : ` · mean drop ${data.mean_drop}`} — read with the table, not alone</p><div className={styles.tableWrap}><table><thead><tr><th>Original \ Reinforcement</th>{[0, 1, 2, 3].map((n) => <th key={n}>{n}</th>)}</tr></thead><tbody>{[0, 1, 2, 3].map((original) => <tr key={original}><th>{original}</th>{[0, 1, 2, 3].map((reinforcement) => <td key={reinforcement}>{cell(original, reinforcement)}</td>)}</tr>)}</tbody></table></div></>}</Section>;
+  return <Section title="Thesis"><div className={styles.days} aria-label="Cohort identity"><button type="button" aria-pressed={unit === "guest"} onClick={() => setUnit("guest")}>Guest</button><button type="button" aria-pressed={unit === "person"} onClick={() => setUnit("person")}>Person</button></div><p className={styles.note}>Whole pilot · {unit === "guest" ? "each guest separately" : "persons across linked guests"}.</p>{error ? <Failure /> : !data ? <p>Loading…</p> : <>{cohorts?.length ? <div className={styles.tableWrap}><table><thead><tr><th>First completion</th><th>Completers</th><th>D1</th><th>D7</th></tr></thead><tbody>{cohorts.map((row) => <tr key={row.first_completion_day}><td>{row.first_completion_day}</td><td>{row.completers}</td><td>{row.eligible_d1 ? `${row.returned_d1} / ${row.eligible_d1}` : "—"}</td><td>{row.eligible_d7 ? `${row.returned_d7} / ${row.eligible_d7}` : "—"}</td></tr>)}</tbody></table></div> : <Empty />}<div className={styles.funnel}>{([ ["Original done", data.funnel.sessions_original_done], ["Offered", data.funnel.sessions_offered], ["Accepted (offer or 'Bài tương tự' chip)", data.funnel.sessions_accepted], ["Reinforcement done", data.funnel.sessions_reinforcement_done] ] as const).map(([label, count]) => <div key={label}><span>{label}</span><strong>{count}</strong></div>)}</div><p className={styles.note}>{data.pairs.length} {data.pairs.length === 1 ? "pair" : "pairs"}{data.mean_drop === null ? "" : ` · mean drop ${data.mean_drop}`} — read with the table, not alone</p><div className={styles.tableWrap}><table><thead><tr><th>Original \ Reinforcement</th>{[0, 1, 2, 3].map((n) => <th key={n}>{n}</th>)}</tr></thead><tbody>{[0, 1, 2, 3].map((original) => <tr key={original}><th>{original}</th>{[0, 1, 2, 3].map((reinforcement) => <td key={reinforcement}>{cell(original, reinforcement)}</td>)}</tr>)}</tbody></table></div></>}</Section>;
 }
 
 export function GuestsSection({ token, onGuestOpen }: Omit<Props, "days">) {
@@ -99,7 +145,7 @@ export function GuestsSection({ token, onGuestOpen }: Omit<Props, "days">) {
       setSaving(null);
     }
   };
-  return <Section title="Guests">{error && <p className={styles.error} role="alert">{error}</p>}{!guests ? error ? null : <p>Loading…</p> : guests.length === 0 ? <Empty /> : <div className={styles.tableWrap}><table><thead><tr><th>Guest</th><th>Created</th><th>Last seen</th><th>Sessions</th><th>Turns</th><th>Completions</th><th>USD</th><th>Internal</th></tr></thead><tbody>{guests.map((guest) => <tr key={guest.id}><td><button className={styles.idButton} type="button" title={guest.id} onClick={() => onGuestOpen?.(guest.id)}>{guest.id.slice(0, 8)}</button></td><td>{when(guest.created_at)}</td><td>{when(guest.last_seen_at)}</td><td>{guest.sessions}</td><td>{guest.turns}</td><td>{guest.completions}</td><td>{money(guest.usd)}</td><td><input type="checkbox" aria-label={`Mark internal for ${guest.id}`} checked={guest.internal} disabled={saving === guest.id} onChange={() => void toggle(guest)} /></td></tr>)}</tbody></table></div>}</Section>;
+  return <Section title="Guests">{error && <p className={styles.error} role="alert">{error}</p>}{!guests ? error ? null : <p>Loading…</p> : guests.length === 0 ? <Empty /> : <div className={styles.tableWrap}><table><thead><tr><th>Guest</th><th>User</th><th>Created</th><th>Last seen</th><th>Sessions</th><th>Turns</th><th>Completions</th><th>USD</th><th>Internal</th></tr></thead><tbody>{guests.map((guest) => <tr key={guest.id}><td><button className={styles.idButton} type="button" title={guest.id} onClick={() => onGuestOpen?.(guest.id)}>{guest.id.slice(0, 8)}</button></td><td title={guest.user_id ?? undefined}>{guest.email ?? "—"}</td><td>{when(guest.created_at)}</td><td>{when(guest.last_seen_at)}</td><td>{guest.sessions}</td><td>{guest.turns}</td><td>{guest.completions}</td><td>{money(guest.usd)}</td><td><input type="checkbox" aria-label={`Mark internal for ${guest.id}`} checked={guest.internal} disabled={saving === guest.id} onChange={() => void toggle(guest)} /></td></tr>)}</tbody></table></div>}</Section>;
 }
 
 export function FeedbackSection({ token, onGuestOpen }: Omit<Props, "days">) {
@@ -111,7 +157,7 @@ export function FeedbackSection({ token, onGuestOpen }: Omit<Props, "days">) {
   return <Section title="Feedback">{error ? <Failure /> : !rows ? <p>Loading…</p> : rows.length === 0 ? <Empty /> : <div className={styles.tableWrap}><table><thead><tr><th>When</th><th>Guest</th><th>Message</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td>{when(row.created_at)}</td><td><button className={styles.idButton} type="button" title={row.guest_id} onClick={() => onGuestOpen?.(row.guest_id)}>{row.guest_id.slice(0, 8)}</button>{row.internal && " (internal)"}</td><td style={{ whiteSpace: "pre-wrap", minWidth: 320 }}>{row.message}</td></tr>)}</tbody></table></div>}</Section>;
 }
 
-export function GuestTimeline({ token, guestId, onClose }: { token: string; guestId: string; onClose: () => void }) {
+export function GuestTimeline({ token, guestId, onClose, onGuestOpen }: { token: string; guestId: string; onClose: () => void; onGuestOpen: (guestId: string) => void }) {
   const [detail, setDetail] = useState<GuestDetail | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
@@ -119,5 +165,5 @@ export function GuestTimeline({ token, guestId, onClose }: { token: string; gues
     void adminGet<GuestDetail>(`/guests/${guestId}`, token).then((data) => current && setDetail(data), () => current && setError(true));
     return () => { current = false; };
   }, [guestId, token]);
-  return <Section title="Guest timeline"><button type="button" className={styles.signOut} onClick={onClose}>Close timeline</button>{error ? <Failure /> : !detail ? <p>Loading…</p> : <div className={styles.timeline}>{detail.sessions.map((session) => <article key={session.id} className={styles.session}><h3>{session.id}</h3><p>{session.started_via} · {when(session.created_at)} · {session.mode ?? "—"}</p>{session.turns.map((turn) => <div className={styles.turn} key={turn.id}><b>{when(turn.started_at)}</b><span>{turn.kind} · {turn.route ?? "—"} · {turn.mode ?? "—"}</span><span>{turn.error_code ?? (turn.ok === null ? "—" : turn.ok ? "ok" : "failed")} · {ms(turn.total_ms)} · {turn.model ?? "—"} · {money(turn.usd)}</span><span>{turn.events.join(", ") || "—"}</span></div>)}</article>)}</div>}</Section>;
+  return <Section title="Guest timeline"><button type="button" className={styles.signOut} onClick={onClose}>Close timeline</button>{error ? <Failure /> : !detail ? <p>Loading…</p> : <div className={styles.timeline}><p>Guest <span title={detail.guest.id}>{detail.guest.id}</span></p><div className={styles.siblings}><span>Sibling guests:</span>{detail.sibling_guest_ids.length ? detail.sibling_guest_ids.map(id => <button key={id} type="button" className={styles.idButton} title={id} onClick={() => onGuestOpen(id)}>{id.slice(0, 8)}</button>) : <span>None</span>}</div>{detail.sessions.length === 0 && <Empty />}{detail.sessions.map((session) => <article key={session.id} className={styles.session}><h3>{session.id}</h3><p>{session.started_via} · {when(session.created_at)} · {session.mode ?? "—"}</p><p>Last active: {session.last_active_at ? when(session.last_active_at) : "—"} · resumed ×{session.resumed}</p><div className={styles.tabs}>{session.tabs.length ? session.tabs.map(tab => <span key={tab.workspace_id} className={styles.tab} data-active={tab.workspace_id === session.active_workspace_id || undefined} title={tab.workspace_id}>{tab.phase}{tab.workspace_id === session.active_workspace_id && " · active"}</span>) : <span className={styles.note}>No tabs.</span>}</div>{session.turns.map((turn) => <div className={styles.turn} key={turn.id}><b>{when(turn.started_at)}</b><span>{turn.kind} · {turn.route ?? "—"} · {turn.mode ?? "—"}</span><span>{turn.error_code ?? (turn.ok === null ? "—" : turn.ok ? "ok" : "failed")} · {ms(turn.total_ms)} · {turn.model ?? "—"} · {money(turn.usd)}</span><span>{turn.events.join(", ") || "—"}</span></div>)}</article>)}</div>}</Section>;
 }

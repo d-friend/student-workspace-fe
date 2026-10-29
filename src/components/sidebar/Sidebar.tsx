@@ -101,6 +101,12 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, busy = 
 
   // Opening a past session resumes it, then a reload runs the app's normal restore. A failed resume leaves things as they were.
   const open = (id: string) => {
+    const session = page.sessions.find(row => row.id === id);
+    if (!session || session.current) return;
+    const createdAt = Date.parse(session.created_at);
+    // Measure age from creation, so resuming does not make an old session look new.
+    const ageDays = Number.isFinite(createdAt) ? Math.max(0, Math.floor((Date.now() - createdAt) / 86_400_000)) : 0;
+    track("history_session_viewed", { tabs: session.tabs.length, age_days: ageDays }, id);
     if (onOpenSession) return onOpenSession(id);
     resumeSession(id).then(() => window.location.reload(), () => {});
   };

@@ -57,25 +57,59 @@ export type Latency = {
     error_code: string | null;
   }[];
 };
+export type Features = {
+  events: {
+    type: string; count: number; guests: number; persons: number;
+    by_method: { method: string; count: number; guests: number; persons: number }[];
+    by_kind: { kind: string; count: number; guests: number; persons: number }[];
+    by_new_user: { new_user: boolean; count: number; guests: number; persons: number }[];
+  }[];
+  tabs_per_session: { tabs: "1" | "2" | "3" | "4" | "5+"; sessions: number }[];
+};
+export type UserFunnel = { opened: number; sent_problem: number; saw_workspace: number; completed: number };
+export type AccountRow = {
+  user_id: string;
+  email: string;
+  name: string | null;
+  age: number | null;
+  parent_consent: boolean;
+  created_at: string;
+  last_login_at: string | null;
+  guests: number;
+};
 export type Users = {
+  new_accounts_per_day: { day: string; n: number }[];
+  accounts_total: number;
+  accounts_under_16: number;
+  accounts_with_parent_consent: number;
+  guests_linked: number;
   new_guests_per_day: { day: string; n: number }[];
   active_guests_per_day: { day: string; n: number }[];
-  funnel: { opened: number; sent_problem: number; saw_workspace: number; completed: number };
+  accounts: AccountRow[];
+  funnel: UserFunnel;
+  funnel_by_person: UserFunnel;
 };
 export type Thesis = {
+  returns_by_person: { person_id: string; first_completion_day: string; active_days_after: number; first_return_gap_days: number | null; days_observed: number }[];
   returns: { guest_id: string; first_completion_day: string; active_days_after: number; first_return_gap_days: number | null; days_observed: number }[];
+  cohorts_by_person: { first_completion_day: string; completers: number; eligible_d1: number; returned_d1: number; eligible_d7: number; returned_d7: number }[];
   cohorts: { first_completion_day: string; completers: number; eligible_d1: number; returned_d1: number; eligible_d7: number; returned_d7: number }[];
   pairs: { session_id: string; original_max_hint: number; reinforcement_max_hint: number; drop: number }[];
   hint_table: { original_max_hint: number; reinforcement_max_hint: number; n: number }[];
   mean_drop: number | null;
   funnel: { sessions_original_done: number; sessions_offered: number; sessions_accepted: number; sessions_reinforcement_done: number };
 };
-export type GuestRow = { id: string; created_at: string; last_seen_at: string; internal: boolean; sessions: number; turns: number; completions: number; usd: number };
+export type GuestRow = { id: string; user_id: string | null; email: string | null; created_at: string; last_seen_at: string; internal: boolean; sessions: number; turns: number; completions: number; usd: number };
 export type GuestDetail = {
   guest: GuestRow;
+  sibling_guest_ids: string[];
   sessions: {
     id: string;
     started_via: string;
+    last_active_at: string | null;
+    active_workspace_id: string | null;
+    tabs: { workspace_id: string; phase: "learn" | "solve" | "practice" }[];
+    resumed: number;
     created_at: string;
     ended_at: string | null;
     end_reason: string | null;

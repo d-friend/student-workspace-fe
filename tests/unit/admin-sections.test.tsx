@@ -1,7 +1,7 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import { CostSection, HealthSection, LatencySection, ThesisSection, UsersSection } from "@/app/admin/sections";
-import { adminGet, type Cost, type Health, type Latency, type Thesis, type Users } from "@/lib/admin";
+import { CostSection, FeaturesSection, HealthSection, LatencySection, ThesisSection, UsersSection } from "@/app/admin/sections";
+import { adminGet, type Cost, type Features, type Health, type Latency, type Thesis, type Users } from "@/lib/admin";
 
 vi.mock("@/lib/admin", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/admin")>()), adminGet: vi.fn() }));
 const mockedAdminGet = vi.mocked(adminGet);
@@ -23,10 +23,21 @@ const latency: Latency = {
 };
 const users: Users = {
   new_guests_per_day: [{ day: "2026-10-19", n: 4 }], active_guests_per_day: [{ day: "2026-10-19", n: 3 }],
+  new_accounts_per_day: [{ day: "2026-10-19", n: 1 }], accounts_total: 3, accounts_under_16: 1, accounts_with_parent_consent: 1, guests_linked: 5,
+  accounts: [{ user_id: "user-1", email: "eric@example.com", name: "Eric", age: 14, parent_consent: true, created_at: "2026-10-19T00:00:00Z", last_login_at: null, guests: 2 }],
   funnel: { opened: 10, sent_problem: 5, saw_workspace: 4, completed: 2 },
+  funnel_by_person: { opened: 8, sent_problem: 4, saw_workspace: 4, completed: 2 },
+};
+const features: Features = {
+  events: [
+    { type: "login_completed", count: 3, guests: 2, persons: 1, by_method: [{ method: "google", count: 2, guests: 2, persons: 1 }], by_kind: [], by_new_user: [{ new_user: true, count: 1, guests: 1, persons: 1 }] },
+    { type: "logout", count: 0, guests: 0, persons: 0, by_method: [], by_kind: [], by_new_user: [] },
+  ],
+  tabs_per_session: [{ tabs: "1", sessions: 4 }, { tabs: "2", sessions: 2 }, { tabs: "3", sessions: 0 }, { tabs: "4", sessions: 0 }, { tabs: "5+", sessions: 0 }],
 };
 const thesis: Thesis = {
   returns: [], cohorts: [{ first_completion_day: "2026-10-10", completers: 2, eligible_d1: 2, returned_d1: 1, eligible_d7: 0, returned_d7: 0 }],
+  returns_by_person: [], cohorts_by_person: [{ first_completion_day: "2026-10-10", completers: 2, eligible_d1: 2, returned_d1: 2, eligible_d7: 0, returned_d7: 0 }],
   pairs: [{ session_id: "session-1", original_max_hint: 2, reinforcement_max_hint: 1, drop: 1 }], hint_table: [{ original_max_hint: 2, reinforcement_max_hint: 1, n: 1 }],
   mean_drop: 1, funnel: { sessions_original_done: 5, sessions_offered: 4, sessions_accepted: 3, sessions_reinforcement_done: 2 },
 };
@@ -83,10 +94,12 @@ test("renders empty states", async () => {
   const emptyHealth: Health = { turns_today: 0, daily_turn_budget: 100, turns: 0, failed: 0, errors_by_code: [], planner_errors: 0, client_turn_failed: [] };
   const emptyCost: Cost = { ...cost, total_usd: 0, unpriced_models: [], per_day: [], by_role_model: [], per_active_guest_day_usd: null, per_completed_problem_usd: null, cache_read_ratio: null, searches: 0 };
   const emptyLatency: Latency = { ...latency, master_first_text_ms: { p50: null, p90: null, n: 0 }, master_total_ms: { p50: null, p90: null, n: 0 }, planner_total_ms: { p50: null, p90: null, n: 0 }, time_to_first_workspace_ms: { p50: null, p90: null, n: 0 }, workspace_shown_ms: { p50: null, p90: null, n: 0 }, slowest: [] };
-  const emptyUsers: Users = { new_guests_per_day: [], active_guests_per_day: [], funnel: { opened: 0, sent_problem: 0, saw_workspace: 0, completed: 0 } };
-  const emptyThesis: Thesis = { returns: [], cohorts: [], pairs: [], hint_table: [], mean_drop: null, funnel: { sessions_original_done: 0, sessions_offered: 0, sessions_accepted: 0, sessions_reinforcement_done: 0 } };
-  mockedAdminGet.mockImplementation((path) => Promise.resolve(path.startsWith("/health") ? emptyHealth : path.startsWith("/cost") ? emptyCost : path.startsWith("/latency") ? emptyLatency : path.startsWith("/users") ? emptyUsers : emptyThesis));
-  render(<><HealthSection token="token" days={7} /><CostSection token="token" days={7} /><LatencySection token="token" days={7} /><UsersSection token="token" days={7} /><ThesisSection token="token" days={7} /></>);
+  const zero = { opened: 0, sent_problem: 0, saw_workspace: 0, completed: 0 };
+  const emptyUsers: Users = { new_guests_per_day: [], active_guests_per_day: [], new_accounts_per_day: [], accounts_total: 0, accounts_under_16: 0, accounts_with_parent_consent: 0, guests_linked: 0, accounts: [], funnel: zero, funnel_by_person: zero };
+  const emptyFeatures: Features = { events: features.events.map((event) => ({ ...event, count: 0, guests: 0, persons: 0, by_method: [], by_new_user: [] })), tabs_per_session: features.tabs_per_session.map((row) => ({ ...row, sessions: 0 })) };
+  const emptyThesis: Thesis = { returns: [], cohorts: [], returns_by_person: [], cohorts_by_person: [], pairs: [], hint_table: [], mean_drop: null, funnel: { sessions_original_done: 0, sessions_offered: 0, sessions_accepted: 0, sessions_reinforcement_done: 0 } };
+  mockedAdminGet.mockImplementation((path) => Promise.resolve(path.startsWith("/health") ? emptyHealth : path.startsWith("/cost") ? emptyCost : path.startsWith("/latency") ? emptyLatency : path.startsWith("/users") ? emptyUsers : path.startsWith("/features") ? emptyFeatures : emptyThesis));
+  render(<><HealthSection token="token" days={7} /><CostSection token="token" days={7} /><LatencySection token="token" days={7} /><UsersSection token="token" days={7} /><FeaturesSection token="token" days={7} /><ThesisSection token="token" days={7} /></>);
   expect((await screen.findAllByText("No data yet.")).length).toBeGreaterThan(0);
   expect(screen.queryByText("NaN")).toBeNull();
 });
@@ -115,4 +128,31 @@ test("Thesis says 1 pair, not 1 pairs", async () => {
   mockedAdminGet.mockResolvedValue(thesis);
   render(<ThesisSection token="token" days={7} />);
   expect(await screen.findByText(/^1 pair ·/)).toBeTruthy();
+});
+
+test("Users shows the accounts table with email and both funnels side by side", async () => {
+  mockedAdminGet.mockResolvedValue(users);
+  render(<UsersSection token="token" days={7} />);
+  expect((await screen.findByText("eric@example.com")).getAttribute("title")).toBe("user-1");
+  expect(screen.getByText("Accounts under 16")).toBeTruthy();
+  expect(screen.getByText("Funnel by guest")).toBeTruthy();
+  expect(screen.getByText("Funnel by person")).toBeTruthy();
+  expect(screen.getByText("8")).toBeTruthy(); // person-level opened
+});
+
+test("Features lists counts for guests and persons with splits and tab bars", async () => {
+  mockedAdminGet.mockResolvedValue(features);
+  render(<FeaturesSection token="token" days={7} />);
+  expect(await screen.findByText("Method: google")).toBeTruthy();
+  expect(screen.getByText("New user: Yes")).toBeTruthy();
+  expect(screen.getByText("2 tabs")).toBeTruthy();
+});
+
+test("Thesis toggles the cohort table between guest and person", async () => {
+  mockedAdminGet.mockResolvedValue(thesis);
+  render(<ThesisSection token="token" days={7} />);
+  expect(await screen.findByText("1 / 2")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Person" }));
+  expect(screen.getByText("2 / 2")).toBeTruthy();
+  expect(screen.getByText("Accepted (offer or 'Bài tương tự' chip)")).toBeTruthy();
 });

@@ -5,6 +5,7 @@ import { sendEvents, type EventPayload } from "./api";
 export type TrackEvents = {
   tab_switched: { from_phase: "learn" | "solve" | "practice"; to_phase: "learn" | "solve" | "practice" };
   history_opened: { sessions: number };
+  history_session_viewed: { tabs: number; age_days: number };
   app_opened: { path: string; referrer_host?: string; viewport_w: number; viewport_h: number; restored: boolean };
   empty_state_shown: NoProps;
   starter_clicked: { starter: "derivative" | "geometry" };

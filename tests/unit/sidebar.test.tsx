@@ -211,3 +211,14 @@ it("choosing another session resumes it then reloads; the current one does nothi
   const resume = fetchMock.mock.calls.find(([path]) => String(path) === "/api/sessions/older/resume");
   expect(resume?.[1]?.method).toBe("POST");
 });
+it("opening a past session tracks its tab count and age in whole days, but the current one does not", async () => {
+  const old = new Date(Date.now() - 3.5 * 86_400_000).toISOString();
+  first = { sessions: [row("first", true), { ...row("second"), created_at: old }], next_before: null };
+  const onOpen = vi.fn();
+  render(<Sidebar side={side} onNewProblem={vi.fn()} refreshKey="1" onOpenSession={onOpen} />);
+  fireEvent.click(await screen.findByRole("button", { name: /second/ }));
+  expect(onOpen).toHaveBeenCalledWith("second");
+  expect(track).toHaveBeenCalledWith("history_session_viewed", { tabs: 2, age_days: 3 }, "second");
+  fireEvent.click(screen.getByRole("button", { name: /first/ }));
+  expect(track).toHaveBeenCalledTimes(1); // the past-session view only
+});

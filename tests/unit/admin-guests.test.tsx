@@ -9,14 +9,15 @@ const mockedAdminGet = vi.mocked(adminGet);
 const mockedAdminPut = vi.mocked(adminPut);
 
 const guests: GuestRow[] = [
-  { id: "internal-abcdefgh", created_at: "2026-10-18T00:00:00Z", last_seen_at: "2026-10-19T00:00:00Z", internal: true, sessions: 2, turns: 4, completions: 1, usd: 0.25 },
-  { id: "student-abcdefgh", created_at: "2026-10-17T00:00:00Z", last_seen_at: "2026-10-18T00:00:00Z", internal: false, sessions: 1, turns: 2, completions: 0, usd: 0 },
+  { id: "internal-abcdefgh", user_id: "user-abcdefgh", email: "eric@example.com", created_at: "2026-10-18T00:00:00Z", last_seen_at: "2026-10-19T00:00:00Z", internal: true, sessions: 2, turns: 4, completions: 1, usd: 0.25 },
+  { id: "student-abcdefgh", user_id: null, email: null, created_at: "2026-10-17T00:00:00Z", last_seen_at: "2026-10-18T00:00:00Z", internal: false, sessions: 1, turns: 2, completions: 0, usd: 0 },
 ];
 const detail: GuestDetail = {
   guest: guests[0],
+  sibling_guest_ids: ["sibling-abcdefgh"],
   sessions: [
-    { id: "session-new", started_via: "typed", created_at: "2026-10-19T00:00:00Z", ended_at: null, end_reason: null, mode: "solve", turns: [{ id: "turn-new", started_at: "2026-10-19T00:01:00Z", kind: "message", route: "master", mode: "solve", ok: true, error_code: null, total_ms: 100, first_text_ms: 10, model: "model", usd: 0.1, events: ["task_completed"] }] },
-    { id: "session-old", started_via: "photo", created_at: "2026-10-18T00:00:00Z", ended_at: "2026-10-18T01:00:00Z", end_reason: "abandoned", mode: "learn", turns: [{ id: "turn-old", started_at: "2026-10-18T00:01:00Z", kind: "message", route: null, mode: "learn", ok: false, error_code: "upstream", total_ms: 200, first_text_ms: null, model: null, usd: null, events: ["turn_failed"] }] },
+    { id: "session-new", started_via: "typed", created_at: "2026-10-19T00:00:00Z", ended_at: null, end_reason: null, mode: "solve", last_active_at: "2026-10-19T02:00:00Z", active_workspace_id: "ws-learn", resumed: 2, tabs: [{ workspace_id: "ws-solve", phase: "solve" }, { workspace_id: "ws-learn", phase: "learn" }], turns: [{ id: "turn-new", started_at: "2026-10-19T00:01:00Z", kind: "message", route: "master", mode: "solve", ok: true, error_code: null, total_ms: 100, first_text_ms: 10, model: "model", usd: 0.1, events: ["task_completed"] }] },
+    { id: "session-old", started_via: "photo", created_at: "2026-10-18T00:00:00Z", ended_at: "2026-10-18T01:00:00Z", end_reason: "abandoned", mode: "learn", last_active_at: null, active_workspace_id: null, resumed: 0, tabs: [], turns: [{ id: "turn-old", started_at: "2026-10-18T00:01:00Z", kind: "message", route: null, mode: "learn", ok: false, error_code: "upstream", total_ms: 200, first_text_ms: null, model: null, usd: null, events: ["turn_failed"] }] },
   ],
 };
 
@@ -63,7 +64,7 @@ test("clicking an id opens the timeline with sessions newest first", async () =>
   mockedAdminGet.mockImplementation((path) => Promise.resolve(path === "/guests" ? guests : detail));
   function Harness() {
     const [open, setOpen] = useState<string | null>(null);
-    return open ? <GuestTimeline token="token" guestId={open} onClose={() => setOpen(null)} /> : <GuestsSection token="token" onGuestOpen={setOpen} />;
+    return open ? <GuestTimeline token="token" guestId={open} onClose={() => setOpen(null)} onGuestOpen={setOpen} /> : <GuestsSection token="token" onGuestOpen={setOpen} />;
   }
   render(<Harness />);
   fireEvent.click(await screen.findByRole("button", { name: "internal" }));
@@ -76,7 +77,7 @@ test("closing the timeline returns to the list", async () => {
   mockedAdminGet.mockImplementation((path) => Promise.resolve(path === "/guests" ? guests : detail));
   function Harness() {
     const [open, setOpen] = useState<string | null>("internal-abcdefgh");
-    return open ? <GuestTimeline token="token" guestId={open} onClose={() => setOpen(null)} /> : <GuestsSection token="token" onGuestOpen={setOpen} />;
+    return open ? <GuestTimeline token="token" guestId={open} onClose={() => setOpen(null)} onGuestOpen={setOpen} /> : <GuestsSection token="token" onGuestOpen={setOpen} />;
   }
   render(<Harness />);
   fireEvent.click(await screen.findByRole("button", { name: "Close timeline" }));
@@ -89,4 +90,28 @@ test("guest dates are readable local times, not raw ISO strings", async () => {
   await screen.findByRole("button", { name: "internal" });
   expect(screen.queryByText("2026-10-19T00:00:00Z")).toBeNull();
   expect(screen.getAllByText(/19 Oct.*07:00/).length).toBeGreaterThan(0); // 00:00Z is 07:00 in Ho Chi Minh
+});
+
+test("lists the account email with the user id in the title, and a dash for unlinked guests", async () => {
+  mockedAdminGet.mockResolvedValue(guests);
+  render(<GuestsSection token="token" onGuestOpen={() => {}} />);
+  expect((await screen.findByText("eric@example.com")).getAttribute("title")).toBe("user-abcdefgh");
+  expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+});
+
+test("the timeline shows tabs with the active one marked, last active and resumed count", async () => {
+  mockedAdminGet.mockResolvedValue(detail);
+  render(<GuestTimeline token="token" guestId="internal-abcdefgh" onClose={() => {}} onGuestOpen={() => {}} />);
+  expect(await screen.findByText("learn · active")).toBeTruthy();
+  expect(screen.getByText("solve")).toBeTruthy();
+  expect(screen.getByText(/resumed ×2/)).toBeTruthy();
+  expect(screen.getByText(/resumed ×0/)).toBeTruthy();
+});
+
+test("clicking a sibling guest opens that guest", async () => {
+  mockedAdminGet.mockResolvedValue(detail);
+  const onGuestOpen = vi.fn();
+  render(<GuestTimeline token="token" guestId="internal-abcdefgh" onClose={() => {}} onGuestOpen={onGuestOpen} />);
+  fireEvent.click(await screen.findByRole("button", { name: "sibling-" }));
+  expect(onGuestOpen).toHaveBeenCalledWith("sibling-abcdefgh");
 });

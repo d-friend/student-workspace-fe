@@ -16,6 +16,7 @@ vi.mock("@/app/admin/sections", () => ({
   CostSection: () => <div />,
   LatencySection: () => <div />,
   UsersSection: () => <div />,
+  FeaturesSection: () => <div />,
   ThesisSection: () => <div />,
   FeedbackSection: () => <div />,
   GuestsSection: () => <div />,

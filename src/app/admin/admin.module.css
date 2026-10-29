@@ -148,3 +148,14 @@
     flex-direction: column;
   }
 }
+
+.section { min-width: 0; }
+.timeline, .session { min-width: 0; overflow-wrap: anywhere; }
+.tabs, .siblings { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tab { padding: 4px 8px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
+.tab[data-active="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-text); }
+.days button:disabled { opacity: 0.5; cursor: not-allowed; }
+@media (max-width: 600px) {
+  .funnel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .barRow { grid-template-columns: minmax(0, auto) minmax(30px, 1fr) auto; }
+}

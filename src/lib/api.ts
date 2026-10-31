@@ -290,6 +290,13 @@ export async function setActiveWorkspace(sessionId: string, workspaceId: string)
   if (!res.ok) throw await toApiError(res);
 }
 
+export async function deleteSession(sessionId: string): Promise<void> {
+  const res = await withGuest(() => fetch(`/api/sessions/${sessionId}`, {
+    method: "DELETE", headers: JSON_HEADERS, body: "{}",
+  }));
+  if (!res.ok) throw await toApiError(res);
+}
+
 // Opening a past session resumes it on this device: the caller reloads, and the restore path loads it.
 export async function resumeSession(sessionId: string): Promise<void> {
   const res = await post(`/api/sessions/${sessionId}/resume`, {});

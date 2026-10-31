@@ -5,7 +5,7 @@ import Image from "next/image";
 import logoMark from "../../../assets/logo-mark.png";
 import { IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconMenu2, IconPlus, IconX } from "@tabler/icons-react";
 import { useDesktop } from "@/hooks/useDesktop";
-import { listSessions, resumeSession, type SessionList as SessionPage } from "@/lib/api";
+import { ApiError, deleteSession, listSessions, resumeSession, type SessionList as SessionPage } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { track } from "@/lib/track";
 import { AccountMenu, type AccountStatus } from "./AccountMenu";
@@ -28,6 +28,9 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, busy = 
   const rail = desktop && side.mode === "rail";
   const [page, setPage] = useState<SessionPage>({ sessions: [], next_before: null });
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<"historyDeleteFailed" | "historyDeleteBusy" | null>(null);
+  const deletePending = useRef(false);
   const [account, setAccount] = useState<AccountStatus>({ signedIn: false, enabled: false });
   const request = useRef(0);
   const pending = useRef(false);
@@ -111,8 +114,30 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, busy = 
     resumeSession(id).then(() => window.location.reload(), () => {});
   };
 
+  const remove = async (id: string) => {
+    const session = page.sessions.find(row => row.id === id);
+    if (!session || busy || pending.current || deletePending.current) return;
+    if (!window.confirm(copy.historyDeleteConfirm(session.title || copy.historyUntitled))) return;
+    deletePending.current = true;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteSession(id);
+      ++request.current; // Ignore any list response from before the deletion.
+      pending.current = false;
+      setLoading(false);
+      setPage(previous => ({ ...previous, sessions: previous.sessions.filter(row => row.id !== id) }));
+      if (session.current) window.location.reload();
+    } catch (error) {
+      setDeleteError(error instanceof ApiError && error.code === "session_busy" ? "historyDeleteBusy" : "historyDeleteFailed");
+    } finally {
+      deletePending.current = false;
+      setDeleting(false);
+    }
+  };
+
   const more = async () => {
-    if (!page.next_before || pending.current) return;
+    if (!page.next_before || pending.current || deletePending.current) return;
     const id = ++request.current;
     pending.current = true;
     setLoading(true);
@@ -139,17 +164,18 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, busy = 
             {rail ? <IconLayoutSidebarLeftExpand size={20} aria-hidden="true" /> : <IconLayoutSidebarLeftCollapse size={20} aria-hidden="true" />}
           </button> : <button type="button" className={styles.icon} aria-label={copy.drawerClose} onClick={closeDrawer}><IconX size={20} aria-hidden="true" /></button>}
         </div>
-        <button type="button" className={styles.newProblem} aria-label={copy.newProblem} disabled={busy} onClick={() => { onNewProblem(); if (!desktop) closeDrawer(); }}>
+        <button type="button" className={styles.newProblem} aria-label={copy.newProblem} disabled={busy || deleting} onClick={() => { onNewProblem(); if (!desktop) closeDrawer(); }}>
           <IconPlus size={16} aria-hidden="true" />{!rail && copy.newProblem}
         </button>
         {visible && <div className={styles.list} aria-busy={loading}>
-          <SessionList sessions={page.sessions} disabled={busy} onChoose={id => {
+          <SessionList sessions={page.sessions} disabled={busy || deleting || loading} onDelete={id => void remove(id)} onChoose={id => {
             // Choosing the session that is already current changes nothing: just close the drawer.
             if (!page.sessions.find(row => row.id === id)?.current) open(id);
             if (!desktop) closeDrawer();
           }} />
+          {deleteError && <p className={styles.deleteError} role="alert">{copy[deleteError]}</p>}
           {!loading && !page.sessions.length && <p className={styles.empty}>{copy.historyEmpty}</p>}
-          {page.next_before && <button type="button" className={styles.more} disabled={loading} onClick={() => void more()}>{copy.historyMore}</button>}
+          {page.next_before && <button type="button" className={styles.more} disabled={loading || deleting} onClick={() => void more()}>{copy.historyMore}</button>}
         </div>}
         <div className={styles.footer}>
           {!rail && account.enabled && !account.signedIn && <p className={styles.guest}>{copy.historyGuest}</p>}

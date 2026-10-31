@@ -128,3 +128,20 @@
 @media (prefers-reduced-motion: reduce) {
   .icon, .newProblem, .more, .session, .menu { transition: none; }
 }
+
+.sessionRow { display: flex; align-items: center; }
+.sessionRow .session { flex: 1; min-width: 0; }
+.delete {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+}
+.delete:hover:not(:disabled) { color: var(--error-text); background: var(--side-hover); }
+.deleteError { margin: 8px var(--side-row-inset); color: var(--error-text); font-size: 13px; }

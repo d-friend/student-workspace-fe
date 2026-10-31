@@ -129,6 +129,7 @@
 }
 
 .sessionRow {
+  position: relative;
   display: flex;
   align-items: center;
   border-radius: 10px;
@@ -136,8 +137,12 @@
 }
 .sessionRow:hover:has(.session:not(:disabled)) { background: var(--side-hover); }
 .sessionRow:has(.session[aria-current="true"]), .sessionRow:has(.session:active:not(:disabled)) { background: var(--side-selected); }
-.sessionRow .session { flex: 1; min-width: 0; }
+.sessionRow .session { flex: 1; min-width: 0; min-height: 44px; padding-right: 46px; }
 .delete {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
   display: grid;
   place-items: center;
   flex: none;
@@ -151,6 +156,8 @@
 }
 .delete:hover:not(:disabled) { color: var(--error-text); }
 @media (hover: hover) and (pointer: fine) {
+  .sessionRow .session { padding-right: var(--side-row-inset); }
+  .sessionRow:hover .session, .sessionRow:focus-within .session { padding-right: 46px; }
   .delete { opacity: 0; pointer-events: none; }
   .sessionRow:hover .delete, .sessionRow:focus-within .delete { opacity: 1; pointer-events: auto; }
 }

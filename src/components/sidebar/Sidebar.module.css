@@ -82,9 +82,8 @@
   line-height: 20px;
   transition: background-color 150ms;
 }
-.icon:hover:not(:disabled), .newProblem:hover:not(:disabled), .more:hover:not(:disabled), .session:hover:not(:disabled) { background: var(--side-hover); }
-.session[aria-current="true"], .session[aria-current="true"]:hover:not(:disabled),
-.icon:active:not(:disabled), .newProblem:active:not(:disabled), .more:active:not(:disabled), .session:active:not(:disabled) { background: var(--side-selected); }
+.icon:hover:not(:disabled), .newProblem:hover:not(:disabled), .more:hover:not(:disabled) { background: var(--side-hover); }
+.icon:active:not(:disabled), .newProblem:active:not(:disabled), .more:active:not(:disabled) { background: var(--side-selected); }
 .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .done { flex: none; color: var(--muted); }
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
@@ -129,7 +128,14 @@
   .icon, .newProblem, .more, .session, .menu { transition: none; }
 }
 
-.sessionRow { display: flex; align-items: center; }
+.sessionRow {
+  display: flex;
+  align-items: center;
+  border-radius: 10px;
+  transition: background-color 150ms;
+}
+.sessionRow:hover:has(.session:not(:disabled)) { background: var(--side-hover); }
+.sessionRow:has(.session[aria-current="true"]), .sessionRow:has(.session:active:not(:disabled)) { background: var(--side-selected); }
 .sessionRow .session { flex: 1; min-width: 0; }
 .delete {
   display: grid;
@@ -143,9 +149,13 @@
   background: transparent;
   color: var(--muted);
 }
-.delete:hover:not(:disabled) { color: var(--error-text); background: var(--side-hover); }
+.delete:hover:not(:disabled) { color: var(--error-text); }
 @media (hover: hover) and (pointer: fine) {
   .delete { opacity: 0; pointer-events: none; }
   .sessionRow:hover .delete, .sessionRow:focus-within .delete { opacity: 1; pointer-events: auto; }
 }
 .deleteError { margin: 8px var(--side-row-inset); color: var(--error-text); font-size: 13px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sessionRow { transition: none; }
+}

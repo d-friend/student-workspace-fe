@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePetScrollerRef } from "@/components/pet/PetAnchor";
 import { copy } from "@/lib/copy";
 import { BlockBoundary } from "./BlockBoundary";
@@ -28,9 +28,16 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone }: {
   taskDone: string[];
 }) {
   const [presses, setPresses] = useState(0);
-  const restoredDone = Object.values(w.state?.blocks ?? {}).some((b) => b.type === "steps" && b.done);
-  const [solved, setSolved] = useState<{ via?: "master" } | null>(restoredDone ? {} : null);
-  const reported = useRef(!!w.restored && (restoredDone || (w.state?.taskDone?.length ?? 0) > 0));
+  const stepsIds = w.doc.blocks.filter((b) => b.type === "steps").map((b) => b.id);
+  const restoredIds = stepsIds.filter((id) => {
+    const saved = w.state?.blocks?.[id];
+    return saved?.type === "steps" && saved.done;
+  });
+  const [solved, setSolved] = useState({ ids: restoredIds, byStudent: restoredIds.length === stepsIds.length });
+  const masterDone = new Set([...(w.state?.taskDone ?? []), ...taskDone]);
+  const completedIds = new Set([...solved.ids, ...masterDone]);
+  const allDone = stepsIds.length > 0 && stepsIds.every((id) => completedIds.has(id));
+  const reported = useRef(!!w.restored && allDone);
   const restoredQuizzes = new Set(Object.entries(w.state?.blocks ?? {})
     .filter(([, b]) => b.type === "quiz" && b.done).map(([id]) => id));
   const quizzesDone = useRef(restoredQuizzes);
@@ -38,22 +45,19 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone }: {
     w.doc.blocks.filter((b) => b.type === "quiz").every((b) => restoredQuizzes.has(b.id)));
   const level = Math.min(presses, 3);
   const working = p !== "learn";
-  const stepsIds = w.doc.blocks.filter((b) => b.type === "steps").map((b) => b.id);
-  const stepsId = w.doc.blocks.find((b) => b.type === "steps")?.id ?? ""; // not stepsIds[0]: React Compiler would see ctx.help mutating stepsIds
-  const mastered = stepsIds.some((id) => taskDone.includes(id));
-  const fin = useMemo(() => solved ?? (mastered ? { via: "master" as const } : null), [solved, mastered]);
+  const stepsId = w.doc.blocks.find((b) => b.type === "steps")?.id ?? "";
 
   useEffect(() => {
-    if (!fin || reported.current) return;
+    if (!allDone || reported.current) return;
     reported.current = true;
-    base.report("task_completed", { similar: p === "practice", helped: presses > 0, max_hint: level, ...(fin.via && { via: fin.via }) });
-  }, [fin, base, p, presses, level]);
+    base.report("task_completed", { similar: p === "practice", helped: presses > 0, max_hint: level, ...(!solved.byStudent && { via: "master" }) });
+  }, [allDone, solved.byStudent, base, p, presses, level]);
 
-  const onHint = () => {
+  const onHint = (blockId = stepsId) => {
     setPresses(presses + 1);
-    base.report("help_requested", { block_id: stepsId, level: Math.min(presses + 1, 3) });
+    base.report("help_requested", { block_id: blockId, level: Math.min(presses + 1, 3) });
   };
-  const help = { level, onHint, onIdea: p === "solve" ? () => base.report("foundation_requested", {}) : undefined };
+  const help = { level, onHint: () => onHint(), onIdea: p === "solve" ? () => base.report("foundation_requested", {}) : undefined };
   const quizIds = w.doc.blocks.filter((b) => b.type === "quiz").map((b) => b.id);
   // A quiz is finished like Quiz.tsx decides: open (sent), correct, or a second try. When the last one of a learn doc
   // is, the master is told: correct quiz answers alone never wake it, and it offers what comes next.
@@ -74,10 +78,12 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone }: {
     hintCount: presses,
     help,
     hidden,
-    finished: fin !== null,
     onSolved: (id) => {
       base.onSolved(id);
-      setSolved((f) => f ?? {});
+      setSolved((previous) => {
+        const ids = previous.ids.includes(id) ? previous.ids : [...previous.ids, id];
+        return { ids, byStudent: stepsIds.every((stepId) => ids.includes(stepId) || masterDone.has(stepId)) };
+      });
     },
   };
 
@@ -86,11 +92,15 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone }: {
       <h1 className={styles.title}><MdInline text={w.doc.title} /></h1>
       {w.doc.blocks.map((b) => (
         <BlockBoundary key={b.id} blockId={b.id} report={ctx.report}>
-          {renderBlock(b, ctx)}
+          {renderBlock(b, b.type === "steps" ? {
+            ...ctx,
+            finished: completedIds.has(b.id),
+            help: { ...help, onHint: () => onHint(b.id) },
+          } : ctx)}
         </BlockBoundary>
       ))}
       {working && !stepsId && <HelpBar level={help.level} onHint={help.onHint} onIdea={help.onIdea} />}
-      {fin && <DoneBanner hints={presses} />}
+      {allDone && <DoneBanner hints={presses} />}
       {p === "learn" && w.doc.sources.length > 0 && (
         <aside className={styles.sources}>
           <h2>{copy.sources}</h2>

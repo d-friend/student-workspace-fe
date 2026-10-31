@@ -2,11 +2,11 @@
 
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import { IconUser } from "@tabler/icons-react";
-import { ApiError, authMethods, emailStart, emailVerify, getMe, logout, type AuthMethods, type Me } from "@/lib/api";
+import { ApiError, authMethods, demoSignIn, emailStart, emailVerify, getMe, logout, type AuthMethods, type Me } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import styles from "./AccountMenu.module.css";
 
-type AuthError = "authInvalidCode" | "authRateLimited" | "authFailed" | "authActionFailed";
+type AuthError = "authInvalidCode" | "authRateLimited" | "authFailed" | "authActionFailed" | "authInvalidCredentials";
 
 export type AccountStatus = { signedIn: boolean; enabled: boolean };
 
@@ -14,6 +14,8 @@ export function AccountMenu({ rail = false, onStatus }: { rail?: boolean; onStat
   const [account, setAccount] = useState<{ methods: AuthMethods; me: Me } | null>(null);
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
+  const [demo, setDemo] = useState(false);
+  const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"email" | "code">("email");
   const [busy, setBusy] = useState(false);
@@ -38,7 +40,7 @@ export function AccountMenu({ rail = false, onStatus }: { rail?: boolean; onStat
     Promise.all([authMethods(), getMe()]).then(([methods, me]) => {
       if (!active) return;
       setAccount({ methods, me });
-      onStatus?.({ signedIn: me.signed_in, enabled: methods.google || methods.email });
+      onStatus?.({ signedIn: me.signed_in, enabled: methods.google || methods.email || !!methods.demo });
       if (loginResult.current === "failed") {
         setError("authFailed");
         setOpen(true);
@@ -93,7 +95,8 @@ export function AccountMenu({ rail = false, onStatus }: { rail?: boolean; onStat
     try {
       await action();
     } catch (e) {
-      setError(e instanceof ApiError && e.code === "invalid_code" ? "authInvalidCode"
+      setError(e instanceof ApiError && e.code === "invalid_credentials" ? "authInvalidCredentials"
+        : e instanceof ApiError && e.code === "invalid_code" ? "authInvalidCode"
         : e instanceof ApiError && e.code === "rate_limited" ? "authRateLimited" : "authActionFailed");
     } finally {
       setBusy(false);
@@ -115,7 +118,7 @@ export function AccountMenu({ rail = false, onStatus }: { rail?: boolean; onStat
     });
   };
 
-  if (!account || (!account.me.signed_in && !account.methods.google && !account.methods.email)) return null;
+  if (!account || (!account.me.signed_in && !account.methods.google && !account.methods.email && !account.methods.demo)) return null;
   const { methods, me } = account;
   const years = /^\d+$/.test(age) ? Number(age) : NaN;
   const ageOk = years >= 6 && years <= 99;
@@ -146,10 +149,6 @@ export function AccountMenu({ rail = false, onStatus }: { rail?: boolean; onStat
             <>
               {me.name && <p>{me.name}</p>}
               <p className={styles.email}>{me.email}</p>
-              <button type="button" disabled={busy} onClick={() => void run(async () => {
-                await logout();
-                window.location.reload();
-              })}>{copy.authLogout}</button>
             </>
           ) : (
             <>
@@ -174,7 +173,33 @@ export function AccountMenu({ rail = false, onStatus }: { rail?: boolean; onStat
               ) : (
                 <p className={styles.legal}>{copy.authAgreement} {legalLinks}</p>
               )}
-              {methods.email && (
+              {methods.demo && (
+                <button type="button" aria-expanded={demo} onClick={() => setDemo(!demo)}>{copy.authDemo}</button>
+              )}
+              {methods.demo && demo && (
+                <form aria-busy={busy} onSubmit={(event) => {
+                  event.preventDefault();
+                  void run(async () => {
+                    await demoSignIn(email.trim(), password);
+                    window.location.reload();
+                  });
+                }}>
+                  <label className={styles.age}>
+                    {copy.authEmail}
+                    <input type="email" required autoComplete="username" value={email}
+                      onChange={(event) => setEmail(event.target.value)} disabled={busy} />
+                  </label>
+                  <label className={styles.age}>
+                    {copy.authPassword}
+                    <input type="password" required autoComplete="current-password" value={password}
+                      onChange={(event) => setPassword(event.target.value)} disabled={busy} />
+                  </label>
+                  <button type="submit" disabled={busy || !email.trim() || !password}>
+                    {busy ? copy.authBusy : copy.authVerify}
+                  </button>
+                </form>
+              )}
+              {methods.email && !demo && (
                 <form onSubmit={submit} aria-busy={busy}>
                   {step === "email" ? (
                     <input type="email" required autoComplete="email" aria-label={copy.authEmail}
@@ -198,6 +223,12 @@ export function AccountMenu({ rail = false, onStatus }: { rail?: boolean; onStat
           )}
           {error && <p className={styles.error} role="alert">{copy[error]}</p>}
           <div className={styles.actions}>
+            {me.signed_in && (
+              <button type="button" disabled={busy} onClick={() => void run(async () => {
+                await logout();
+                window.location.reload();
+              })}>{copy.authLogout}</button>
+            )}
             <button type="button" className={styles.close} onClick={close}>{copy.drawerClose}</button>
             {!me.signed_in && methods.google && (
               <button type="button" className={styles.google} disabled={!googleReady} onClick={startGoogle}>{copy.authGoogle}</button>

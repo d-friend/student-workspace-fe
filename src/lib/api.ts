@@ -222,7 +222,7 @@ export async function turn(
   throw new TurnError("stream_lost", "the reply stream ended before done");
 }
 
-export type AuthMethods = { google: boolean; email: boolean };
+export type AuthMethods = { google: boolean; email: boolean; demo?: boolean };
 export type Me = { signed_in: false } | { signed_in: true; email: string; name: string | null };
 
 // Plain fetch, not get(): asking who is signed in must not create a guest.
@@ -234,6 +234,12 @@ export async function authMethods(): Promise<AuthMethods> {
 
 export async function getMe(): Promise<Me> {
   const res = await fetch("/api/me");
+  if (!res.ok) throw await toApiError(res);
+  return res.json();
+}
+
+export async function demoSignIn(email: string, password: string): Promise<Extract<Me, { signed_in: true }>> {
+  const res = await post("/api/auth/demo", { email, password });
   if (!res.ok) throw await toApiError(res);
   return res.json();
 }

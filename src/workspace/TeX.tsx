@@ -6,6 +6,8 @@ export function TeX({ tex, display }: { tex: string; display: boolean }) {
   const html = katex.renderToString(tex, {
     displayMode: display,
     throwOnError: false,
+    // Lessons include Vietnamese labels; allow Unicode beyond strict LaTeX fonts.
+    strict: false,
     trust: false,
     output: "htmlAndMathml",
   });

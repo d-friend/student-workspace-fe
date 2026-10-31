@@ -144,4 +144,8 @@
   color: var(--muted);
 }
 .delete:hover:not(:disabled) { color: var(--error-text); background: var(--side-hover); }
+@media (hover: hover) and (pointer: fine) {
+  .delete { opacity: 0; pointer-events: none; }
+  .sessionRow:hover .delete, .sessionRow:focus-within .delete { opacity: 1; pointer-events: auto; }
+}
 .deleteError { margin: 8px var(--side-row-inset); color: var(--error-text); font-size: 13px; }

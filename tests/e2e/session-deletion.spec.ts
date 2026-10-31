@@ -11,28 +11,44 @@ async function history(page: Page) {
 }
 
 for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
-  test(`student can cancel and confirm deleting the current session at ${viewport.width}px`, async ({ page }) => {
-    await page.setViewportSize(viewport);
-    await page.goto("/");
-    await page.getByLabel(copy.inputLabel).fill("__build");
-    await page.getByLabel(copy.inputLabel).press("Enter");
-    await expect(page.getByRole("heading", { name: "Tiếp tuyến của y = x³ − 2x", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: copy.newProblem, exact: true, includeHidden: true })).toBeEnabled();
-    const current = await (await page.request.get("/api/sessions/current")).json();
-    await history(page);
-    const remove = page.getByRole("button", { name: copy.historyDelete, exact: true });
-    await expect(remove).toBeEnabled();
-    page.once("dialog", dialog => dialog.dismiss());
-    await remove.click();
-    expect((await page.request.get(`/api/sessions/${current.session_id}`)).status()).toBe(200);
-    await page.screenshot({ path: `/tmp/dfriend-session-delete-${viewport.width}.png` });
-    page.once("dialog", dialog => dialog.accept());
-    await remove.click();
-    await expect(page.getByRole("heading", { name: copy.entryTitle })).toBeVisible();
-    expect((await page.request.get(`/api/sessions/${current.session_id}`)).status()).toBe(404);
-    await history(page);
-    await expect(page.getByText(copy.historyEmpty, { exact: true })).toBeVisible();
-    await page.reload();
-    await expect(page.getByRole("heading", { name: copy.entryTitle })).toBeVisible();
+  test.describe(`${viewport.width}px history`, () => {
+    test.use({ hasTouch: viewport.width < 800 });
+    test(`student can cancel and confirm deleting the current session at ${viewport.width}px`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      await page.getByLabel(copy.inputLabel).fill("__build");
+      await page.getByLabel(copy.inputLabel).press("Enter");
+      await expect(page.getByRole("heading", { name: "Tiếp tuyến của y = x³ − 2x", exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: copy.newProblem, exact: true, includeHidden: true })).toBeEnabled();
+      const current = await (await page.request.get("/api/sessions/current")).json();
+      await history(page);
+      const remove = page.getByRole("button", { name: copy.historyDelete, exact: true });
+      await expect(remove).toBeEnabled();
+      if (viewport.width >= 800) {
+        await page.mouse.move(1000, 100);
+        await expect(remove).toHaveCSS("opacity", "0");
+        const session = page.getByRole("button", { name: /^Tiếp tuyến/, exact: false });
+        await session.hover();
+        await expect(remove).toHaveCSS("opacity", "1");
+        await page.mouse.move(1000, 100);
+        await expect(remove).toHaveCSS("opacity", "0");
+        await session.focus();
+        await expect(remove).toHaveCSS("opacity", "1");
+      } else {
+        await expect(remove).toHaveCSS("opacity", "1");
+      }
+      page.once("dialog", dialog => dialog.dismiss());
+      await remove.click();
+      expect((await page.request.get(`/api/sessions/${current.session_id}`)).status()).toBe(200);
+      await page.screenshot({ path: `/tmp/dfriend-session-delete-${viewport.width}.png` });
+      page.once("dialog", dialog => dialog.accept());
+      await remove.click();
+      await expect(page.getByRole("heading", { name: copy.entryTitle })).toBeVisible();
+      expect((await page.request.get(`/api/sessions/${current.session_id}`)).status()).toBe(404);
+      await history(page);
+      await expect(page.getByText(copy.historyEmpty, { exact: true })).toBeVisible();
+      await page.reload();
+      await expect(page.getByRole("heading", { name: copy.entryTitle })).toBeVisible();
+    });
   });
 }

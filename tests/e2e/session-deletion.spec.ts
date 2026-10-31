@@ -35,7 +35,18 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
         await session.focus();
         await expect(remove).toHaveCSS("opacity", "1");
       } else {
+        await expect(remove).toHaveCSS("opacity", "0");
+        const session = page.getByRole("button", { name: /^Tiếp tuyến/ });
+        const box = (await session.boundingBox())!;
+        const touch = await page.context().newCDPSession(page);
+        await touch.send("Input.dispatchTouchEvent", {
+          type: "touchStart", touchPoints: [{ x: box.x + 30, y: box.y + box.height / 2 }],
+        });
         await expect(remove).toHaveCSS("opacity", "1");
+        await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        await expect(session).toBeVisible();
+        await expect(remove).toHaveCSS("opacity", "1");
+        await touch.detach();
       }
       page.once("dialog", dialog => dialog.dismiss());
       await remove.click();

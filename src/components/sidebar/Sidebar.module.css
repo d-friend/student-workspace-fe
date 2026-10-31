@@ -137,7 +137,7 @@
 }
 .sessionRow:hover:has(.session:not(:disabled)) { background: var(--side-hover); }
 .sessionRow:has(.session[aria-current="true"]), .sessionRow:has(.session:active:not(:disabled)) { background: var(--side-selected); }
-.sessionRow .session { flex: 1; min-width: 0; min-height: 44px; padding-right: 46px; }
+.sessionRow .session { flex: 1; min-width: 0; min-height: 44px; padding-right: var(--side-row-inset); -webkit-touch-callout: none; user-select: none; }
 .delete {
   position: absolute;
   right: 0;
@@ -153,12 +153,14 @@
   border-radius: 10px;
   background: transparent;
   color: var(--muted);
+  opacity: 0;
+  pointer-events: none;
 }
+.sessionRow[data-actions] .delete, .sessionRow:has(:focus-visible) .delete { opacity: 1; pointer-events: auto; }
+.sessionRow[data-actions] .session, .sessionRow:has(:focus-visible) .session { padding-right: 46px; }
 .delete:hover:not(:disabled) { color: var(--error-text); }
 @media (hover: hover) and (pointer: fine) {
-  .sessionRow .session { padding-right: var(--side-row-inset); }
   .sessionRow:hover .session, .sessionRow:focus-within .session { padding-right: 46px; }
-  .delete { opacity: 0; pointer-events: none; }
   .sessionRow:hover .delete, .sessionRow:focus-within .delete { opacity: 1; pointer-events: auto; }
 }
 .deleteError { margin: 8px var(--side-row-inset); color: var(--error-text); font-size: 13px; }

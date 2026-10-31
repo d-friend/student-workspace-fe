@@ -82,9 +82,8 @@
   line-height: 20px;
   transition: background-color 150ms;
 }
-.icon:hover:not(:disabled), .newProblem:hover:not(:disabled), .more:hover:not(:disabled), .session:hover:not(:disabled) { background: var(--side-hover); }
-.session[aria-current="true"], .session[aria-current="true"]:hover:not(:disabled),
-.icon:active:not(:disabled), .newProblem:active:not(:disabled), .more:active:not(:disabled), .session:active:not(:disabled) { background: var(--side-selected); }
+.icon:hover:not(:disabled), .newProblem:hover:not(:disabled), .more:hover:not(:disabled) { background: var(--side-hover); }
+.icon:active:not(:disabled), .newProblem:active:not(:disabled), .more:active:not(:disabled) { background: var(--side-selected); }
 .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .done { flex: none; color: var(--muted); }
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
@@ -127,4 +126,45 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .icon, .newProblem, .more, .session, .menu { transition: none; }
+}
+
+.sessionRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: 10px;
+  transition: background-color 150ms;
+}
+.sessionRow:hover:has(.session:not(:disabled)) { background: var(--side-hover); }
+.sessionRow:has(.session[aria-current="true"]), .sessionRow:has(.session:active:not(:disabled)) { background: var(--side-selected); }
+.sessionRow .session { flex: 1; min-width: 0; min-height: 44px; padding-right: var(--side-row-inset); -webkit-touch-callout: none; user-select: none; }
+.delete {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  opacity: 0;
+  pointer-events: none;
+}
+.sessionRow[data-actions] .delete, .sessionRow:has(:focus-visible) .delete { opacity: 1; pointer-events: auto; }
+.sessionRow[data-actions] .session, .sessionRow:has(:focus-visible) .session { padding-right: 46px; }
+.delete:hover:not(:disabled) { color: var(--error-text); }
+@media (hover: hover) and (pointer: fine) {
+  .sessionRow:hover .session, .sessionRow:focus-within .session { padding-right: 46px; }
+  .sessionRow:hover .delete, .sessionRow:focus-within .delete { opacity: 1; pointer-events: auto; }
+}
+.deleteError { margin: 8px var(--side-row-inset); color: var(--error-text); font-size: 13px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sessionRow { transition: none; }
 }

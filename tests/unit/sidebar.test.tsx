@@ -222,3 +222,35 @@ it("opening a past session tracks its tab count and age in whole days, but the c
   fireEvent.click(screen.getByRole("button", { name: /first/ }));
   expect(track).toHaveBeenCalledTimes(1); // the past-session view only
 });
+
+it("confirms deletion, removes only the chosen session, and does not open it", async () => {
+  first = { sessions: [row("first", true), row("older")], next_before: null };
+  const onOpen = vi.fn();
+  const confirm = vi.fn().mockReturnValue(false);
+  vi.stubGlobal("confirm", confirm);
+  render(<Sidebar side={side} onNewProblem={vi.fn()} onOpenSession={onOpen} refreshKey="1" />);
+  await screen.findByText("older");
+  const buttons = screen.getAllByRole("button", { name: "Xóa cuộc trò chuyện" });
+  fireEvent.click(buttons[1]);
+  expect(fetchMock.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
+  confirm.mockReturnValue(true);
+  fireEvent.click(buttons[1]);
+  await waitFor(() => expect(screen.queryByText("older")).toBeNull());
+  expect(screen.getByText("first")).toBeDefined();
+  expect(onOpen).not.toHaveBeenCalled();
+  expect(fetchMock).toHaveBeenCalledWith("/api/sessions/older", expect.objectContaining({ method: "DELETE" }));
+});
+
+it("keeps a session and shows an error when deletion fails", async () => {
+  vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
+  fetchMock.mockImplementation(async (path: string, init?: RequestInit) => {
+    if (init?.method === "DELETE") return json({ error: { code: "session_busy" } }, 409);
+    if (path === "/api/auth/methods") return json({ email: false, google: false });
+    if (path === "/api/me") return json({ signed_in: false });
+    return json(first);
+  });
+  render(<Sidebar side={side} onNewProblem={vi.fn()} refreshKey="1" />);
+  fireEvent.click(await screen.findByRole("button", { name: "Xóa cuộc trò chuyện" }));
+  expect(await screen.findByRole("alert")).toBeDefined();
+  expect(screen.getByText("first")).toBeDefined();
+});

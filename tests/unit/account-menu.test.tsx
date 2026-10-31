@@ -7,7 +7,7 @@ const assign = vi.fn();
 const reload = vi.fn();
 const fetchMock = vi.fn();
 const realWindow = window;
-let methods = { google: false, email: true };
+let methods: { google: boolean; email: boolean; demo?: boolean } = { google: false, email: true };
 let me: { signed_in: boolean; email?: string; name?: string | null };
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -30,6 +30,7 @@ beforeEach(() => {
   fetchMock.mockReset().mockImplementation(async (path: string) => {
     if (path === "/api/auth/methods") return json(methods);
     if (path === "/api/me") return json(me);
+    if (path === "/api/auth/demo") return json({ signed_in: true, email: "demo@email.hello", name: "Demo" });
     if (path === "/api/auth/email/verify") return json({ signed_in: true, email: "student@example.com", name: null });
     return new Response(null, { status: 204 });
   });
@@ -298,4 +299,27 @@ it.each(["", "5", "100", "16.5"])("disables Google for invalid age %s", async (v
   await open();
   fireEvent.change(screen.getByRole("spinbutton", { name: "Bạn bao nhiêu tuổi?" }), { target: { value } });
   expect((screen.getByRole("button", { name: copy.authGoogle }) as HTMLButtonElement).disabled).toBe(true);
+});
+
+it("signs in with demo credentials using the normal account flow", async () => {
+  setLocale("en");
+  methods = { google: false, email: false, demo: true };
+  render(<AccountMenu />);
+  await open();
+  fireEvent.click(screen.getByRole("button", { name: "Demo sign in" }));
+  fireEvent.change(screen.getByLabelText("Your email"), { target: { value: "demo@email.hello" } });
+  fireEvent.change(screen.getByLabelText("Password"), { target: { value: "123456" } });
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: copy.authVerify }));
+  await waitFor(() => expect(reload).toHaveBeenCalledOnce());
+  expect(fetchMock).toHaveBeenCalledWith("/api/auth/demo", expect.objectContaining({
+    method: "POST", body: '{"email":"demo@email.hello","password":"123456"}',
+  }));
+});
+
+it("keeps sign out and close in the same action row", async () => {
+  me = { signed_in: true, email: "demo@email.hello" };
+  render(<AccountMenu />);
+  await open();
+  expect(screen.getByRole("button", { name: copy.authLogout }).parentElement)
+    .toBe(screen.getByRole("button", { name: copy.drawerClose }).parentElement);
 });

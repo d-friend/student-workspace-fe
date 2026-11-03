@@ -159,3 +159,7 @@
   .funnel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .barRow { grid-template-columns: minmax(0, auto) minmax(30px, 1fr) auto; }
 }
+.chart { margin: 14px 0; }
+.chart svg { display: block; width: 100%; height: auto; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 6px; font-size: 13px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }

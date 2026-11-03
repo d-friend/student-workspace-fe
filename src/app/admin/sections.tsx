@@ -37,9 +37,40 @@ function Empty() { return <p className={styles.empty}>No data yet.</p>; }
 function Metric({ label, value, detail }: { label: string; value: string | number; detail?: string }) {
   return <div className={styles.metric}><span>{label}</span><strong>{value}</strong>{detail && <small>{detail}</small>}</div>;
 }
-function BarList({ rows, value }: { rows: { day: string; n: number }[]; value: (row: { day: string; n: number }) => number }) {
-  const max = Math.max(1, ...rows.map(value));
-  return <div className={styles.bars}>{rows.map((row) => <div className={styles.barRow} key={row.day}><span>{row.day}</span><div><i style={{ width: `${(value(row) / max) * 100}%` }} /></div><b>{value(row)}</b></div>)}</div>;
+type DayCount = { day: string; n: number };
+const SERIES = [
+  { key: "new_guests_per_day", label: "New guests", color: "var(--brand)", dash: undefined },
+  { key: "active_guests_per_day", label: "Active guests", color: "var(--accent)", dash: undefined },
+  { key: "new_accounts_per_day", label: "New accounts", color: "var(--muted)", dash: "5 4" },
+] as const;
+// The API only returns days that have rows, and its days are Asia/Ho_Chi_Minh dates, so rebuild the window ending on the local today.
+function windowDays(days: number): string[] {
+  const today = new Date(new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }) + "T00:00:00Z");
+  return Array.from({ length: days }, (_, i) => new Date(today.getTime() - (days - 1 - i) * 864e5).toISOString().slice(0, 10));
+}
+function UsersChart({ data, days }: { data: Users; days: number }) {
+  const labels = windowDays(days);
+  const lines = SERIES.map((series) => {
+    const byDay = new Map(data[series.key].map((row: DayCount) => [row.day, row.n]));
+    return { ...series, values: labels.map((day) => byDay.get(day) ?? 0) };
+  });
+  const max = Math.max(1, ...lines.flatMap((line) => line.values));
+  const W = 640, H = 220, L = 32, R = 8, T = 8, B = 24;
+  const x = (i: number) => L + (labels.length > 1 ? (i / (labels.length - 1)) * (W - L - R) : (W - L - R) / 2);
+  const y = (v: number) => T + (1 - v / max) * (H - T - B);
+  const ticks = [0, Math.ceil(max / 2), max].filter((v, i, all) => all.indexOf(v) === i);
+  const step = Math.max(1, Math.ceil(labels.length / 6));
+  return <div className={styles.chart}>
+    <div className={styles.legend}>{lines.map((line) => <span key={line.key}><svg width="22" height="8" aria-hidden="true"><line x1="0" y1="4" x2="22" y2="4" stroke={line.color} strokeWidth="2" strokeDasharray={line.dash} /></svg>{line.label}</span>)}</div>
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="New guests, active guests and new accounts per day">
+      {ticks.map((v) => <g key={v}><line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="var(--hairline)" /><text x={L - 6} y={y(v) + 4} textAnchor="end" fontSize="11" fill="var(--muted)">{v}</text></g>)}
+      {labels.map((day, i) => i % step === 0 || i === labels.length - 1 ? <text key={day} x={x(i)} y={H - 6} textAnchor="middle" fontSize="11" fill="var(--muted)">{day.slice(5)}</text> : null)}
+      {lines.map((line) => <g key={line.key}>
+        <polyline fill="none" stroke={line.color} strokeWidth="2" strokeDasharray={line.dash} strokeLinejoin="round" points={line.values.map((v, i) => `${x(i)},${y(v)}`).join(" ")} />
+        {line.values.map((v, i) => <circle key={labels[i]} cx={x(i)} cy={y(v)} r="3" fill={line.color}><title>{`${line.label} · ${labels[i]}: ${v}`}</title></circle>)}
+      </g>)}
+    </svg>
+  </div>;
 }
 function Percentiles({ label, value }: { label: string; value: Pct }) {
   return <Metric label={label} value={value.n ? `${ms(value.p50)} / ${ms(value.p90)}` : "—"} detail={value.n ? `${value.n} measured` : undefined} />;
@@ -70,11 +101,7 @@ export function UsersSection({ token, days }: Props) {
       <Metric label="Linked guests" value={data.guests_linked} />
     </div>
     <p className={styles.note}>Account totals cover all time; daily counts and funnels use the selected window. Accounts have at least one non-internal linked guest; the table shows the newest 100.</p>
-    {data.new_guests_per_day.length || data.active_guests_per_day.length || data.new_accounts_per_day.length ? <div className={styles.userBars}>
-      <div><h3>New guests</h3><BarList rows={data.new_guests_per_day} value={(row) => row.n} /></div>
-      <div><h3>Active guests</h3><BarList rows={data.active_guests_per_day} value={(row) => row.n} /></div>
-      <div><h3>New accounts</h3><BarList rows={data.new_accounts_per_day} value={(row) => row.n} /></div>
-    </div> : <Empty />}
+    {data.new_guests_per_day.length || data.active_guests_per_day.length || data.new_accounts_per_day.length ? <UsersChart data={data} days={days} /> : <Empty />}
     <h3>Accounts</h3>
     {data.accounts.length ? <div className={styles.tableWrap}><table>
       <thead><tr><th>Email</th><th>Name</th><th>Age</th><th>Parent consent</th><th>Created</th><th>Last login</th><th>Guests</th></tr></thead>

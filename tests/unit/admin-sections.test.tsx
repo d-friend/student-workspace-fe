@@ -83,6 +83,17 @@ test("Users shows funnel step percentages", async () => {
   expect(screen.getByText("80%")).toBeTruthy();
 });
 
+test("Users draws one line chart with three series and a point for every day of the window", async () => {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
+  mockedAdminGet.mockResolvedValue({ ...users, new_guests_per_day: [{ day: today, n: 4 }], active_guests_per_day: [{ day: today, n: 3 }], new_accounts_per_day: [] });
+  const { container } = render(<UsersSection token="token" days={7} />);
+  await screen.findByRole("img", { name: /new guests, active guests and new accounts/i });
+  expect(container.querySelectorAll("polyline").length).toBe(3);
+  expect(container.querySelectorAll("circle").length).toBe(21);
+  expect(screen.getByText(`New guests · ${today}: 4`)).toBeTruthy();
+  expect(screen.getAllByText(/New accounts · \d{4}-\d{2}-\d{2}: 0/).length).toBe(7);
+});
+
 test("Thesis renders the hint grid and shows — for D7 when no one is eligible", async () => {
   mockedAdminGet.mockResolvedValue(thesis);
   render(<ThesisSection token="token" days={7} />);

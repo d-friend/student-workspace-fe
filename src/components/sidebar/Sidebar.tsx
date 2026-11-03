@@ -21,7 +21,7 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, busy = 
   onNewProblem: () => void;
   refreshKey: string;
   onOpenSession?: (id: string) => void;
-  busy?: boolean; // a turn is streaming: switching sessions or starting a new one would end it mid-turn
+  busy?: boolean; // Keep deletion blocked while a turn is streaming.
 }) {
   const desktop = useDesktop();
   const visible = desktop ? side.mode === "open" : side.drawerOpen;
@@ -164,11 +164,11 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, busy = 
             {rail ? <IconLayoutSidebarLeftExpand size={20} aria-hidden="true" /> : <IconLayoutSidebarLeftCollapse size={20} aria-hidden="true" />}
           </button> : <button type="button" className={styles.icon} aria-label={copy.drawerClose} onClick={closeDrawer}><IconX size={20} aria-hidden="true" /></button>}
         </div>
-        <button type="button" className={styles.newProblem} aria-label={copy.newProblem} disabled={busy || deleting} onClick={() => { onNewProblem(); if (!desktop) closeDrawer(); }}>
+        <button type="button" className={styles.newProblem} aria-label={copy.newProblem} disabled={deleting} onClick={() => { onNewProblem(); if (!desktop) closeDrawer(); }}>
           <IconPlus size={16} aria-hidden="true" />{!rail && copy.newProblem}
         </button>
         {visible && <div className={styles.list} aria-busy={loading}>
-          <SessionList sessions={page.sessions} disabled={busy || deleting || loading} onDelete={id => void remove(id)} onChoose={id => {
+          <SessionList sessions={page.sessions} disabled={deleting || loading} deleteDisabled={busy || deleting || loading} onDelete={id => void remove(id)} onChoose={id => {
             // Choosing the session that is already current changes nothing: just close the drawer.
             if (!page.sessions.find(row => row.id === id)?.current) open(id);
             if (!desktop) closeDrawer();

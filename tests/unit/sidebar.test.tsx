@@ -104,10 +104,19 @@ it("choosing the current session only closes the drawer", async () => {
   expect(onOpen).not.toHaveBeenCalled();
   expect(screen.queryByRole("button", { name: /first/ })).toBeNull();
 });
-it("disables new problem and every session while a turn is streaming", async () => {
-  render(<Sidebar side={{ mode: "open", drawerOpen: false, toggle: vi.fn(), openDrawer: vi.fn(), closeDrawer: vi.fn() }} onNewProblem={vi.fn()} refreshKey="1" busy />);
-  expect((await screen.findByRole("button", { name: /first/ }) as HTMLButtonElement).disabled).toBe(true);
-  expect((screen.getByRole("button", { name: copy.newProblem }) as HTMLButtonElement).disabled).toBe(true);
+it("keeps new problem and switching sessions usable while a turn is streaming; deleting stays blocked", async () => {
+  const onNewProblem = vi.fn();
+  const onOpenSession = vi.fn();
+  render(<Sidebar side={{ mode: "open", drawerOpen: false, toggle: vi.fn(), openDrawer: vi.fn(), closeDrawer: vi.fn() }} onNewProblem={onNewProblem} onOpenSession={onOpenSession} refreshKey="1" busy />);
+  const choose = await screen.findByRole("button", { name: /first/ }) as HTMLButtonElement;
+  expect(choose.disabled).toBe(false);
+  const fresh = screen.getByRole("button", { name: copy.newProblem }) as HTMLButtonElement;
+  expect(fresh.disabled).toBe(false);
+  fireEvent.click(fresh);
+  expect(onNewProblem).toHaveBeenCalledTimes(1);
+  const deleteButtons = screen.getAllByRole("button").filter(b => b.className.includes("delete")) as HTMLButtonElement[];
+  expect(deleteButtons.length).toBeGreaterThan(0);
+  expect(deleteButtons.every(b => b.disabled)).toBe(true);
 });
 it("refetches on refreshKey and ignores stale responses", async () => {
   let resolve!: (response: Response) => void;

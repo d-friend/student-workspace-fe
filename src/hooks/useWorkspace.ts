@@ -162,6 +162,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let preview: Preview | null = null;
   let buildFailed = false;
   let sessionId: string | null = null;
+  let epoch = 0; // Identifies the session view; abandoned turns must not write into its successor.
   // True once the server has confirmed the session (created, restored or used by a turn); events go out
   // without a session id until then.
   let sessionConfirmed = false;
@@ -330,22 +331,26 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
   // A dropped stream (a locked phone) does not stop the build: the server finishes and saves the turn. Wait for it
   // and return the saved session, or null when nothing was saved (the request never arrived, or the turn failed).
-  async function recover(sid: string, before: number): Promise<Saved | null> {
+  async function recover(sid: string, before: number, mine: number): Promise<Saved | null> {
     const deadline = now() + RECOVER_MS;
     let fails = 0;
     while (now() < deadline) {
       try {
         const running = await api.turnStatus(sid);
+        if (epoch !== mine) return null;
         fails = 0;
         if (!running) {
           const saved = await api.currentSession();
+          if (epoch !== mine) return null;
           return saved && saved.sessionId === sid && saved.messages.length > before ? saved : null;
         }
       } catch {
+        if (epoch !== mine) return null;
         // Offline or still waking up: ask again, but not forever when the server is really unreachable.
         if (++fails >= RECOVER_MAX_FAILS) return null;
       }
       await sleep(RECOVER_POLL_MS);
+      if (epoch !== mine) return null;
     }
     return null;
   }
@@ -357,6 +362,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     shot: string | null,
     via?: StartedVia,
   ): Promise<void> {
+    const mine = epoch;
     busy = true;
     typedTurn = typed;
     buildFailed = false;
@@ -408,6 +414,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     });
 
     const show = (view: Parsed, final: boolean) => {
+      if (epoch !== mine) return;
       // A build is shown by the pet bubble's status row, not by a placeholder text, so the bubble keeps waiting.
       const chat = repeats(view)
         ? ""
@@ -420,6 +427,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     };
 
     const onEvent = (e: TurnEvent) => {
+      if (epoch !== mine) return;
       sawEvent = true;
       if (e.event === "announce") {
         announceText = e.text;
@@ -508,17 +516,21 @@ export function createWorkspace(deps: WorkspaceDeps) {
     let failed = false;
     try {
       if (sessionId === null) {
-        sessionId = (await api.createSession(via ?? (shot ? "photo" : "typed"))).sessionId;
+        const created = await api.createSession(via ?? (shot ? "photo" : "typed"));
+        if (epoch !== mine) return;
+        sessionId = created.sessionId;
         sessionConfirmed = true;
       }
       let raw = "";
       await api.turn(sessionId, messages.at(-1)!, (delta) => {
+        if (epoch !== mine) return;
         raw += delta;
         const view = parse(raw);
         show(view, false);
         building = view.building || status !== null;
         publish();
       }, onEvent);
+      if (epoch !== mine) return;
       sessionConfirmed = true;
       // A code-routed workspace turn ends with no reply at all; a typed turn always gets text or events.
       if (!raw.trim() && typed && !sawEvent) throw new TurnError("empty_reply", "the agent sent an empty reply");
@@ -538,9 +550,11 @@ export function createWorkspace(deps: WorkspaceDeps) {
         install(view.html, sentAt);
       }
     } catch (e) {
-      const saved = e instanceof TurnError && e.code === "stream_lost" && sessionId ? await recover(sessionId, base) : null;
+      if (epoch !== mine) return;
+      const saved = e instanceof TurnError && e.code === "stream_lost" && sessionId ? await recover(sessionId, base, mine) : null;
+      if (epoch !== mine) return;
       if (saved) {
-        restore(saved);
+        restore(saved, true);
         return;
       }
       messages = messages.slice(0, base);
@@ -569,33 +583,41 @@ export function createWorkspace(deps: WorkspaceDeps) {
         sessionId = null;
         sessionConfirmed = false;
         try {
-          sessionId = (await api.createSession("typed")).sessionId;
+          const created = await api.createSession("typed");
+          if (epoch !== mine) return;
+          sessionId = created.sessionId;
           sessionConfirmed = true;
         } catch {
+          if (epoch !== mine) return;
           // The next turn creates one.
         }
       } else if (e instanceof TurnError && e.code === "history_conflict") {
         // Another tab changed the history: take the server's version, and keep the error visible.
         try {
           const saved = await api.currentSession();
+          if (epoch !== mine) return;
           if (saved) {
-            restore(saved);
+            restore(saved, true);
+            if (epoch !== mine) return;
             addBubble(typed ? { kind: "error", text: info.text } : { kind: "note", text: info.text });
           }
         } catch {
+          if (epoch !== mine) return;
           // Keep the local view; the next turn will report the conflict again.
         }
       }
     } finally {
-      busy = false;
-      building = false;
-      status = null;
-      buildingPhase = null;
-      preview = null;
-      simulationPending = {};
-      publish();
-      if (typed) dom.focusInput(failed);
-      if (!keepEvents) flush();
+      if (epoch === mine) {
+        busy = false;
+        building = false;
+        status = null;
+        buildingPhase = null;
+        preview = null;
+        simulationPending = {};
+        publish();
+        if (typed) dom.focusInput(failed);
+        if (!keepEvents) flush();
+      }
     }
   }
 
@@ -673,7 +695,22 @@ export function createWorkspace(deps: WorkspaceDeps) {
     };
   }
 
-  function restore(saved: Saved) {
+  // `ownTurn`: called from the running turn's own recovery (stream_lost, history_conflict). Whatever session id the
+  // server reports then, the turn keeps its epoch, so its catch shows the error and its finally releases busy.
+  function restore(saved: Saved, ownTurn = false) {
+    const switched = !ownTurn && saved.sessionId !== sessionId;
+    if (switched) {
+      epoch++;
+      clearTimer();
+      pending = [];
+      queued = null;
+      busy = false;
+      typedTurn = false;
+      building = false;
+      status = null;
+      buildingPhase = null;
+      preview = null;
+    }
     flushSaves();
     brokenEvents.clear();
     messages = saved.messages;
@@ -716,11 +753,14 @@ export function createWorkspace(deps: WorkspaceDeps) {
       offerClosedId = lastAgentId();
       optsClosedId = lastAgentId();
     }
+    // A different-session restore invalidates the caller's finally, so publish the new view here.
+    if (switched) publish();
   }
 
   function init() {
     if (started) return;
     started = true;
+    const mine = epoch;
     void (async () => {
       try {
         await api.createGuest(navigator.language?.slice(0, 20) || undefined);
@@ -735,7 +775,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       }
       // The composer is live while the two requests above run: never replace a turn that already started.
       let applied: typeof saved = null;
-      if (saved && !busy && messages.length === 0) {
+      if (epoch === mine && saved && !busy && messages.length === 0) {
         restore(saved);
         applied = saved;
       }
@@ -944,7 +984,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     },
 
     newProblem() {
-      if (busy) return;
+      epoch++;
       flushSaves();
       newProblems++;
       track("new_problem_clicked", { turns_in_session: Math.floor(messages.length / 2) }, sid());
@@ -953,6 +993,8 @@ export function createWorkspace(deps: WorkspaceDeps) {
       messages = [];
       pending = [];
       queued = null;
+      busy = false;
+      typedTurn = false;
       bubbles = [];
       html = null;
       tabs = [];

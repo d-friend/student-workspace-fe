@@ -7,7 +7,7 @@ import { copy, getLocale } from "@/lib/copy";
 import { groupSessions } from "./groupSessions";
 import styles from "./Sidebar.module.css";
 
-export function SessionList({ sessions, onChoose, onDelete, disabled = false }: { sessions: SessionSummary[]; onChoose: (id: string) => void; onDelete?: (id: string) => void; disabled?: boolean }) {
+export function SessionList({ sessions, onChoose, onDelete, disabled = false, deleteDisabled = false }: { sessions: SessionSummary[]; onChoose: (id: string) => void; onDelete?: (id: string) => void; disabled?: boolean; deleteDisabled?: boolean }) {
   const [revealed, setRevealed] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gesture = useRef<{ id: string; x: number; y: number; held: boolean } | null>(null);
@@ -33,7 +33,7 @@ export function SessionList({ sessions, onChoose, onDelete, disabled = false }: 
     };
   }, [revealed]);
   const startHold = (event: PointerEvent<HTMLButtonElement>, id: string) => {
-    if (disabled || !onDelete || (event.pointerType !== "touch" && event.pointerType !== "pen")) return;
+    if (disabled || deleteDisabled || !onDelete || (event.pointerType !== "touch" && event.pointerType !== "pen")) return;
     stopTimer();
     gesture.current = { id, x: event.clientX, y: event.clientY, held: false };
     timer.current = setTimeout(() => {
@@ -81,7 +81,7 @@ export function SessionList({ sessions, onChoose, onDelete, disabled = false }: 
               <span className={styles.srOnly}>{metadata}</span>
               {session.done && <IconCheck className={styles.done} size={14} aria-label={copy.historyDone} />}
             </button>
-            {onDelete && <button type="button" className={styles.delete} disabled={disabled}
+            {onDelete && <button type="button" className={styles.delete} disabled={disabled || deleteDisabled}
               aria-label={copy.historyDelete} aria-describedby={`history-session-${session.id}`} title={`${copy.historyDelete}: ${title}`}
               onClick={() => onDelete(session.id)}>
               <IconTrash size={16} aria-hidden="true" />

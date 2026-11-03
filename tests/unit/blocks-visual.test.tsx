@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, expect, test, vi } from "vitest";
 import { copy } from "@/lib/copy";
 import { renderBlock } from "@/workspace/blocks";
+import { staticFrame } from "@/workspace/blocks/Geometry";
 import { BlockBoundary } from "@/workspace/BlockBoundary";
 import type { Block, BlockCtx } from "@/workspace/types";
 
@@ -372,4 +373,45 @@ test("with tools the board still takes pointer handlers and can pan", async () =
   await waitFor(() => expect(els.length).toBeGreaterThan(3));
   expect(boardOn()).toHaveBeenCalledWith("down", expect.any(Function));
   expect((jx.initBoard.mock.calls as unknown as [unknown, object][])[0][1]).not.toHaveProperty("pan");
+});
+
+// ---- static figure sizing ----
+test("a 1-D road gets a wide strip and padding of at least 12% of its span, with no forced origin", () => {
+  const { box, ratio } = staticFrame([{ x: 0, y: 0 }, { x: 189, y: 0 }]);
+  const pad = 0.12 * 189;
+  expect(box[0]).toBeLessThanOrEqual(0 - pad + 1e-9); // left edge
+  expect(box[2]).toBeGreaterThanOrEqual(189 + pad - 1e-9); // right edge
+  expect(ratio).toBeGreaterThanOrEqual(3);
+  expect(ratio).toBe(4); // clamped: never wider than 4:1
+});
+
+test("the box comes from the points alone and the ratio stays between 1:1 and 4:1", () => {
+  const far = staticFrame([{ x: 100, y: 100 }, { x: 110, y: 100 }]);
+  expect(far.box[0]).toBeGreaterThan(0); // 0 is not forced in
+  expect(far.box[3]).toBeGreaterThan(0);
+  expect(far.box[0]).toBeCloseTo(100 - 1.2); // 12% of the span 10
+  const tri = staticFrame([{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 2, y: 3 }]);
+  expect(tri.box).toEqual([-1, 4, 5, -1]); // pad is at least 1 unit
+  expect(tri.ratio).toBeCloseTo(6 / 5);
+  expect(staticFrame([{ x: 3, y: 3 }]).ratio).toBe(1); // one point: a square, not a division by zero
+  expect(staticFrame([{ x: 0, y: 0 }, { x: 0, y: 50 }]).ratio).toBe(1); // a tall figure is not narrower than square
+});
+
+test("a static board takes its aspect ratio from the padded box and is drawn in that box", async () => {
+  setupGeo();
+  render(<>{renderBlock(figure({ points: [{ id: "TP.HCM", x: 0, y: 0 }, { id: "Cần Thơ", x: 189, y: 0 }], segments: [["TP.HCM", "Cần Thơ"]] }), ctx)}</>);
+  await waitFor(() => expect(els.filter((e) => e.kind === "point")).toHaveLength(2));
+  expect(parseFloat(screen.getByRole("group").style.aspectRatio)).toBe(4); // jsdom reads "4" back as "4 / 1"
+  const opts = (jx.initBoard.mock.calls as unknown as [unknown, { boundingbox: number[]; keepaspectratio: boolean }][])[0][1];
+  expect(opts.boundingbox).toEqual(staticFrame([{ x: 0, y: 0 }, { x: 189, y: 0 }]).box);
+  expect(opts.keepaspectratio).toBe(true);
+});
+
+test("an interactive board keeps 4:3, the forced origin and the fixed padding", async () => {
+  setupGeo();
+  render(<>{renderBlock(geo(), ctx)}</>);
+  await waitFor(() => expect(els.length).toBeGreaterThan(3));
+  expect(screen.getByRole("group", { name: copy.geoBoard(["A", "B", "C"]) }).style.aspectRatio).toBe(""); // the CSS 4 / 3 applies
+  const opts = (jx.initBoard.mock.calls as unknown as [unknown, { boundingbox: number[] }][])[0][1];
+  expect(opts.boundingbox).toEqual([-2, 5, 6, -2]);
 });

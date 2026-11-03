@@ -41,6 +41,24 @@ const cssVar = (el: Element, name: string) => getComputedStyle(el).getPropertyVa
 // An angle's wedge: the accent, faint, so the figure under it stays readable.
 const ANGLE_FILL = { fillOpacity: 0.14, highlightFillOpacity: 0.14 };
 
+export function staticFrame(points: { x: number; y: number }[]): { box: [x0: number, y1: number, x1: number, y0: number]; ratio: number } {
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const minx = Math.min(...xs);
+  const maxx = Math.max(...xs);
+  const miny = Math.min(...ys);
+  const maxy = Math.max(...ys);
+  const span = Math.max(maxx - minx, maxy - miny);
+  const pad = Math.max(0.12 * span, 1);
+  const x0 = minx - pad;
+  const x1 = maxx + pad;
+  const y0 = miny - pad;
+  const y1 = maxy + pad;
+  const w = x1 - x0;
+  const h = y1 - y0;
+  return { box: [x0, y1, x1, y0], ratio: Math.min(4, Math.max(1, w / h)) };
+}
+
 function nextName(used: Set<string>) {
   for (let i = 0; i < 26; i++) {
     const n = String.fromCharCode(65 + i);
@@ -53,6 +71,7 @@ function nextName(used: Set<string>) {
 
 export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
   const isStatic = block.tools.length === 0;
+  const frame = isStatic ? staticFrame(block.points) : null;
   const box = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<Error | null>(null);
   const [tool, setTool] = useState<GeometryTool | null>(null);
@@ -88,12 +107,18 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
           const [text, accent] = ["--text", "--accent"].map((n) => cssVar(box.current!, n));
           return { text, accent };
         };
-        const xs = block.points.map((p) => p.x);
-        const ys = block.points.map((p) => p.y);
-        const pad = 2;
-        const [x0, x1] = [Math.min(...xs, 0) - pad, Math.max(...xs, 0) + pad];
-        const [y0, y1] = [Math.min(...ys, 0) - pad, Math.max(...ys, 0) + pad];
-        b = JXG.JSXGraph.initBoard(box.current, { boundingbox: [x0, y1, x1, y0], axis: false, grid: false, showCopyright: false, showNavigation: false, keepaspectratio: true, ...(isStatic ? { pan: { enabled: false }, zoom: { wheel: false } } : {}) }) as unknown as Board;
+        let boundingbox: [number, number, number, number];
+        if (isStatic) {
+          boundingbox = staticFrame(block.points).box;
+        } else {
+          const xs = block.points.map((p) => p.x);
+          const ys = block.points.map((p) => p.y);
+          const pad = 2;
+          const [x0, x1] = [Math.min(...xs, 0) - pad, Math.max(...xs, 0) + pad];
+          const [y0, y1] = [Math.min(...ys, 0) - pad, Math.max(...ys, 0) + pad];
+          boundingbox = [x0, y1, x1, y0];
+        }
+        b = JXG.JSXGraph.initBoard(box.current, { boundingbox, axis: false, grid: false, showCopyright: false, showNavigation: false, keepaspectratio: true, ...(isStatic ? { pan: { enabled: false }, zoom: { wheel: false } } : {}) }) as unknown as Board;
         const board = b;
         freeBoard = (x) => JXG.JSXGraph.freeBoard(x as never);
         const paint = () => {
@@ -236,7 +261,7 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
           );
         })}
       </div>}
-      <div ref={box} className={styles.board} role="group" aria-label={copy.geoBoard(block.points.map((p) => p.id))} />
+      <div ref={box} className={styles.board} style={frame ? { aspectRatio: String(frame.ratio) } : undefined} role="group" aria-label={copy.geoBoard(block.points.map((p) => p.id))} />
       {!isStatic && <p className={styles.status} role="status" aria-live="polite">
         {status}
       </p>}

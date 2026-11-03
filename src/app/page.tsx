@@ -119,6 +119,7 @@ export default function Page() {
           onActive={ws.setActive}
           makeCtx={makeCtx}
           taskDone={ws.taskDone}
+          busy={ws.busy}
         />
       </div>
     );

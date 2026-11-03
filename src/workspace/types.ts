@@ -29,7 +29,7 @@ export type Block =
       type: "geometry";
       id: string;
       points: { id: string; x: number; y: number }[];
-      segments?: [string, string][];
+      segments?: ([string, string] | { points: [string, string]; label?: string; arrow?: boolean })[];
       circles?: { center: string; through: string }[];
       tools: GeometryTool[];
     }

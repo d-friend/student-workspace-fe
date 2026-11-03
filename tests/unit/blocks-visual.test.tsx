@@ -304,3 +304,72 @@ test("boards have an accessible name and the toolbar icons are decorative", () =
   expect(screen.getByRole("group", { name: "Bảng dựng hình, các điểm A, B, C" })).toBeTruthy();
   for (const svg of screen.getByRole("group", { name: copy.geoToolbar }).querySelectorAll("svg")) expect(svg.getAttribute("aria-hidden")).toBe("true");
 });
+
+// ---- static figure: labelled segments, arrows, empty tools ----
+const boardOn = () => (jx.board as unknown as { on: ReturnType<typeof vi.fn> }).on;
+const figure = (over: Partial<Extract<Block, { type: "geometry" }>> = {}): Block =>
+  geo({
+    points: [
+      { id: "TP.HCM", x: 0, y: 0 },
+      { id: "Gặp ?", x: 3, y: 0 },
+      { id: "Cần Thơ", x: 6, y: 0 },
+    ],
+    segments: [
+      { points: ["TP.HCM", "Cần Thơ"], label: "189 km" },
+      { points: ["TP.HCM", "Gặp ?"], label: "v + 13", arrow: true },
+      ["Gặp ?", "Cần Thơ"],
+    ],
+    circles: undefined,
+    tools: [],
+    ...over,
+  });
+
+test("segments show their label at the segment and an arrowhead at the second point; plain ones are unchanged", async () => {
+  setupGeo();
+  render(<>{renderBlock(figure(), ctx)}</>);
+  await waitFor(() => expect(els.filter((e) => e.kind === "segment")).toHaveLength(3));
+  const [labelled, arrow, plain] = els.filter((e) => e.kind === "segment");
+  expect(labelled.args).toHaveLength(2);
+  expect(labelled.attrs).toMatchObject({ name: "189 km", withLabel: true, label: expect.objectContaining({ strokeColor: "#111" }) });
+  expect(labelled.attrs.lastArrow).toBeUndefined();
+  expect(arrow.attrs).toMatchObject({ name: "v + 13", withLabel: true, lastArrow: true });
+  expect(plain.attrs.name).toBeUndefined();
+  expect(plain.attrs.withLabel).toBeUndefined();
+  expect(plain.attrs.lastArrow).toBeUndefined();
+});
+
+test("the old tuple-only figure renders as before, with its toolbar", async () => {
+  setupGeo();
+  render(<>{renderBlock(geo(), ctx)}</>);
+  await waitFor(() => expect(els.filter((e) => e.kind === "segment")).toHaveLength(1));
+  const [seg] = els.filter((e) => e.kind === "segment");
+  expect(seg.attrs.name).toBeUndefined();
+  expect(seg.attrs.lastArrow).toBeUndefined();
+  expect(seg.h.down).toBeDefined();
+  expect(screen.getAllByRole("button")).toHaveLength(4);
+  expect(screen.getByRole("status")).toBeTruthy();
+});
+
+test("empty tools is a static picture: no toolbar, no status, nothing to drag or pick", async () => {
+  setupGeo();
+  render(<>{renderBlock(figure(), ctx)}</>);
+  await waitFor(() => expect(els.filter((e) => e.kind === "point")).toHaveLength(3));
+  expect(screen.queryAllByRole("button")).toHaveLength(0);
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(screen.getByRole("group").getAttribute("aria-label")).toBe(copy.geoBoard(["TP.HCM", "Gặp ?", "Cần Thơ"]));
+  expect(jx.initBoard).toHaveBeenCalledWith(expect.any(HTMLElement), expect.objectContaining({ pan: { enabled: false }, zoom: { wheel: false } }));
+  expect(boardOn()).not.toHaveBeenCalled(); // no pointer handler on the board
+  for (const e of els) {
+    expect(e.h.down).toBeUndefined(); // no element reacts to a press
+    if (e.kind === "point") expect(e.attrs).toMatchObject({ fixed: true, highlight: false });
+    if (e.kind === "segment") expect(e.attrs).toMatchObject({ fixed: true, highlight: false });
+  }
+});
+
+test("with tools the board still takes pointer handlers and can pan", async () => {
+  setupGeo();
+  render(<>{renderBlock(geo(), ctx)}</>);
+  await waitFor(() => expect(els.length).toBeGreaterThan(3));
+  expect(boardOn()).toHaveBeenCalledWith("down", expect.any(Function));
+  expect((jx.initBoard.mock.calls as unknown as [unknown, object][])[0][1]).not.toHaveProperty("pan");
+});

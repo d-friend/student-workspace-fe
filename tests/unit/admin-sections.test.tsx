@@ -23,7 +23,7 @@ const latency: Latency = {
 };
 const users: Users = {
   new_guests_per_day: [{ day: "2026-10-19", n: 4 }], active_guests_per_day: [{ day: "2026-10-19", n: 3 }],
-  new_accounts_per_day: [{ day: "2026-10-19", n: 1 }], accounts_total: 3, accounts_under_16: 1, accounts_with_parent_consent: 1, guests_linked: 5,
+  new_accounts_per_day: [{ day: "2026-10-19", n: 1 }], workspaces_per_day: [], accounts_total: 3, accounts_under_16: 1, accounts_with_parent_consent: 1, guests_linked: 5,
   accounts: [{ user_id: "user-1", email: "eric@example.com", name: "Eric", age: 14, parent_consent: true, created_at: "2026-10-19T00:00:00Z", last_login_at: null, guests: 2 }],
   funnel: { opened: 10, sent_problem: 5, saw_workspace: 4, completed: 2 },
   funnel_by_person: { opened: 8, sent_problem: 4, saw_workspace: 4, completed: 2 },
@@ -83,15 +83,28 @@ test("Users shows funnel step percentages", async () => {
   expect(screen.getByText("80%")).toBeTruthy();
 });
 
-test("Users draws one line chart with three series and a point for every day of the window", async () => {
+test("Users draws two line charts and shows the day's detail on hover", async () => {
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
-  mockedAdminGet.mockResolvedValue({ ...users, new_guests_per_day: [{ day: today, n: 4 }], active_guests_per_day: [{ day: today, n: 3 }], new_accounts_per_day: [] });
+  mockedAdminGet.mockResolvedValue({ ...users, new_guests_per_day: [{ day: today, n: 4 }], active_guests_per_day: [{ day: today, n: 3 }], new_accounts_per_day: [], workspaces_per_day: [{ day: today, learn: 5, solve: 2, completed: 1 }] });
   const { container } = render(<UsersSection token="token" days={7} />);
-  await screen.findByRole("img", { name: /new guests, active guests and new accounts/i });
-  expect(container.querySelectorAll("polyline").length).toBe(3);
-  expect(container.querySelectorAll("circle").length).toBe(21);
-  expect(screen.getByText(`New guests · ${today}: 4`)).toBeTruthy();
-  expect(screen.getAllByText(/New accounts · \d{4}-\d{2}-\d{2}: 0/).length).toBe(7);
+  const people = await screen.findByRole("img", { name: /new guests, active guests and new accounts/i });
+  const workspaces = screen.getByRole("img", { name: /learn workspaces, solve and practice/i });
+  expect(container.querySelectorAll("polyline").length).toBe(6);
+  expect(container.querySelectorAll("circle").length).toBe(42);
+  people.getBoundingClientRect = () => ({ left: 0, width: 640 }) as DOMRect;
+  workspaces.getBoundingClientRect = () => ({ left: 0, width: 640 }) as DOMRect;
+  fireEvent.pointerMove(people, { clientX: 640 });
+  const tip = screen.getByRole("status");
+  expect(tip.textContent).toMatch(/New guests4/);
+  expect(tip.textContent).toMatch(/Active guests3/);
+  expect(tip.textContent).toMatch(/New accounts0/);
+  fireEvent.pointerMove(workspaces, { clientX: 640 });
+  expect(screen.getAllByRole("status").pop()?.textContent).toMatch(/Learn5.*Solve and practice2.*Completed1/);
+  fireEvent.pointerLeave(workspaces);
+  fireEvent.pointerLeave(people);
+  expect(screen.queryAllByRole("status").length).toBe(0);
+  fireEvent.keyDown(people, { key: "ArrowLeft" });
+  expect(screen.getAllByRole("status")[0].textContent).toMatch(/New guests4/);
 });
 
 test("Thesis renders the hint grid and shows — for D7 when no one is eligible", async () => {
@@ -106,7 +119,7 @@ test("renders empty states", async () => {
   const emptyCost: Cost = { ...cost, total_usd: 0, unpriced_models: [], per_day: [], by_role_model: [], per_active_guest_day_usd: null, per_completed_problem_usd: null, cache_read_ratio: null, searches: 0 };
   const emptyLatency: Latency = { ...latency, master_first_text_ms: { p50: null, p90: null, n: 0 }, master_total_ms: { p50: null, p90: null, n: 0 }, planner_total_ms: { p50: null, p90: null, n: 0 }, time_to_first_workspace_ms: { p50: null, p90: null, n: 0 }, workspace_shown_ms: { p50: null, p90: null, n: 0 }, slowest: [] };
   const zero = { opened: 0, sent_problem: 0, saw_workspace: 0, completed: 0 };
-  const emptyUsers: Users = { new_guests_per_day: [], active_guests_per_day: [], new_accounts_per_day: [], accounts_total: 0, accounts_under_16: 0, accounts_with_parent_consent: 0, guests_linked: 0, accounts: [], funnel: zero, funnel_by_person: zero };
+  const emptyUsers: Users = { new_guests_per_day: [], active_guests_per_day: [], new_accounts_per_day: [], workspaces_per_day: [], accounts_total: 0, accounts_under_16: 0, accounts_with_parent_consent: 0, guests_linked: 0, accounts: [], funnel: zero, funnel_by_person: zero };
   const emptyFeatures: Features = { events: features.events.map((event) => ({ ...event, count: 0, guests: 0, persons: 0, by_method: [], by_new_user: [] })), tabs_per_session: features.tabs_per_session.map((row) => ({ ...row, sessions: 0 })) };
   const emptyThesis: Thesis = { returns: [], cohorts: [], returns_by_person: [], cohorts_by_person: [], pairs: [], hint_table: [], mean_drop: null, funnel: { sessions_original_done: 0, sessions_offered: 0, sessions_accepted: 0, sessions_reinforcement_done: 0 } };
   mockedAdminGet.mockImplementation((path) => Promise.resolve(path.startsWith("/health") ? emptyHealth : path.startsWith("/cost") ? emptyCost : path.startsWith("/latency") ? emptyLatency : path.startsWith("/users") ? emptyUsers : path.startsWith("/features") ? emptyFeatures : emptyThesis));

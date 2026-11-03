@@ -85,6 +85,7 @@ export type Users = {
   guests_linked: number;
   new_guests_per_day: { day: string; n: number }[];
   active_guests_per_day: { day: string; n: number }[];
+  workspaces_per_day: { day: string; learn: number; solve: number; completed: number }[];
   accounts: AccountRow[];
   funnel: UserFunnel;
   funnel_by_person: UserFunnel;

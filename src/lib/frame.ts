@@ -23,7 +23,7 @@ const fontFaces = (origin: string) =>
     .join("");
 
 // Iframes of mounted `custom` blocks; the workspace hook accepts bridge messages from these too.
-export const customFrames = new Set<Window>();
+export const customFrames = new Map<Window, string>();
 
 const head = (origin: string) => `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'unsafe-inline' data: blob:; script-src 'unsafe-inline' 'unsafe-eval' ${origin}/vendor/; style-src 'unsafe-inline' ${origin}/vendor/; font-src ${origin}/vendor/"><base target="_blank"><script type="importmap">{"imports":{"three":"${origin}/vendor/three@${THREE_VERSION}/three.module.min.js","three/addons/":"${origin}/vendor/three@${THREE_VERSION}/addons/"}}${SCRIPT_END}<script>
 (() => {

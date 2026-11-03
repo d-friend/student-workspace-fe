@@ -66,6 +66,7 @@ export type WorkspaceState = {
   photo: string | null;
   html: string | null; // legacy iframe workspace, only when there are no structured workspaces
   tabs: (Workspace & { phase: Phase })[];
+  brokenTabs: Record<string, true>;
   activeId: string | null;
   simulationVersions: Record<string, number>;
   simulationFailures: Record<string, boolean>;
@@ -147,6 +148,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let photoNoteId: number | null = null;
   let html: string | null = null;
   let tabs: WorkspaceState["tabs"] = [];
+  const brokenEvents = new Map<string, WorkspaceEvent>();
   let activeId: string | null = null;
   let simulationVersions: WorkspaceState["simulationVersions"] = {};
   let simulationFailures: WorkspaceState["simulationFailures"] = {};
@@ -228,6 +230,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       photo,
       html,
       tabs,
+      brokenTabs: Object.fromEntries([...brokenEvents.keys()].map((id) => [id, true as const])),
       activeId,
       simulationVersions,
       simulationFailures,
@@ -450,6 +453,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
         preview = null;
         // Drop the replaced doc's line states and master completions.
         if (old) {
+          brokenEvents.delete(old.id);
           overrides = { ...overrides };
           delete overrides[old.id];
           taskDone = { ...taskDone };
@@ -641,7 +645,15 @@ export function createWorkspace(deps: WorkspaceDeps) {
     const win = dom.frameWindow();
     const trusted = (win !== null && e.source === win) || (e.source !== null && customFrames.has(e.source as Window));
     if (!trusted || e.data?.dfriend !== true || typeof e.data.event !== "object") return;
-    enqueue(e.data.event as WorkspaceEvent);
+    const event = e.data.event as WorkspaceEvent;
+    const id = e.source !== win && e.source !== null ? customFrames.get(e.source as Window) : undefined;
+    if (event?.type === "workspace_error" && id && tabs.find((tab) => tab.id === id)?.restored === true) {
+      brokenEvents.set(id, event);
+      track("workspace_error_restored", {}, sid());
+      publish();
+      return;
+    }
+    enqueue(event);
   };
 
   const onVisibility = () => {
@@ -663,6 +675,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
   function restore(saved: Saved) {
     flushSaves();
+    brokenEvents.clear();
     messages = saved.messages;
     sessionId = saved.sessionId;
     sessionConfirmed = true;
@@ -882,6 +895,14 @@ export function createWorkspace(deps: WorkspaceDeps) {
       enqueue({ type, data: data ?? null, byStudent, gesture: byStudent ? now() : undefined });
     },
 
+    rebuildTab(workspaceId: string) {
+      const event = brokenEvents.get(workspaceId);
+      if (!event) return;
+      brokenEvents.delete(workspaceId);
+      publish();
+      enqueue({ ...event, byStudent: true, gesture: now() });
+    },
+
     setActive(id: string) {
       const tab = tabs.find((w) => w.id === id);
       if (!tab || id === activeId) return;
@@ -935,6 +956,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       bubbles = [];
       html = null;
       tabs = [];
+      brokenEvents.clear();
       simulationVersions = {};
       simulationFailures = {};
       simulationPending = {};

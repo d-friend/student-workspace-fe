@@ -172,3 +172,21 @@ test("renders ordered same-phase tabs with distinct panels, keeps inputs mounted
   expect(screen.getByRole("textbox", { name: copy.lineLabel(1) })).toBe(input);
   expect((input as HTMLInputElement).value).toBe("my first answer");
 });
+
+test("a broken restored tab shows the notice with a rebuild button that asks for that tab only", () => {
+  const learn = { ...ws(fixtures["learn-derivative.json"]), phase: "learn" as const };
+  const solve = { ...ws(fixtures["solve-tangent.json"]), phase: "solve" as const };
+  const onRebuild = vi.fn();
+  render(<WorkspaceView tabs={[learn, solve]} activeId={learn.id} onActive={vi.fn()} makeCtx={() => mk()} brokenTabs={{ [learn.id]: true }} onRebuild={onRebuild} />);
+  expect(screen.getAllByText(copy.pageBroken)).toHaveLength(1); // only the broken tab
+  fireEvent.click(screen.getByRole("button", { name: copy.pageRebuild }));
+  expect(onRebuild).toHaveBeenCalledTimes(1);
+  expect(onRebuild).toHaveBeenCalledWith(learn.id);
+  expect(copy.pageBroken).toBe("Trang này không hiển thị đúng");
+  expect(copy.pageRebuild).toBe("Dựng lại");
+});
+
+test("no notice without a broken tab", () => {
+  render(view({ learn: ws(fixtures["learn-derivative.json"]) }, "learn"));
+  expect(screen.queryByText(copy.pageBroken)).toBeNull();
+});

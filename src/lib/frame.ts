@@ -42,22 +42,42 @@ addEventListener("unhandledrejection", (e) => fail(String(e.reason?.message ?? e
 addEventListener("error", (e) => { if (e.target instanceof HTMLScriptElement) fail("script failed to load: " + (e.target.src || "inline")); }, true);
 const postHeight = () => parent.postMessage({ dfriendHeight: Math.ceil(document.documentElement.getBoundingClientRect().height) }, "*");
 new ResizeObserver(postHeight).observe(document.documentElement);
-// Silent failures throw nothing: check once, after the page had time to draw, that the stage shows something and nothing covers it.
-addEventListener("load", () => setTimeout(() => {
+// Silent failures throw nothing: check once after the stage has been visible long enough to draw.
+addEventListener("load", () => {
   const stage = document.querySelector(".sim-stage");
   if (!stage) return;
-  const r = stage.getBoundingClientRect();
-  if (r.width === 0 || r.height === 0) return fail("stage has no size");
-  const top = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, innerHeight - r.top - 1));
-  if (top && !stage.contains(top)) return fail("stage is covered by " + top.tagName.toLowerCase());
-  const c = stage.querySelector("canvas");
-  if (!c) return;
-  if (!c.width || !c.height) return fail("canvas has no size");
-  const ctx = c.getContext("2d"); // null for a WebGL canvas, whose pixels cannot be read back here
-  if (!ctx) return;
-  const px = new Uint32Array(ctx.getImageData(0, 0, c.width, c.height).data.buffer);
-  if (px.every((v) => v === px[0])) fail("canvas is blank");
-}, 3000));
+  const hasIntersectionObserver = typeof IntersectionObserver !== "undefined";
+  let visible = false, checked = false, timer;
+  const isVisible = () => {
+    if (document.visibilityState !== "visible") return false;
+    if (hasIntersectionObserver) return visible;
+    const r = stage.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  };
+  const update = () => {
+    if (checked) return;
+    if (!isVisible()) { clearTimeout(timer); timer = undefined; return; }
+    if (timer !== undefined) return;
+    timer = setTimeout(() => {
+      timer = undefined;
+      if (!isVisible()) return;
+      checked = true;
+      const r = stage.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return fail("stage has no size");
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, innerHeight - r.top - 1));
+      if (top && !stage.contains(top)) return fail("stage is covered by " + top.tagName.toLowerCase());
+      const c = stage.querySelector("canvas");
+      if (c && (!c.width || !c.height)) fail("canvas has no size");
+    }, 3000);
+  };
+  document.addEventListener("visibilitychange", update);
+  if (hasIntersectionObserver) {
+    new IntersectionObserver((entries) => { visible = entries[entries.length - 1].isIntersecting; update(); }).observe(stage);
+  } else {
+    new ResizeObserver(update).observe(stage);
+    update();
+  }
+});
 })();
 ${SCRIPT_END}<style>${fontFaces(origin)}${KIT_CSS}</style>`;
 

@@ -52,6 +52,7 @@ function nextName(used: Set<string>) {
 }
 
 export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
+  const isStatic = block.tools.length === 0;
   const box = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<Error | null>(null);
   const [tool, setTool] = useState<GeometryTool | null>(null);
@@ -92,7 +93,7 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
         const pad = 2;
         const [x0, x1] = [Math.min(...xs, 0) - pad, Math.max(...xs, 0) + pad];
         const [y0, y1] = [Math.min(...ys, 0) - pad, Math.max(...ys, 0) + pad];
-        b = JXG.JSXGraph.initBoard(box.current, { boundingbox: [x0, y1, x1, y0], axis: false, grid: false, showCopyright: false, showNavigation: false, keepaspectratio: true }) as unknown as Board;
+        b = JXG.JSXGraph.initBoard(box.current, { boundingbox: [x0, y1, x1, y0], axis: false, grid: false, showCopyright: false, showNavigation: false, keepaspectratio: true, ...(isStatic ? { pan: { enabled: false }, zoom: { wheel: false } } : {}) }) as unknown as Board;
         const board = b;
         freeBoard = (x) => JXG.JSXGraph.freeBoard(x as never);
         const paint = () => {
@@ -114,21 +115,29 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
           board.update();
         };
         const lineEl = (kind: string, a: string, c: string, attrs: object = {}) => {
-          const el = board.create(kind, [pts.get(a), pts.get(c)], { ...paint(), ...attrs });
-          el?.on("down", (e) => act.current?.line(a, c, e));
+          const el = board.create(kind, [pts.get(a), pts.get(c)], { ...paint(), ...(isStatic ? { fixed: true, highlight: false } : {}), ...attrs });
+          if (!isStatic) el?.on("down", (e) => act.current?.line(a, c, e));
           return el;
         };
         const makePoint = (name: string, args: unknown[], kind = "point") => {
           names.add(name);
           const { text, accent } = ink();
-          const el = board.create(kind, args, { name, fixed: true, size: 5, fillColor: accent, strokeColor: accent, highlightFillColor: accent, highlightStrokeColor: accent, label: { strokeColor: text } });
+          const el = board.create(kind, args, { name, fixed: true, size: 5, fillColor: accent, strokeColor: accent, highlightFillColor: accent, highlightStrokeColor: accent, label: { strokeColor: text }, ...(isStatic ? { highlight: false } : {}) });
           pts.set(name, el);
-          el?.on("down", (e) => act.current?.point(name, e));
+          if (!isStatic) el?.on("down", (e) => act.current?.point(name, e));
           return el;
         };
         block.points.forEach((p) => makePoint(p.id, [p.x, p.y]));
-        block.segments?.forEach(([a, c]) => lineEl("segment", a, c));
-        block.circles?.forEach((c) => board.create("circle", [pts.get(c.center), pts.get(c.through)], paint()));
+        block.segments?.forEach((segment) => {
+          const { a, c, label, arrow } = Array.isArray(segment)
+            ? { a: segment[0], c: segment[1], label: undefined, arrow: undefined }
+            : { a: segment.points[0], c: segment.points[1], label: segment.label, arrow: segment.arrow };
+          lineEl("segment", a, c, {
+            ...(label ? { name: label, withLabel: true, label: { position: "middle", offset: [0, 10], anchorX: "middle", strokeColor: ink().text } } : {}),
+            ...(arrow ? { lastArrow: true } : {}),
+          });
+        });
+        block.circles?.forEach((c) => board.create("circle", [pts.get(c.center), pts.get(c.through)], { ...paint(), ...(isStatic ? { fixed: true, highlight: false } : {}) }));
 
         const done = (type: GeometryTool, deps: string[]) => {
           live.current.ctx.report("construction_made", { block_id: live.current.block.id, type, deps });
@@ -191,7 +200,7 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
             done("point", []);
           },
         };
-        board.on("down", (e) => act.current?.board(e));
+        if (!isStatic) board.on("down", (e) => act.current?.board(e));
       })
       .catch((e) => !dead && setError(e instanceof Error ? e : new Error(String(e))));
     return () => {
@@ -201,7 +210,7 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
       act.current = null;
       select(null);
     };
-  }, [block]);
+  }, [block, isStatic]);
 
   const lineTool = tool === "perpendicular" || tool === "parallel";
   const status = !tool
@@ -216,7 +225,7 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
 
   return (
     <div className={styles.wrap} onKeyDown={(e: KeyboardEvent) => e.key === "Escape" && select(null)}>
-      <div className={styles.toolbar} role="group" aria-label={copy.geoToolbar}>
+      {!isStatic && <div className={styles.toolbar} role="group" aria-label={copy.geoToolbar}>
         {block.tools.map((t) => {
           const Icon = ICONS[t];
           return (
@@ -226,11 +235,11 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
             </button>
           );
         })}
-      </div>
+      </div>}
       <div ref={box} className={styles.board} role="group" aria-label={copy.geoBoard(block.points.map((p) => p.id))} />
-      <p className={styles.status} role="status" aria-live="polite">
+      {!isStatic && <p className={styles.status} role="status" aria-live="polite">
         {status}
-      </p>
+      </p>}
     </div>
   );
 }

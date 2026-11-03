@@ -170,7 +170,7 @@ describe("workspace turn", () => {
     post({ type: "answer_submitted", byStudent: true, gesture: 5 }, win);
     await vi.advanceTimersByTimeAsync(2000);
     expect(t.api.turn).not.toHaveBeenCalled();
-    customFrames.add(win);
+    customFrames.set(win, "none");
     post({ type: "answer_submitted", byStudent: true, gesture: 5 }, win);
     await vi.advanceTimersByTimeAsync(800);
     expect(t.api.turn).toHaveBeenCalled();
@@ -1426,6 +1426,78 @@ describe("structured workspace", () => {
       expect(t.api.setActiveWorkspace).toHaveBeenCalledWith("s1", "S2");
       await vi.advanceTimersByTimeAsync(800);
       expect(sentEvents(t.api)).toContainEqual(expect.objectContaining({ type: "phase_viewed", data: { phase: "solve", workspace_id: "S2" } }));
+    });
+  });
+
+  describe("a workspace_error from a restored tab", () => {
+    const err = { type: "workspace_error", data: { message: "stage has no size" }, byStudent: false };
+    const frame = (id: string) => {
+      const win = {} as Window;
+      customFrames.set(win, id);
+      return win;
+    };
+    const restoredLearn = () => boot(reply("ok"), { sessionId: "srv", messages: [{ role: "user", content: "x" }], html: null, tabs: [{ id: "L1", doc: LEARN, phase: "learn" as const }], activeId: "L1" });
+
+    it("starts no turn, is tracked, and shows the notice", async () => {
+      const t = await restoredLearn();
+      t.api.turn.mockClear();
+      const win = frame("L1");
+      post(err, win);
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(t.api.turn).not.toHaveBeenCalled();
+      expect(t.state().brokenTabs).toEqual({ L1: true });
+      expect(t.track).toHaveBeenCalledWith("workspace_error_restored", {}, "srv");
+      customFrames.delete(win);
+    });
+
+    it("from a fresh tab (built in this page view) still starts a turn", async () => {
+      const t = await boot(stream([shown("L1", LEARN), "ok"]));
+      await typed(t);
+      t.api.turn.mockClear();
+      const win = frame("L1");
+      post(err, win);
+      await vi.advanceTimersByTimeAsync(800);
+      expect(t.api.turn).toHaveBeenCalledTimes(1);
+      expect(t.state().brokenTabs).toEqual({});
+      customFrames.delete(win);
+    });
+
+    it("'Dựng lại' sends the error as a student action and starts exactly one turn", async () => {
+      const t = await restoredLearn();
+      t.api.turn.mockClear();
+      const win = frame("L1");
+      post(err, win);
+      post(err, win); // reported twice: still one notice
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(t.api.turn).not.toHaveBeenCalled();
+      t.ws.actions.rebuildTab("L1");
+      expect(t.state().brokenTabs).toEqual({});
+      t.ws.actions.rebuildTab("L1"); // a second press has nothing to send
+      await vi.advanceTimersByTimeAsync(800);
+      expect(t.api.turn).toHaveBeenCalledTimes(1);
+      expect(sentEvents(t.api)).toContainEqual(expect.objectContaining({ type: "workspace_error", byStudent: true, gesture: expect.any(Number) }));
+      customFrames.delete(win);
+    });
+
+    it("other event types from a restored tab behave as before", async () => {
+      const t = await restoredLearn();
+      t.api.turn.mockClear();
+      const win = frame("L1");
+      post({ type: "answer_submitted", byStudent: true, gesture: 9 }, win);
+      await vi.advanceTimersByTimeAsync(800);
+      expect(t.api.turn).toHaveBeenCalledTimes(1);
+      expect(t.state().brokenTabs).toEqual({});
+      customFrames.delete(win);
+    });
+
+    it("switching to another session clears the notices", async () => {
+      const t = await restoredLearn();
+      const win = frame("L1");
+      post(err, win);
+      expect(t.state().brokenTabs).toEqual({ L1: true });
+      t.ws.actions.newProblem();
+      expect(t.state().brokenTabs).toEqual({});
+      customFrames.delete(win);
     });
   });
 

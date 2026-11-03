@@ -26,9 +26,9 @@ export function Custom({ block, ctx }: BlockProps<CustomBlock>) {
   useEffect(() => {
     const win = ref.current?.contentWindow;
     if (!win) return;
-    customFrames.add(win);
+    customFrames.set(win, ctx.workspaceId);
     return () => void customFrames.delete(win);
-  }, [version, block.html]);
+  }, [version, block.html, ctx.workspaceId]);
   if (block.html === null) {
     return ctx.simulationPending?.[`${ctx.workspaceId}:${block.id}`] && !ctx.simulationFailures?.[`${ctx.workspaceId}:${block.id}`] ? (
       <div aria-busy="true" style={{ minHeight: 360, display: "grid", placeItems: "center", color: "var(--muted)" }}>

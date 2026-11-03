@@ -35,6 +35,7 @@ export type TrackEvents = {
   turn_failed: { status?: number; code: string };
   session_restored: { messages: number; has_workspace: boolean };
   visibility_changed: { visible: boolean };
+  workspace_error_restored: Record<string, never>; // a restored tab reported a broken page; no rebuild until the student asks
 };
 
 type NoProps = Record<string, never>;

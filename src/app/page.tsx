@@ -119,6 +119,8 @@ export default function Page() {
           onActive={ws.setActive}
           makeCtx={makeCtx}
           taskDone={ws.taskDone}
+          brokenTabs={ws.brokenTabs}
+          onRebuild={ws.rebuildTab}
           busy={ws.busy}
         />
       </div>

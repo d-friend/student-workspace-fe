@@ -17,9 +17,11 @@ type Props = {
   makeCtx: (w: Workspace) => BlockCtx;
   taskDone?: Record<string, string[]>; // master completions (SSE task_done), by workspace id
   busy?: boolean;
+  brokenTabs?: Record<string, true>;
+  onRebuild?: (id: string) => void;
 };
 
-function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy }: {
+function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onRebuild }: {
   w: Workspace;
   p: Phase;
   hidden: boolean;
@@ -28,6 +30,8 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy }: {
   hasSolve: boolean;
   taskDone: string[];
   busy: boolean;
+  broken: boolean;
+  onRebuild?: (id: string) => void;
 }) {
   const [presses, setPresses] = useState(0);
   const stepsIds = w.doc.blocks.filter((b) => b.type === "steps").map((b) => b.id);
@@ -91,6 +95,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy }: {
 
   return (
     <section id={`panel-${w.id}`} {...(tabbed && { role: "tabpanel", "aria-labelledby": `tab-${w.id}` })} hidden={hidden} className={styles.doc} data-phase={p}>
+      {broken && <div className={styles.notice}><span>{copy.pageBroken}</span> <button type="button" className={styles.back} onClick={() => onRebuild?.(w.id)}>{copy.pageRebuild}</button></div>}
       <h1 className={styles.title}><MdInline text={w.doc.title} /></h1>
       {w.doc.blocks.map((b) => (
         <BlockBoundary key={b.id} blockId={b.id} report={ctx.report}>
@@ -132,7 +137,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy }: {
   );
 }
 
-export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {}, busy = false }: Props) {
+export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild }: Props) {
   // Hidden docs share this scroller; keep an independent offset for each workspace.
   const scroller = useRef<HTMLDivElement>(null);
   const tops = useRef<Record<string, number>>({});
@@ -152,7 +157,7 @@ export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {}
       <div className={styles.view} data-pet-column>
         <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} />
         {tabs.map((w) => (
-          <Doc key={w.id} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} busy={busy} />
+          <Doc key={w.id} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} />
         ))}
       </div>
     </div>

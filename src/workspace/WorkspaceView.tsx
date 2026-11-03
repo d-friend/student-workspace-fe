@@ -16,9 +16,10 @@ type Props = {
   onActive: (id: string) => void;
   makeCtx: (w: Workspace) => BlockCtx;
   taskDone?: Record<string, string[]>; // master completions (SSE task_done), by workspace id
+  busy?: boolean;
 };
 
-function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone }: {
+function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy }: {
   w: Workspace;
   p: Phase;
   hidden: boolean;
@@ -26,6 +27,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone }: {
   base: BlockCtx;
   hasSolve: boolean;
   taskDone: string[];
+  busy: boolean;
 }) {
   const [presses, setPresses] = useState(0);
   const stepsIds = w.doc.blocks.filter((b) => b.type === "steps").map((b) => b.id);
@@ -57,7 +59,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone }: {
     setPresses(presses + 1);
     base.report("help_requested", { block_id: blockId, level: Math.min(presses + 1, 3) });
   };
-  const help = { level, onHint: () => onHint(), onIdea: p === "solve" ? () => base.report("foundation_requested", {}) : undefined };
+  const help = { level, onHint: () => onHint(), onIdea: p === "solve" ? () => base.report("foundation_requested", {}) : undefined, ideaPending: busy };
   const quizIds = w.doc.blocks.filter((b) => b.type === "quiz").map((b) => b.id);
   // A quiz is finished like Quiz.tsx decides: open (sent), correct, or a second try. When the last one of a learn doc
   // is, the master is told: correct quiz answers alone never wake it, and it offers what comes next.
@@ -99,7 +101,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone }: {
           } : ctx)}
         </BlockBoundary>
       ))}
-      {working && !stepsId && <HelpBar level={help.level} onHint={help.onHint} onIdea={help.onIdea} />}
+      {working && !stepsId && <HelpBar level={help.level} onHint={help.onHint} onIdea={help.onIdea} ideaPending={help.ideaPending} />}
       {allDone && <DoneBanner hints={presses} />}
       {p === "learn" && w.doc.sources.length > 0 && (
         <aside className={styles.sources}>
@@ -130,7 +132,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone }: {
   );
 }
 
-export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {} }: Props) {
+export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {}, busy = false }: Props) {
   // Hidden docs share this scroller; keep an independent offset for each workspace.
   const scroller = useRef<HTMLDivElement>(null);
   const tops = useRef<Record<string, number>>({});
@@ -150,7 +152,7 @@ export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {}
       <div className={styles.view} data-pet-column>
         <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} />
         {tabs.map((w) => (
-          <Doc key={w.id} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} />
+          <Doc key={w.id} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} busy={busy} />
         ))}
       </div>
     </div>

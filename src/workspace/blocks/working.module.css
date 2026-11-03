@@ -45,7 +45,8 @@
 .btn { color: var(--text); background: var(--panel); border: 1px solid var(--control-border); }
 .primary { height: 52px; padding: 0 22px; color: var(--accent-text); background: var(--accent); border: 0; }
 .btn:disabled, .primary:disabled { opacity: 0.6; cursor: default; }
-.btn:active:not(:disabled), .primary:active:not(:disabled), .hint:active, .idea:active { transform: scale(0.98); }
+.btn:active:not(:disabled), .primary:active:not(:disabled), .hint:active, .idea:active:not(:disabled) { transform: scale(0.98); }
+.idea:disabled { opacity: 0.6; cursor: default; }
 .btn:focus-visible, .primary:focus-visible, .input:focus-visible, .hint:focus-visible, .idea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .help { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }

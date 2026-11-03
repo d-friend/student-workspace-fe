@@ -75,7 +75,7 @@ export type BlockCtx = {
   overrides: Record<string, Record<number, "ok" | "review">>; // from SSE line_state, by block id
   hintCount: number; // "Gợi ý" presses in this doc
   onSolved: (blockId: string) => void; // a steps block reached its final checkpoint
-  help: { level: number; onHint: () => void; onIdea?: () => void } | null; // Doc sets it; Steps shows it in its active row
+  help: { level: number; onHint: () => void; onIdea?: () => void; ideaPending: boolean } | null; // Doc sets it; Steps shows it in its active row
   finished?: boolean; // Doc sets it per steps block; completed blocks ask for no more lines
   hidden?: boolean; // Doc sets it: this doc is not the shown phase (it stays mounted), so its blocks give up the pet anchor
   simulationPending?: Record<string, boolean>;

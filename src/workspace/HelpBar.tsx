@@ -1,10 +1,19 @@
 import { IconBulb } from "@tabler/icons-react";
-import { useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import { copy } from "@/lib/copy";
 import styles from "./blocks/working.module.css";
 
-export function HelpBar({ level, onHint, onIdea }: { level: number; onHint: () => void; onIdea?: () => void }) {
+export function HelpBar({ level, onHint, onIdea, ideaPending = false }: { level: number; onHint: () => void; onIdea?: () => void; ideaPending?: boolean }) {
   const levelId = useId();
+  const ideaRequested = useRef(false);
+  useEffect(() => {
+    if (!ideaPending) ideaRequested.current = false;
+  }, [ideaPending]);
+  const requestIdea = () => {
+    if (ideaPending || ideaRequested.current) return;
+    ideaRequested.current = true;
+    onIdea?.();
+  };
   return (
     <div className={styles.help}>
       <button type="button" className={styles.hint} aria-describedby={levelId} onClick={onHint}>
@@ -20,7 +29,7 @@ export function HelpBar({ level, onHint, onIdea }: { level: number; onHint: () =
         {copy.hintLevel(level)}
       </span>
       {onIdea && (
-        <button type="button" className={styles.idea} onClick={onIdea}>
+        <button type="button" className={styles.idea} disabled={ideaPending} onClick={requestIdea}>
           {copy.idea}
         </button>
       )}

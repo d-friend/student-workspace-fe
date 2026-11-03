@@ -15,7 +15,7 @@ import styles from "./ChatDrawer.module.css";
 
 export const JPEG_PREFIX = "data:image/jpeg;base64,";
 
-export type ChatState = Pick<WorkspaceState, "bubbles" | "hasMessages" | "watching" | "restateChips" | "offerChips" | "optChips">;
+export type ChatState = Pick<WorkspaceState, "bubbles" | "hasMessages" | "watching" | "restateChips" | "offerChips" | "optChips" | "optChipKind" | "optChipSeed">;
 export type ChatActions = {
   onConfirmRestate: () => void;
   onCorrectRestate: () => void;
@@ -125,7 +125,7 @@ export function ChatDrawer({
                 {!muted && state.offerChips && (
                   <OfferChips onAccept={actions.onAcceptOffer} onLater={actions.onOfferLater} />
                 )}
-                {!muted && state.optChips && <OptChips options={state.optChips} onPick={actions.onOpt} />}
+                {!muted && state.optChips && <OptChips options={state.optChips} kind={state.optChipKind} seed={state.optChipSeed} onPick={actions.onOpt} />}
               </div>
             );
           })}

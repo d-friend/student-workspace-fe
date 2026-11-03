@@ -18,7 +18,7 @@ import { Pet } from "./Pet";
 import { PetBubble, type SpokenBubble } from "./PetBubble";
 import styles from "./PetLayer.module.css";
 
-type PetSignals = Pick<WorkspaceState, "busy" | "building" | "status" | "checking" | "verdict" | "taskDone" | "newProblemCount" | "optChips">;
+type PetSignals = Pick<WorkspaceState, "busy" | "building" | "status" | "checking" | "verdict" | "taskDone" | "newProblemCount" | "optChips" | "optChipKind" | "optChipSeed">;
 
 // How long the closing chat column slides out before it unmounts (ChatDrawer.module.css panelOut).
 const CLOSE_MS = 350;
@@ -339,7 +339,7 @@ export function PetLayer({
           )}
           {chips && state.offerChips && <OfferChips onAccept={actions.onAcceptOffer} onLater={actions.onOfferLater} />}
           {chips && state.optChips && (
-            <OptChips options={state.optChips} onPick={actions.onOpt} onWriteOwn={() => inputRef.current?.focus(true)} />
+            <OptChips options={state.optChips} kind={state.optChipKind} seed={state.optChipSeed} onPick={actions.onOpt} onWriteOwn={() => inputRef.current?.focus(true)} />
           )}
         </PetBubble>
       )}

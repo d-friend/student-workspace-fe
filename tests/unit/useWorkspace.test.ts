@@ -365,7 +365,7 @@ describe("session lifecycle", () => {
     expect(t.api.createSession).toHaveBeenLastCalledWith("typed");
   });
 
-  it("Bài mới bumps newProblemCount only when it resets; it is ignored while a turn runs", async () => {
+  it("Bài mới bumps newProblemCount on each reset, also while a turn runs", async () => {
     const gate = deferred();
     const t = await boot(async () => {
       await gate.promise;
@@ -374,12 +374,132 @@ describe("session lifecycle", () => {
     expect(t.state().newProblemCount).toBe(0);
     t.ws.actions.setInput("x");
     const sending = t.ws.actions.submit();
-    t.ws.actions.newProblem(); // busy: no reset
-    expect(t.state().newProblemCount).toBe(0);
+    t.ws.actions.newProblem(); // mid-turn: allowed, the turn is abandoned
+    expect(t.state().newProblemCount).toBe(1);
+    expect(t.state().busy).toBe(false);
     gate.resolve();
     await sending;
-    t.ws.actions.newProblem();
     expect(t.state().newProblemCount).toBe(1);
+    t.ws.actions.newProblem();
+    expect(t.state().newProblemCount).toBe(2);
+  });
+
+  describe("switching away mid-turn: a late result never lands in the new session", () => {
+    const WS_EVENT = { event: "workspace" as const, workspaceId: "S9", phase: "solve" as const, doc: fixtures["solve-tangent.json"] };
+    const slowTurn = (gate: ReturnType<typeof deferred>, tail?: (onDelta: (t: string) => void, onEvent?: (e: TurnEvent) => void) => void): Turn =>
+      async (_s, _m, onDelta, onEvent) => {
+        onDelta("Mình đọc");
+        await gate.promise;
+        tail?.(onDelta, onEvent);
+        return DONE;
+      };
+
+    it("drops the old turn's deltas, events and workspace, and starts the next message at once", async () => {
+      const gate = deferred();
+      const t = await boot(slowTurn(gate, (onDelta, onEvent) => {
+        onEvent?.(WS_EVENT);
+        onDelta(" đề là: x.\n```html\n<p>old</p>\n```");
+      }));
+      t.ws.actions.setInput("bài cũ");
+      const old = t.ws.actions.submit();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(t.state().busy).toBe(true);
+      t.ws.actions.newProblem();
+      expect(t.api.endSession).toHaveBeenCalledWith("s1", "new_problem");
+      expect(t.state()).toMatchObject({ busy: false, bubbles: [], tabs: [], html: null, hasMessages: false, screen: "empty" });
+
+      // The next message in the new session is not queued behind the abandoned turn.
+      const gate2 = deferred();
+      t.api.turn.mockImplementation(slowTurn(gate2));
+      t.ws.actions.setInput("bài mới");
+      const fresh = t.ws.actions.submit();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(t.api.createSession).toHaveBeenCalledTimes(2);
+      expect(t.api.turn.mock.calls.at(-1)![0]).toBe("s2");
+      expect(t.state().busy).toBe(true);
+
+      gate.resolve(); // the old turn finishes now
+      await old;
+      expect(t.state().tabs).toEqual([]); // its workspace did not arrive
+      expect(t.state().html).toBeNull();
+      expect(t.state().busy).toBe(true); // and it did not release the new turn's busy
+      expect(t.state().bubbles.map((b) => b.kind)).toEqual(["student", "agent"]); // only the new session's own bubbles
+      expect(t.state().bubbles[0]).toMatchObject({ kind: "student", text: "bài mới" });
+      expect(JSON.stringify(t.state().bubbles)).not.toContain("old");
+
+      gate2.resolve();
+      await fresh;
+      expect(t.state().busy).toBe(false);
+    });
+
+    it("an old turn that fails late adds no error bubble, restores no input and tracks nothing", async () => {
+      const gate = deferred();
+      const t = await boot(async (_s, _m, onDelta) => {
+        onDelta("...");
+        await gate.promise;
+        throw new TurnError("upstream", "boom");
+      });
+      t.ws.actions.setInput("bài cũ");
+      const old = t.ws.actions.submit();
+      await vi.advanceTimersByTimeAsync(0);
+      t.ws.actions.newProblem();
+      t.track.mockClear();
+      gate.resolve();
+      await old;
+      expect(t.state().bubbles).toEqual([]);
+      expect(t.state().input).toBe("");
+      expect(t.track).not.toHaveBeenCalledWith("turn_failed", expect.anything(), expect.anything());
+      expect(t.state().busy).toBe(false);
+    });
+
+    it("an old turn that fails with stream_lost does not recover into the new session", async () => {
+      const gate = deferred();
+      const t = await boot(async (_s, _m, onDelta) => {
+        onDelta("...");
+        await gate.promise;
+        throw new TurnError("stream_lost", "lost");
+      });
+      t.ws.actions.setInput("bài cũ");
+      const old = t.ws.actions.submit();
+      await vi.advanceTimersByTimeAsync(0);
+      t.ws.actions.newProblem();
+      t.api.turnStatus.mockClear();
+      gate.resolve();
+      await old;
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(t.api.turnStatus).not.toHaveBeenCalled();
+      expect(t.state()).toMatchObject({ bubbles: [], tabs: [], busy: false, screen: "empty" });
+    });
+
+    it("a message queued behind the abandoned turn is dropped with it", async () => {
+      const gate = deferred();
+      const t = await boot(slowTurn(gate));
+      t.ws.actions.setInput("bài cũ");
+      const old = t.ws.actions.submit();
+      await vi.advanceTimersByTimeAsync(0);
+      t.ws.actions.setInput("xếp hàng");
+      void t.ws.actions.submit(); // queued behind the running turn
+      t.ws.actions.newProblem();
+      t.api.turn.mockClear();
+      gate.resolve();
+      await old;
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(t.api.turn).not.toHaveBeenCalled();
+      expect(t.state().bubbles).toEqual([]);
+    });
+
+    it("a same-session recovery still releases busy and shows the error (history_conflict)", async () => {
+      const t = await boot();
+      t.ws.actions.setInput("x");
+      await t.ws.actions.submit();
+      t.api.currentSession.mockResolvedValueOnce({ sessionId: "other", messages: [{ role: "user", content: "a" }, { role: "assistant", content: "b" }], html: null, tabs: [], activeId: null } as never);
+      t.api.turn.mockRejectedValueOnce(new TurnError("history_conflict", "history changed"));
+      t.ws.actions.setInput("y");
+      await t.ws.actions.submit();
+      expect(t.state().busy).toBe(false);
+      expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "error" });
+      expect(t.state().input).toBe("y");
+    });
   });
 
   it("Bài mới ends the session and resets, and nothing is kept in localStorage", async () => {

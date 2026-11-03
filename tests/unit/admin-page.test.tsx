@@ -68,6 +68,20 @@ test("a valid token hides the form and shows the days selector", async () => {
   expect(mockedSaveToken).toHaveBeenCalledWith("good");
 });
 
+test("a custom number of days refetches with that many days, and out-of-range values are ignored", async () => {
+  mockedAdminGet.mockResolvedValue({});
+  mockedReadToken.mockReturnValue("good");
+  render(<AdminPage />);
+  const box = (await screen.findByLabelText(/custom number of days/i)) as HTMLInputElement;
+  fireEvent.change(box, { target: { value: "14" } });
+  fireEvent.blur(box);
+  await waitFor(() => expect(mockedAdminGet).toHaveBeenLastCalledWith("/health?days=14", "good"));
+  fireEvent.change(box, { target: { value: "200" } });
+  fireEvent.blur(box);
+  expect(box.value).toBe("14");
+  expect(mockedAdminGet).not.toHaveBeenCalledWith("/health?days=200", "good");
+});
+
 test("changing the days selector refetches with days=30", async () => {
   mockedReadToken.mockReturnValue("good");
   mockedAdminGet.mockResolvedValue({});

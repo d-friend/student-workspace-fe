@@ -18,6 +18,7 @@ export default function AdminPage() {
   const [savedToken] = useState(() => readToken());
   const [input, setInput] = useState("");
   const [days, setDays] = useState(7);
+  const [custom, setCustom] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [openGuest, setOpenGuest] = useState<string | null>(null);
@@ -53,8 +54,17 @@ export default function AdminPage() {
     if (input.trim()) void validate(input.trim());
   };
 
+  // The backend takes whole days from 1 to 90; anything else is ignored and the box resets.
+  const applyCustom = () => {
+    const value = Number(custom);
+    if (Number.isInteger(value) && value >= 1 && value <= 90) {
+      if (value !== days) changeDays(value);
+    } else setCustom(DAYS.some(([preset]) => preset === days) ? "" : String(days));
+  };
+
   const changeDays = (nextDays: number) => {
     setDays(nextDays);
+    setCustom(DAYS.some(([value]) => value === nextDays) ? "" : String(nextDays));
     if (token) void validate(token, nextDays);
   };
 
@@ -92,6 +102,9 @@ export default function AdminPage() {
             {DAYS.map(([value, label]) => (
               <button key={value} type="button" aria-pressed={days === value} onClick={() => changeDays(value)}>{label}</button>
             ))}
+            <form onSubmit={(event) => { event.preventDefault(); applyCustom(); }}>
+              <input type="number" inputMode="numeric" min={1} max={90} placeholder="Days" aria-label="Custom number of days (1 to 90)" value={custom} data-active={!DAYS.some(([value]) => value === days) || undefined} onChange={(event) => setCustom(event.target.value)} onBlur={applyCustom} />
+            </form>
           </div>
           <button type="button" className={styles.signOut} onClick={signOut}>Sign out</button>
         </div>

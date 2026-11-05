@@ -1,15 +1,19 @@
 import { StrictMode } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import SharedPage from "@/app/s/[id]/page";
 import { ApiError, openSharedWorkspace, resumeSession } from "@/lib/api";
 
-vi.mock("next/navigation", () => ({ useParams: () => ({ id: "source" }) }));
+const params = vi.hoisted(() => ({ id: "" }));
+vi.mock("next/navigation", () => ({ useParams: () => params }));
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/api")>(),
   openSharedWorkspace: vi.fn(),
   resumeSession: vi.fn(),
 }));
+
+let nextId = 0;
+beforeEach(() => { params.id = `source-${nextId++}`; });
 
 afterEach(() => {
   cleanup();
@@ -20,8 +24,16 @@ test("a missing source shows a start link and creates only once in Strict Mode",
   vi.mocked(openSharedWorkspace).mockRejectedValue(new ApiError(404, "workspace_not_found", "missing"));
   render(<StrictMode><SharedPage /></StrictMode>);
   expect(await screen.findByRole("link", { name: "Bắt đầu" })).toHaveProperty("pathname", "/");
-  expect(openSharedWorkspace).toHaveBeenCalledExactlyOnceWith("source");
+  expect(openSharedWorkspace).toHaveBeenCalledExactlyOnceWith(params.id);
   expect(resumeSession).not.toHaveBeenCalled();
+});
+
+test("two mounts of the same workspace share one creation request", () => {
+  vi.mocked(openSharedWorkspace).mockReturnValue(new Promise(() => {}));
+  const first = render(<SharedPage />);
+  first.unmount();
+  render(<SharedPage />);
+  expect(openSharedWorkspace).toHaveBeenCalledExactlyOnceWith(params.id);
 });
 
 test("a failed creation can be retried", async () => {

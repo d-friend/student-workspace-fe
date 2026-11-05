@@ -2,29 +2,29 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError, openSharedWorkspace, resumeSession } from "@/lib/api";
 import styles from "./page.module.css";
+
+const requests = new Map<string, Promise<{ sessionId: string }>>();
 
 export default function SharedPage() {
   const { id } = useParams<{ id: string }>();
   const [state, setState] = useState<"loading" | "missing" | "not-ready" | "error">("loading");
   const [attempt, setAttempt] = useState(0);
-  const request = useRef<{ id: string; promise: Promise<{ sessionId: string }> } | null>(null);
 
   useEffect(() => {
     let active = true;
-    // Reuse the creation request across Strict Mode effects, and the created session if resume needs a retry.
-    let pending = request.current;
-    if (!pending || pending.id !== id) {
-      pending = { id, promise: openSharedWorkspace(id) };
-      request.current = pending;
-      const created = pending;
-      void created.promise.catch(() => {
-        if (request.current === created) request.current = null;
+    // Reuse the creation request across mounts and when resume needs a retry.
+    let creation = requests.get(id);
+    if (!creation) {
+      creation = openSharedWorkspace(id);
+      requests.set(id, creation);
+      const created = creation;
+      void created.catch(() => {
+        if (requests.get(id) === created) requests.delete(id);
       });
     }
-    const creation = pending.promise;
     void (async () => {
       try {
         const { sessionId } = await creation;

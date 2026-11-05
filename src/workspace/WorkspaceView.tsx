@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePetScrollerRef } from "@/components/pet/PetAnchor";
 import { copy } from "@/lib/copy";
+import { ShareButton } from "@/components/work/ShareButton";
 import { BlockBoundary } from "./BlockBoundary";
 import { renderBlock } from "./blocks";
 import { DoneBanner } from "./DoneBanner";
@@ -8,6 +9,7 @@ import { MdInline } from "./md";
 import { HelpBar } from "./HelpBar";
 import { PhaseSwitch } from "./PhaseSwitch";
 import type { BlockCtx, Phase, Workspace } from "./types";
+import { canReturnToProblem } from "./navigation";
 import styles from "./WorkspaceView.module.css";
 
 type Props = {
@@ -96,7 +98,10 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
   return (
     <section id={`panel-${w.id}`} {...(tabbed && { role: "tabpanel", "aria-labelledby": `tab-${w.id}` })} hidden={hidden} className={styles.doc} data-phase={p}>
       {broken && <div className={styles.notice}><span>{copy.pageBroken}</span> <button type="button" className={styles.back} onClick={() => onRebuild?.(w.id)}>{copy.pageRebuild}</button></div>}
-      <h1 className={styles.title}><MdInline text={w.doc.title} /></h1>
+      <header className={styles.header}>
+        <h1 className={styles.title}><MdInline text={w.doc.title} /></h1>
+        <ShareButton workspaceId={w.id} title={w.doc.title} disabled={w.doc.blocks.some((block) => block.type === "custom" && block.html == null)} />
+      </header>
       {w.doc.blocks.map((b) => (
         <BlockBoundary key={b.id} blockId={b.id} report={ctx.report}>
           {renderBlock(b, b.type === "steps" ? {
@@ -122,7 +127,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
           </ul>
         </aside>
       )}
-      {p === "learn" && hasSolve && (
+      {canReturnToProblem(p, w.parent_workspace_id, hasSolve) && (
         <button
           type="button"
           className={styles.back}

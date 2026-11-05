@@ -99,6 +99,13 @@ export async function createSession(startedVia: StartedVia): Promise<{ sessionId
   return { sessionId: body.session_id };
 }
 
+export async function openSharedWorkspace(workspaceId: string): Promise<{ sessionId: string }> {
+  const res = await post(`/api/shared/${encodeURIComponent(workspaceId)}`, {});
+  if (!res.ok) throw await toApiError(res);
+  const body = await res.json();
+  return { sessionId: body.session_id };
+}
+
 // The guest's open session with its transcript, or null (204) when there is none.
 export async function currentSession(): Promise<{
   sessionId: string;
@@ -111,8 +118,8 @@ export async function currentSession(): Promise<{
   if (res.status === 204) return null;
   if (!res.ok) throw await toApiError(res);
   const body = await res.json();
-  const tabs = (body.tabs ?? []).map((w: { workspace_id: string; phase: Phase; doc: WorkspaceDoc; state?: Workspace["state"] }) =>
-    ({ id: w.workspace_id, phase: w.phase, doc: w.doc, state: w.state }));
+  const tabs = (body.tabs ?? []).map((w: { workspace_id: string; phase: Phase; doc: WorkspaceDoc; parent_workspace_id?: string | null; state?: Workspace["state"] }) =>
+    ({ id: w.workspace_id, phase: w.phase, doc: w.doc, parent_workspace_id: w.parent_workspace_id, state: w.state }));
   return { sessionId: body.session_id, messages: body.messages, html: body.html ?? null, tabs, activeId: body.active_workspace_id ?? null };
 }
 

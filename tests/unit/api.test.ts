@@ -1,10 +1,42 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { ApiError, check, createSession, currentSession, endSession, turn, turnStatus, TurnError, type TurnEvent } from "@/lib/api";
+import { ApiError, check, createSession, currentSession, endSession, openSharedWorkspace, turn, turnStatus, TurnError, type TurnEvent } from "@/lib/api";
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
 
 afterEach(() => vi.unstubAllGlobals());
+
+test("opening a shared workspace sends JSON and retries with a guest cookie", async () => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(json(401, { error: { code: "no_guest" } }))
+    .mockResolvedValueOnce(json(200, { guest_id: "g1", created: true }))
+    .mockResolvedValueOnce(json(201, { session_id: "shared-session" }));
+  vi.stubGlobal("fetch", fetchMock);
+  expect(await openSharedWorkspace("w1")).toEqual({ sessionId: "shared-session" });
+  expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(["/api/shared/w1", "/api/guest", "/api/shared/w1"]);
+  expect(fetchMock.mock.calls[2][1]).toMatchObject({ method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+});
+
+test("unknown shared workspaces expose the missing-workspace error", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(404, { error: { code: "workspace_not_found" } })));
+  await expect(openSharedWorkspace("missing")).rejects.toMatchObject({ status: 404, code: "workspace_not_found" });
+});
+
+test("opening an already opened workspace returns the existing session", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, { session_id: "existing-session" })));
+  expect(await openSharedWorkspace("w1")).toEqual({ sessionId: "existing-session" });
+});
+
+test("session restore preserves null and non-null workspace parents", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(200, {
+    session_id: "s1", messages: [], tabs: [
+      { workspace_id: "copy", phase: "learn", doc: {}, parent_workspace_id: null },
+      { workspace_id: "foundation", phase: "learn", doc: {}, parent_workspace_id: "solve" },
+    ],
+  })));
+  const session = await currentSession();
+  expect(session?.tabs.map((tab) => tab.parent_workspace_id)).toEqual([null, "solve"]);
+});
 
 test("a 401 no_guest creates the guest once and retries the request", async () => {
   const fetchMock = vi

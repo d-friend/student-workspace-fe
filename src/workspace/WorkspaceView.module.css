@@ -58,7 +58,15 @@
 
 .notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; color: var(--muted); border: 1px solid var(--border); border-radius: 10px; }
 
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .title {
+  min-width: 0;
   margin: 0;
   font: 700 24px/1.3 var(--font-display), var(--font-sans);
 }

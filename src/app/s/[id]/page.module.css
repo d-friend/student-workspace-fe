@@ -1,0 +1,32 @@
+.page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.content {
+  max-width: 440px;
+  text-align: center;
+  color: var(--text);
+}
+
+.content h1 { font: 700 24px/1.3 var(--font-display), var(--font-sans); }
+.content p { color: var(--muted); line-height: 1.5; }
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid var(--control-border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  font: 600 15px/1.4 var(--font-sans);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.action:hover { background: var(--bg); }

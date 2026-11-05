@@ -7,6 +7,40 @@ import { WorkspaceView } from "@/workspace/WorkspaceView";
 
 afterEach(cleanup);
 
+test("sharing waits for custom HTML and remains available for solve tabs", () => {
+  const custom = { type: "custom" as const, id: "sim", html: null, height: null, reason: "building" };
+  const learn: WorkspaceDoc = { ...fixtures["learn-derivative.json"], blocks: [custom] };
+  const { rerender } = render(view({ learn: ws(learn) }, "learn"));
+  const button = () => screen.getByRole("button", { name: "Chia sẻ" }) as HTMLButtonElement;
+  expect(button().disabled).toBe(true);
+  expect(button().getAttribute("title")).toBe("Mô phỏng đang được dựng");
+  expect(button().getAttribute("title")).toBe("Mô phỏng đang được dựng");
+
+  const missingHtml = { ...custom } as Partial<typeof custom>;
+  delete missingHtml.html;
+  rerender(view({ learn: ws({ ...learn, blocks: [missingHtml as typeof custom] }) }, "learn"));
+  expect(button().disabled).toBe(true);
+
+  rerender(view({ learn: ws({ ...learn, blocks: [{ ...custom, html: "<p>Ready</p>" }] }) }, "learn"));
+  expect(button().disabled).toBe(false);
+  rerender(view({ solve: ws(fixtures["solve-tangent.json"]) }, "solve"));
+  expect(button().disabled).toBe(false);
+});
+
+test("a parentless learn tab hides return-to-problem even beside a solve tab", () => {
+  const tabs = [
+    { id: "copy", phase: "learn" as const, doc: fixtures["learn-derivative.json"], parent_workspace_id: null },
+    { id: "solve", phase: "solve" as const, doc: fixtures["solve-tangent.json"] },
+  ];
+  const ctx = mk();
+  const { rerender } = render(<WorkspaceView tabs={tabs} activeId="copy" onActive={vi.fn()} makeCtx={() => ctx} />);
+  expect(screen.queryByRole("button", { name: copy.backToProblem })).toBeNull();
+  expect(screen.getByRole("button", { name: "Chia sẻ" })).toBeTruthy();
+  rerender(<WorkspaceView tabs={[{ ...tabs[0], parent_workspace_id: "solve" }, tabs[1]]} activeId="copy" onActive={vi.fn()} makeCtx={() => ctx} />);
+  fireEvent.click(screen.getByRole("button", { name: copy.backToProblem }));
+  expect(ctx.report).toHaveBeenCalledWith("foundation_done", {});
+});
+
 const mk = (): BlockCtx => ({
   workspaceId: "w",
   phase: "learn",

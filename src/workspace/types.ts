@@ -53,7 +53,7 @@ export type StudentWork = {
   taskDone?: string[];
 };
 
-export type Workspace = { id: string; doc: WorkspaceDoc; state?: StudentWork | null; restored?: boolean };
+export type Workspace = { id: string; doc: WorkspaceDoc; parent_workspace_id?: string | null; state?: StudentWork | null; restored?: boolean };
 
 export type CheckResponse = {
   ok: boolean;

@@ -1,0 +1,138 @@
+{
+  "phase": "solve",
+  "title": "Ca nô ngược dòng và xuôi dòng",
+  "blocks": [
+    {
+      "id": "bai_toan",
+      "md": "Một ca nô tuần tra đi ngược dòng 60 km, rồi xuôi dòng 48 km. Vận tốc dòng nước là 2 km/h và thời gian xuôi dòng ít hơn thời gian ngược dòng 1 giờ. Tìm vận tốc của ca nô khi nước yên lặng.",
+      "type": "problem",
+      "image": null
+    },
+    {
+      "id": "so_do",
+      "type": "geometry",
+      "tools": [],
+      "points": [
+        {
+          "x": 6,
+          "y": 1,
+          "id": "A"
+        },
+        {
+          "x": 0,
+          "y": 1,
+          "id": "B"
+        },
+        {
+          "x": 4.8,
+          "y": 1,
+          "id": "C"
+        },
+        {
+          "x": 1,
+          "y": 0,
+          "id": "D"
+        },
+        {
+          "x": 5,
+          "y": 0,
+          "id": "E"
+        }
+      ],
+      "circles": null,
+      "segments": [
+        {
+          "arrow": true,
+          "label": "Ngược dòng: 60 km",
+          "points": [
+            "A",
+            "B"
+          ]
+        },
+        {
+          "arrow": true,
+          "label": "Xuôi dòng: 48 km",
+          "points": [
+            "B",
+            "C"
+          ]
+        },
+        {
+          "arrow": true,
+          "label": "Dòng nước: 2 km/h",
+          "points": [
+            "D",
+            "E"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "loi_giai",
+      "help": "Bạn nhập biểu thức hoặc số vào từng ô; vận tốc tính bằng km/h, thời gian tính bằng giờ.",
+      "type": "steps",
+      "input": "math",
+      "roadmap": "motion_current",
+      "scaffold": [
+        {
+          "kind": "choice",
+          "stage": 0,
+          "prompt": "Bạn chọn đại lượng nào làm ẩn $x$?",
+          "options": [
+            "Vận tốc ca nô khi đi xuôi dòng",
+            "Vận tốc ca nô khi đi ngược dòng",
+            "Vận tốc ca nô khi nước yên lặng"
+          ]
+        },
+        {
+          "kind": "blank",
+          "stage": 1,
+          "template": "Vận tốc ngược dòng (km/h) = ___"
+        },
+        {
+          "kind": "blank",
+          "stage": 1,
+          "template": "Vận tốc xuôi dòng (km/h) = ___"
+        },
+        {
+          "kind": "blank",
+          "stage": 2,
+          "template": "Thời gian ngược dòng (giờ) = ___"
+        },
+        {
+          "kind": "blank",
+          "stage": 2,
+          "template": "Thời gian xuôi dòng (giờ) = ___"
+        },
+        {
+          "kind": "choice",
+          "stage": 3,
+          "prompt": "Phương trình nào biểu thị đúng chênh lệch thời gian?",
+          "options": [
+            "$\\dfrac{48}{x+2}-\\dfrac{60}{x-2}=1$",
+            "$\\dfrac{60}{x-2}-\\dfrac{48}{x+2}=1$",
+            "$\\dfrac{60}{x-2}+\\dfrac{48}{x+2}=1$"
+          ]
+        },
+        {
+          "kind": "blank",
+          "stage": 4,
+          "template": "Khử mẫu và thu gọn: ___ = 0"
+        },
+        {
+          "kind": "blank",
+          "stage": 5,
+          "template": "Vận tốc ca nô khi nước yên lặng (km/h) = ___"
+        }
+      ],
+      "problem_id": "bai_toan"
+    }
+  ],
+  "sources": [
+    {
+      "url": "https://vi.wikipedia.org/wiki/Chuy%E1%BB%83n_%C4%91%E1%BB%99ng_th%E1%BA%B3ng",
+      "title": "Chuyển động thẳng - Wikipedia tiếng Việt"
+    }
+  ],
+  "version": 1
+}

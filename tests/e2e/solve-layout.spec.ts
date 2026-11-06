@@ -99,3 +99,35 @@ for (const viewport of viewports) {
     await expect(page.getByLabel(copy.stepProgress(2, 4), { exact: true })).toBeVisible();
   });
 }
+
+test("geometry stays behind the sticky problem header", async ({ page }) => {
+  // A short viewport makes the fixture doc scrollable, so the figure can be scrolled up under the sticky header.
+  await page.setViewportSize({ width: 375, height: 520 });
+  await page.goto("/dev/fixtures?f=solve-patrol-boat-figure");
+  const board = page.locator('[data-block-id="so_do"] [role="region"]');
+  await expect(board.locator("svg")).toBeVisible();
+  await expect(board.getByText("Ngược dòng: 60 km")).toBeAttached();
+  await page.getByRole("button", { name: "Vận tốc ca nô khi nước yên lặng", exact: true }).click();
+  const header = page.locator('[data-block-id="bai_toan"] > div');
+  await expect(page.getByRole("button", { name: copy.expandProblem })).toHaveAttribute("aria-expanded", "false");
+  await page.evaluate(() => {
+    const scroller = document.querySelector("[data-pet-column]")!.parentElement!;
+    const header = document.querySelector('[data-block-id="bai_toan"] > div')!.getBoundingClientRect();
+    const board = document.querySelector('[data-block-id="so_do"] [role="region"]')!.getBoundingClientRect();
+    const stickyCenter = scroller.getBoundingClientRect().top + 60 + header.height / 2;
+    scroller.scrollTop += board.top + board.height / 2 - stickyCenter;
+  });
+  await expect.poll(async () => {
+    const a = await header.boundingBox();
+    const b = await board.boundingBox();
+    return !!a && !!b && intersects(a, b);
+  }).toBe(true);
+  // JSXGraph labels have pointer-events: none, so a hit test cannot see them. Compare what is painted instead: the header
+  // area must look identical with the figure shown and with the figure hidden (nothing of the figure paints over the header).
+  const clip = await header.boundingBox();
+  expect(clip).not.toBeNull();
+  const withFigure = await page.screenshot({ clip: clip! });
+  await board.evaluate((el) => { (el as HTMLElement).style.visibility = "hidden"; });
+  const withoutFigure = await page.screenshot({ clip: clip! });
+  expect(withFigure.equals(withoutFigure)).toBe(true);
+});

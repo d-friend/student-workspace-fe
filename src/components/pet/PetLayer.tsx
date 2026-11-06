@@ -203,6 +203,10 @@ export function PetLayer({
     !open && !travelling && (latest !== undefined || status !== null) && (key === null || key !== hiddenKey) && (!entry || talked);
   const chips =
     latest?.kind === "agent" && !latest.waiting && latest.id === state.bubbles.findLast((b) => b.kind === "agent")?.id;
+  const awaitingAnswer = Boolean(
+    (chips && (state.restateChips || state.offerChips || state.optChips)) ||
+    (latest?.kind === "agent" && latest.ask !== null),
+  );
   const docked = open && desktop && !entry;
 
   // The lane: beside the active line of the doc, only when nothing else has a claim on the pet.
@@ -212,6 +216,37 @@ export function PetLayer({
   const inlineSlot = anchor?.hasAttribute("data-pet-inline") ? anchor.querySelector<HTMLElement>("[data-pet-slot]") : null;
   const spokenSlot = anchor?.querySelector<HTMLElement>("[data-pet-spoken-slot]") ?? null;
   const inlineOn = !entry && !travelling && inlineSlot !== null && spokenSlot !== null;
+  const itemId = inlineSlot !== null && spokenSlot !== null
+    ? JSON.stringify([anchor?.closest<HTMLElement>("[data-block-id]")?.dataset.blockId, anchor?.dataset.n])
+    : null;
+  const [seenItem, setSeenItem] = useState<{ anchor: HTMLElement | null; id: string | null }>({ anchor: null, id: null });
+  const [staleTurn, setStaleTurn] = useState<number | null>(null);
+  if (seenItem.anchor !== anchor || seenItem.id !== itemId) {
+    setSeenItem({ anchor, id: itemId });
+    // Speech from before this item belongs in the log, not under its choices. Pending questions
+    // remain interactive, using the same exceptions as autoHide below.
+    if (itemId !== null && !awaitingAnswer) {
+      setHiddenKey(key);
+      setStaleTurn(turn);
+    }
+  }
+  const [, setAnchorTick] = useState(0);
+  useEffect(() => {
+    if (!anchor) return;
+    const n = anchor.dataset.n;
+    const inlineAttribute = anchor.hasAttribute("data-pet-inline");
+    // Steps can advance using local state after publishing the verdict. Its registered DOM node
+    // stays the same, so observe it rather than depending on a coincidental PetLayer render.
+    const observer = new MutationObserver(() => {
+      if (
+        anchor.dataset.n !== n || anchor.hasAttribute("data-pet-inline") !== inlineAttribute ||
+        anchor.querySelector("[data-pet-slot]") !== inlineSlot ||
+        anchor.querySelector("[data-pet-spoken-slot]") !== spokenSlot
+      ) setAnchorTick((tick) => tick + 1);
+    });
+    observer.observe(anchor, { attributes: true, attributeFilter: ["data-n", "data-pet-inline"], childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [anchor, itemId, inlineSlot, spokenSlot]);
   const laneOn = !entry && !open && !leaving && !travelling && anchor !== null && scroller !== null;
   const [place, setPlace] = useState<Place>({ mode: "dock" });
   const [stageSize, setStageSize] = useState({ w: 0, h: 0 });
@@ -328,7 +363,10 @@ export function PetLayer({
       )}
     </button>
   );
-  const spokenBubble = showBubble ? (
+  // An announce and its completion can straddle the item's appearance. Both belong to the
+  // stale turn even when the completion has a new message key. Choices/questions still stay.
+  const showSpoken = showBubble && !(inline && staleTurn !== null && turn === staleTurn && !awaitingAnswer);
+  const spokenBubble = showSpoken ? (
     <PetBubble
       key={turn}
       inline={inline}
@@ -340,11 +378,7 @@ export function PetLayer({
       }}
       // The entry keeps its message: there it can be the only place an instruction (a retake) is shown. So does
       // a bubble that is asking the student to choose (its chips) or a question: it stays until they answer or close it.
-      autoHide={
-        !entry &&
-        !(chips && (state.restateChips || state.offerChips || state.optChips)) &&
-        !(latest?.kind === "agent" && latest.ask !== null)
-      }
+      autoHide={!entry && !awaitingAnswer}
       onHide={() => setHiddenKey(key)}
       side={lane?.side}
       flip={laneBubble?.up}

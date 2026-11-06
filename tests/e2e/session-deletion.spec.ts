@@ -20,6 +20,8 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await page.getByLabel(copy.inputLabel).press("Enter");
       await expect(page.getByRole("heading", { name: "Ca nô xuôi và ngược dòng", exact: true })).toBeVisible();
       await expect(page.getByRole("button", { name: copy.newProblem, exact: true, includeHidden: true })).toBeEnabled();
+      // The server stores the turn when its stream ends; /current answers 204 (no body) until then.
+      await expect.poll(async () => (await page.request.get("/api/sessions/current")).status()).toBe(200);
       const current = await (await page.request.get("/api/sessions/current")).json();
       await history(page);
       const remove = page.getByRole("button", { name: copy.historyDelete, exact: true });

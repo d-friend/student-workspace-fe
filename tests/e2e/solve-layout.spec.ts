@@ -78,7 +78,7 @@ for (const viewport of viewports) {
     const options = active.getByRole("group").getByRole("button");
     const pet = active.getByRole("button", { name: copy.petOpen });
     const prompt = active.locator("p[id]");
-    await expect(page.getByText(copy.stepProgress(1, 4), { exact: true })).toBeVisible();
+    await expect(page.getByLabel(copy.stepProgress(1, 4), { exact: true })).toBeVisible();
     await expect(pet).toBeVisible();
     await expect(prompt).toBeVisible();
     await expect(options.first()).toBeVisible();
@@ -96,6 +96,6 @@ for (const viewport of viewports) {
     await page.getByRole("button", { name: "Vận tốc ca nô khi nước yên lặng", exact: true }).click();
     await expect(page.getByLabel(copy.stateOk, { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: copy.expandProblem })).toHaveAttribute("aria-expanded", "false");
-    await expect(page.getByText(copy.stepProgress(2, 4), { exact: true })).toBeVisible();
+    await expect(page.getByLabel(copy.stepProgress(2, 4), { exact: true })).toBeVisible();
   });
 }

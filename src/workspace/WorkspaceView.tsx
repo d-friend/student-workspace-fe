@@ -1,14 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { usePetScrollerRef } from "@/components/pet/PetAnchor";
+import { usePetAnchorRef, usePetScrollerRef } from "@/components/pet/PetAnchor";
 import { copy } from "@/lib/copy";
 import { ShareButton } from "@/components/work/ShareButton";
+import { SelectionAsk, type SelectionQuote } from "./SelectionAsk";
 import { BlockBoundary } from "./BlockBoundary";
 import { renderBlock } from "./blocks";
+import { acceptedSteps, StepProgress } from "./StepProgress";
+import { Problem } from "./blocks/Problem";
 import { DoneBanner } from "./DoneBanner";
 import { MdInline } from "./md";
-import { HelpBar } from "./HelpBar";
+import { ActionBar } from "./ActionBar";
 import { PhaseSwitch } from "./PhaseSwitch";
-import type { BlockCtx, Phase, Workspace } from "./types";
+import type { Block, BlockCtx, Phase, SavedBlockState, Workspace } from "./types";
 import { canReturnToProblem } from "./navigation";
 import styles from "./WorkspaceView.module.css";
 
@@ -21,6 +24,7 @@ type Props = {
   busy?: boolean;
   brokenTabs?: Record<string, true>;
   onRebuild?: (id: string) => void;
+  onSelectionAsk?: (quote: SelectionQuote) => void;
 };
 
 function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onRebuild }: {
@@ -36,6 +40,9 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
   onRebuild?: (id: string) => void;
 }) {
   const [presses, setPresses] = useState(0);
+  const [freeBlocks, setFreeBlocks] = useState<Record<string, boolean>>({});
+  const [savedBlocks, setSavedBlocks] = useState<Record<string, SavedBlockState>>({});
+  const state = { ...w.state, blocks: { ...w.state?.blocks, ...savedBlocks } };
   const stepsIds = w.doc.blocks.filter((b) => b.type === "steps").map((b) => b.id);
   const restoredIds = stepsIds.filter((id) => {
     const saved = w.state?.blocks?.[id];
@@ -53,6 +60,12 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
     w.doc.blocks.filter((b) => b.type === "quiz").every((b) => restoredQuizzes.has(b.id)));
   const level = Math.min(presses, 3);
   const working = p !== "learn";
+  const doneAnchorRef = usePetAnchorRef(working && allDone && !hidden);
+  const finishedSteps = w.doc.blocks.find((b): b is Extract<Block, { type: "steps" }> => {
+    const saved = state.blocks[b.id];
+    return b.type === "steps" && saved?.type === "steps" && saved.done && !!saved.takeaway;
+  });
+  const finishedState = finishedSteps && state.blocks[finishedSteps.id];
   const stepsId = w.doc.blocks.find((b) => b.type === "steps")?.id ?? "";
 
   useEffect(() => {
@@ -81,7 +94,11 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
   };
   const ctx: BlockCtx = {
     ...base,
-    state: w.state,
+    state,
+    saveBlock: (id, saved) => {
+      setSavedBlocks((previous) => ({ ...previous, [id]: saved }));
+      base.saveBlock?.(id, saved);
+    },
     report,
     hintCount: presses,
     help,
@@ -102,17 +119,38 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
         <h1 className={styles.title}><MdInline text={w.doc.title} /></h1>
         <ShareButton workspaceId={w.id} title={w.doc.title} disabled={w.doc.blocks.some((block) => block.type === "custom" && block.html == null)} />
       </header>
-      {w.doc.blocks.map((b) => (
-        <BlockBoundary key={b.id} blockId={b.id} report={ctx.report}>
+      {w.doc.blocks.map((b) => {
+        const steps = b.type === "problem" ? w.doc.blocks.find((item) => item.type === "steps" && item.problem_id === b.id) : undefined;
+        const problem = b.type === "steps" ? w.doc.blocks.find((item) => item.type === "problem" && item.id === b.problem_id) : undefined;
+        const sticky = working && steps?.type === "steps" && acceptedSteps(steps, state, ctx.overrides[steps.id]) > 0;
+        const firstSteps = problem && w.doc.blocks.find((item) => item.type === "steps" && item.problem_id === problem.id);
+        const progressMoved = working && b.type === "steps" && firstSteps?.id === b.id && acceptedSteps(b, state, ctx.overrides[b.id]) > 0;
+        return (
+        <div key={b.id} className={styles.block} data-block-id={b.id} data-sel={b.type === "problem" ? "problem" : p === "learn" ? "lesson" : "explanation"}>
+        <BlockBoundary blockId={b.id} report={ctx.report}>
+          {sticky && b.type === "problem" && steps?.type === "steps" ? (
+            <div className={styles.stickyProblem}>
+              <Problem block={b} ctx={ctx} collapsible />
+              <StepProgress block={steps} state={state} overrides={ctx.overrides[steps.id]} />
+            </div>
+          ) : <>
+          {working && b.type === "steps" && !progressMoved && <StepProgress block={b} state={state} overrides={ctx.overrides[b.id]} />}
           {renderBlock(b, b.type === "steps" ? {
             ...ctx,
             finished: completedIds.has(b.id),
-            help: { ...help, onHint: () => onHint(b.id) },
+            help: { ...help, onHint: () => onHint(b.id), free: freeBlocks[b.id] || (state.blocks[b.id]?.type === "steps" && (state.blocks[b.id] as Extract<SavedBlockState, { type: "steps" }>).free) },
           } : ctx)}
+          </>}
         </BlockBoundary>
-      ))}
-      {working && !stepsId && <HelpBar level={help.level} onHint={help.onHint} onIdea={help.onIdea} ideaPending={help.ideaPending} />}
-      {allDone && <DoneBanner hints={presses} />}
+        </div>
+      ); })}
+      {allDone && <DoneBanner hints={presses} takeaway={finishedState?.type === "steps" ? finishedState.takeaway : undefined} roadmap={finishedSteps?.roadmap} />}
+      {working && allDone && (
+        <div ref={doneAnchorRef} data-pet-anchor data-pet-done data-pet-inline className={styles.donePet}>
+          <div data-pet-slot />
+          <div data-pet-spoken-slot className={styles.doneSpoken} />
+        </div>
+      )}
       {p === "learn" && w.doc.sources.length > 0 && (
         <aside className={styles.sources}>
           <h2>{copy.sources}</h2>
@@ -138,11 +176,22 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
           {copy.backToProblem}
         </button>
       )}
+      {working && !allDone && (() => {
+        const active = w.doc.blocks.find((b): b is Extract<Block, { type: "steps" }> => b.type === "steps" && !completedIds.has(b.id));
+        const saved = active && state.blocks[active.id];
+        const free = active && (freeBlocks[active.id] || (saved?.type === "steps" && saved.free));
+        const pos = active ? acceptedSteps(active, state, ctx.overrides[active.id]) : 0;
+        const onOtherWay = active && !free && pos < (active.scaffold?.length ?? 0) ? () => {
+          setFreeBlocks((previous) => ({ ...previous, [active.id]: true }));
+          ctx.report("other_way_chosen", { block_id: active.id, line: pos + 1 });
+        } : undefined;
+        return <ActionBar {...help} onHint={() => onHint(active?.id ?? "")} onOtherWay={onOtherWay} sticky />;
+      })()}
     </section>
   );
 }
 
-export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild }: Props) {
+export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild, onSelectionAsk }: Props) {
   // Hidden docs share this scroller; keep an independent offset for each workspace.
   const scroller = useRef<HTMLDivElement>(null);
   const tops = useRef<Record<string, number>>({});
@@ -158,7 +207,8 @@ export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {}
         scroller.current = el;
         petScroller?.(el);
       }}
-      className={styles.scroll} onScroll={(e) => (tops.current[shown.current] = e.currentTarget.scrollTop)}>
+      className={styles.scroll} data-flat={tabs.find((tab) => tab.id === activeId)?.phase !== "learn" || undefined} onScroll={(e) => (tops.current[shown.current] = e.currentTarget.scrollTop)}>
+      <SelectionAsk scroller={scroller} activeId={activeId} onAsk={onSelectionAsk} />
       <div className={styles.view} data-pet-column>
         <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} />
         {tabs.map((w) => (

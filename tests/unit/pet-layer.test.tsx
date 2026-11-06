@@ -512,28 +512,254 @@ describe("PetLayer in the lane", () => {
     vi.useRealTimers();
   });
 
-  function Doc({ active, scroller }: { active: boolean; scroller: boolean }) {
+  function Doc({ active, scroller, inline = false, slots = true, done = false }: { active: boolean; scroller: boolean; inline?: boolean; slots?: boolean; done?: boolean }) {
     const setScroller = usePetScrollerRef();
-    const anchorRef = usePetAnchorRef(active);
+    const anchorRef = usePetAnchorRef(active && !done);
+    const doneRef = usePetAnchorRef(active && done);
     return (
       <div data-testid="scroller" ref={scroller ? (el) => setScroller?.(el) : undefined}>
-        <div data-pet-column>
-          <div ref={anchorRef} data-pet-anchor />
+        <div data-pet-column data-block-id="steps-1">
+          <div key={done ? "done" : "question"} ref={done ? doneRef : anchorRef} data-pet-anchor data-pet-done={done ? "" : undefined} data-pet-inline={inline ? "" : undefined} data-n={done ? undefined : "1"}>
+            {inline && slots && <><div data-pet-slot /><div data-pet-spoken-slot /></>}
+          </div>
         </div>
       </div>
     );
   }
-  function ui(extra: Partial<WorkspaceState> = {}, bubbles: Bubble[] = [], o: { active?: boolean; scroller?: boolean; flying?: boolean } = {}) {
+  function ui(extra: Partial<WorkspaceState> = {}, bubbles: Bubble[] = [], o: { active?: boolean; scroller?: boolean; flying?: boolean; inline?: boolean; slots?: boolean; done?: boolean } = {}) {
     const s = setup(bubbles, extra);
     return (
       <PetAnchorProvider>
-        <Doc active={o.active ?? true} scroller={o.scroller ?? true} />
+        <Doc active={o.active ?? true} scroller={o.scroller ?? true} inline={o.inline} slots={o.slots} done={o.done} />
         <PetLayer state={s.state} {...s.props} flying={o.flying} />
       </PetAnchorProvider>
     );
   }
   const layer = (c: HTMLElement) => c.querySelector<HTMLElement>("[data-place]")!;
   const scroller = () => screen.getByTestId("scroller");
+
+  it.each([false, true])("hides speech from before the inline slots appeared (slots on mount: %s), keeping the drawer log", async (slots) => {
+    mockRects(() => {});
+    const say = [agent(1, "Mình dựng nhé. Xong rồi.")];
+    const { container, rerender } = render(ui({}, say, { inline: true, slots }));
+    if (!slots) {
+      expect(screen.getByRole("status")).toBeTruthy();
+      await act(async () => { rerender(ui({}, say, { inline: true })); });
+    }
+    const spoken = container.querySelector<HTMLElement>("[data-pet-spoken-slot]")!;
+    expect(within(spoken).queryByRole("status")).toBeNull();
+    fireEvent.click(pet());
+    expect(within(screen.getByRole("log")).getByText("Mình dựng nhé. Xong rồi.")).toBeTruthy();
+  });
+
+  it("shows speech that arrives after the inline item appeared", () => {
+    mockRects(() => {});
+    const { container, rerender } = render(ui({}, [], { inline: true }));
+    rerender(ui({}, [agent(1, "Thử thay x vào nhé")], { inline: true }));
+    expect(within(container.querySelector<HTMLElement>("[data-pet-spoken-slot]")!).getByText("Thử thay x vào nhé")).toBeTruthy();
+  });
+
+  it("keeps both build messages hidden when their turn straddles the inline slot appearance", async () => {
+    mockRects(() => {});
+    const announce = agent(1, "Mình dựng nhé.", { turn: 4 });
+    const completed = agent(2, "Xong rồi.", { turn: 4 });
+    const { container, rerender } = render(ui({}, [announce], { inline: true, slots: false }));
+    expect(screen.getByText("Mình dựng nhé.")).toBeTruthy();
+    await act(async () => { rerender(ui({}, [announce], { inline: true })); });
+    const spoken = container.querySelector<HTMLElement>("[data-pet-spoken-slot]")!;
+    expect(within(spoken).queryByRole("status")).toBeNull();
+    rerender(ui({}, [announce, completed], { inline: true }));
+    expect(within(spoken).queryByRole("status")).toBeNull();
+    fireEvent.click(pet());
+    const log = within(screen.getByRole("log"));
+    expect(log.getByText("Mình dựng nhé.")).toBeTruthy();
+    expect(log.getByText("Xong rồi.")).toBeTruthy();
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    rerender(ui({}, [announce, completed, agent(3, "Thử thay x vào nhé", { turn: 5 })], { inline: true }));
+    expect(within(spoken).getByText("Thử thay x vào nhé")).toBeTruthy();
+  });
+
+  it("does not suppress a stale turn when returning to floating placement", async () => {
+    mockRects(() => {});
+    const announce = agent(1, "Mình dựng nhé.");
+    const { rerender } = render(ui({}, [announce], { inline: true }));
+    const build = [announce, agent(2, "Xong rồi.")];
+    rerender(ui({}, build, { inline: true }));
+    expect(screen.queryByRole("status")).toBeNull();
+    await act(async () => { rerender(ui({}, build, { inline: true, slots: false })); });
+    expect(within(screen.getByRole("status")).getByText("Xong rồi.")).toBeTruthy();
+  });
+
+  it("hides the old speech on a data-n change alone and shows the next reply", async () => {
+    mockRects(() => {});
+    const { container, rerender } = render(ui({}, [], { inline: true }));
+    const old = agent(1, "Thử thay x vào nhé");
+    rerender(ui({}, [old], { inline: true }));
+    const spoken = container.querySelector<HTMLElement>("[data-pet-spoken-slot]")!;
+    expect(within(spoken).getByText("Thử thay x vào nhé")).toBeTruthy();
+    await act(async () => { container.querySelector<HTMLElement>("[data-pet-anchor]")!.dataset.n = "2"; });
+    expect(within(spoken).queryByRole("status")).toBeNull();
+    const continuation = agent(2, "Đúng hướng rồi", { turn: 1 });
+    rerender(ui({}, [old, continuation], { inline: true }));
+    expect(within(spoken).queryByRole("status")).toBeNull();
+    rerender(ui({}, [old, continuation, agent(3, "Giờ rút gọn nhé", { turn: 2 })], { inline: true }));
+    expect(within(spoken).getByText("Giờ rút gọn nhé")).toBeTruthy();
+  });
+
+  it.each([
+    { optChips: ["A", "B"] },
+    { offerChips: true },
+    { restateChips: true },
+  ])("keeps pending chips on an item change: %j", async (extra) => {
+    mockRects(() => {});
+    const { container } = render(ui(extra, [agent(1, "Em chọn nhé")], { inline: true }));
+    const spoken = container.querySelector<HTMLElement>("[data-pet-spoken-slot]")!;
+    await act(async () => { container.querySelector<HTMLElement>("[data-pet-anchor]")!.dataset.n = "2"; });
+    expect(within(spoken).getByText("Em chọn nhé")).toBeTruthy();
+    expect(within(spoken).getAllByRole("button").length).toBeGreaterThan(1);
+  });
+
+  it.each([
+    { optChips: ["A", "B"] },
+    { offerChips: true },
+    { restateChips: true },
+  ])("shows pending chips arriving later in the stale build turn: %j", async (extra) => {
+    mockRects(() => {});
+    const announce = agent(1, "Mình dựng nhé.", { turn: 4 });
+    const { container, rerender } = render(ui({}, [announce], { inline: true, slots: false }));
+    await act(async () => { rerender(ui({}, [announce], { inline: true })); });
+    const spoken = container.querySelector<HTMLElement>("[data-pet-spoken-slot]")!;
+    expect(within(spoken).queryByRole("status")).toBeNull();
+    rerender(ui(extra, [announce, agent(2, "Em chọn nhé", { turn: 4 })], { inline: true }));
+    expect(within(spoken).getByText("Em chọn nhé")).toBeTruthy();
+    expect(within(spoken).getAllByRole("button").length).toBeGreaterThan(1);
+  });
+
+  it("keeps an unanswered ask on an item change", async () => {
+    mockRects(() => {});
+    const { container } = render(ui({}, [agent(1, "Em nghĩ sao?", { ask: "how" })], { inline: true }));
+    await act(async () => { container.querySelector<HTMLElement>("[data-pet-anchor]")!.dataset.n = "2"; });
+    expect(within(container.querySelector<HTMLElement>("[data-pet-spoken-slot]")!).getByText("Em nghĩ sao?")).toBeTruthy();
+  });
+
+  it.each([375, 1700])("at %ipx portals PATCH and its reply/chips inline, with nothing floating", (width) => {
+    mockRects(() => { live.layer.right = live.scroller.right = width; });
+    const { container } = render(ui({ optChips: ["A", "B"], offerChips: true }, [agent(1, "Em thử bước này nhé", { opts: ["A", "B"], offer: true })], { inline: true }));
+    const slot = container.querySelector("[data-pet-slot]")!;
+    const spoken = container.querySelector("[data-pet-spoken-slot]")!;
+    expect(slot.contains(pet())).toBe(true);
+    expect(layer(container).dataset.place).toBe("inline");
+    expect(layer(container).querySelector("button")).toBeNull();
+    expect(layer(container).querySelector("[data-bubble]")).toBeNull();
+    expect(spoken.contains(screen.getByRole("status"))).toBe(true);
+    expect(within(spoken as HTMLElement).getByRole("button", { name: "A" })).toBeTruthy();
+    expect(within(spoken as HTMLElement).getByRole("button", { name: copy.offerYes })).toBeTruthy();
+    expect(scroller().style.getPropertyValue("--pet-clear")).toBe("0px");
+    fireEvent.click(pet());
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    // Opening chat never brings a second, floating PATCH back.
+    expect(layer(container).querySelector("button > [data-state]")).toBeNull();
+    expect(slot.querySelector("button")).toBeTruthy();
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(document.activeElement).toBe(pet());
+  });
+
+  it.each([375, 1280, 1700])("at %ipx the done slot owns PATCH, closing speech and chips without a lane", (width) => {
+    mockRects(() => { live.layer.right = live.scroller.right = width; });
+    const options = ["Học tiếp: Đạo hàm", "Bài tương tự"];
+    const { container } = render(ui({ optChips: options }, [agent(9, "Bạn giải xong rồi.", { turn: 5 })], { inline: true, done: true }));
+    const done = container.querySelector<HTMLElement>("[data-pet-done]")!;
+    expect(done.querySelector("[data-pet-slot]")!.contains(pet())).toBe(true);
+    const spoken = done.querySelector<HTMLElement>("[data-pet-spoken-slot]")!;
+    expect(within(spoken).getByText("Bạn giải xong rồi.")).toBeTruthy();
+    for (const name of [...options, copy.writeOwn]) expect(within(spoken).getByRole("button", { name })).toBeTruthy();
+    expect(layer(container).dataset.place).toBe("inline");
+    expect(layer(container).hasAttribute("data-lane")).toBe(false);
+    expect(layer(container).children).toHaveLength(0);
+    expect(pet().style.top).toBe("");
+    expect(pet().style.left).toBe("");
+    expect(scroller().style.getPropertyValue("--pet-clear")).toBe("0px");
+    fireEvent.click(pet());
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(done.querySelector("[data-pet-slot] button")).toBeTruthy();
+  });
+
+  it.each(["before", "during", "after"])("keeps a chipless final reply arriving %s the question-to-done handoff", (timing) => {
+    mockRects(() => {});
+    const announce = agent(1, "Mình dựng nhé.", { turn: 4 });
+    const closing = agent(2, "Bạn giải xong rồi.", { turn: 4 });
+    const { container, rerender } = render(ui({}, [announce], { inline: true }));
+    expect(screen.queryByText(announce.text)).toBeNull();
+    if (timing === "before") rerender(ui({}, [announce, closing], { inline: true }));
+    rerender(ui({}, timing === "after" ? [announce] : [announce, closing], { inline: true, done: true }));
+    if (timing === "after") rerender(ui({}, [announce, closing], { inline: true, done: true }));
+    const spoken = container.querySelector<HTMLElement>("[data-pet-done] [data-pet-spoken-slot]")!;
+    expect(within(spoken).getByText(closing.text)).toBeTruthy();
+    expect(layer(container).querySelector("[data-bubble]")).toBeNull();
+  });
+
+  it("restores speech hidden automatically by the question anchor when its key survives into done", () => {
+    mockRects(() => {});
+    const closing = [agent(2, "Bạn giải xong rồi.", { turn: 4 })];
+    const { container, rerender } = render(ui({}, closing, { inline: true }));
+    expect(screen.queryByText("Bạn giải xong rồi.")).toBeNull();
+    rerender(ui({}, closing, { inline: true, done: true }));
+    expect(within(container.querySelector<HTMLElement>("[data-pet-done]")!).getByText("Bạn giải xong rồi.")).toBeTruthy();
+  });
+
+  it.each([375, 1700])("learn's non-inline anchor keeps floating speech at %ipx", (width) => {
+    mockRects(() => { live.layer.right = live.scroller.right = width; });
+    const { container } = render(ui({}, [agent(1, "Mình học tiếp nhé.")]));
+    expect(layer(container).contains(pet())).toBe(true);
+    expect(layer(container).contains(screen.getByText("Mình học tiếp nhé."))).toBe(true);
+    expect(layer(container).dataset.place).toBe("dock");
+    expect(container.querySelector("[data-pet-slot]")).toBeNull();
+  });
+
+  it("preserves a manually dismissed closing reply across the done handoff", () => {
+    mockRects(() => {});
+    const { container, rerender } = render(ui({}, [], { inline: true }));
+    const closing = [agent(2, "Bạn giải xong rồi.", { turn: 2 })];
+    rerender(ui({}, closing, { inline: true }));
+    fireEvent.click(screen.getByRole("button", { name: copy.bubbleClose }));
+    rerender(ui({}, closing, { inline: true, done: true }));
+    expect(container.querySelector("[data-pet-done] [data-bubble]")).toBeNull();
+    expect(container.querySelector("[data-pet-done] [data-pet-slot]")!.contains(pet())).toBe(true);
+  });
+
+  it("a done anchor missing its slots keeps the floating fallback", () => {
+    mockRects(() => {});
+    const { container } = render(ui({}, [agent(1, "Xong rồi")], { inline: true, done: true, slots: false }));
+    expect(layer(container).contains(pet())).toBe(true);
+    expect(layer(container).querySelector("[data-bubble]")).toBeTruthy();
+  });
+
+  it("flies to the dock first, then moves inline when the unfold settles", () => {
+    mockRects(() => {});
+    const { container, rerender } = render(ui({}, [], { inline: true, flying: true }));
+    expect(layer(container).contains(pet())).toBe(true);
+    expect(container.querySelector("[data-pet-slot] button")).toBeNull();
+    rerender(ui({}, [], { inline: true, flying: false }));
+    expect(container.querySelector("[data-pet-slot]")!.contains(pet())).toBe(true);
+    expect(layer(container).querySelector("button")).toBeNull();
+  });
+
+  it("a missing inline slot falls back to the existing placement", () => {
+    mockRects(() => {});
+    const { container } = render(ui({}, [], { inline: true, slots: false }));
+    expect(layer(container).contains(pet())).toBe(true);
+    expect(pet().style.left).toBe("1152px");
+  });
+
+  it("switching away without a done slot restores the floating pet", () => {
+    mockRects(() => {});
+    const { container, rerender } = render(ui({}, [], { inline: true }));
+    expect(layer(container).contains(pet())).toBe(false);
+    rerender(ui({}, [], { inline: true, active: false }));
+    expect(layer(container).contains(pet())).toBe(true);
+    rerender(ui());
+    expect(layer(container).hasAttribute("data-lane")).toBe(true);
+  });
 
   it("(a) with an anchor and a wide stage the pet is placed beside the line, right of the column", () => {
     mockRects(() => {});
@@ -748,4 +974,12 @@ describe("PetBubble.module.css cascade", () => {
     const reduced = css.slice(css.indexOf("prefers-reduced-motion"));
     expect(reduced).toMatch(/\.bubble\[data-side\]:not\(\.leaving\)\s*\{[^}]*animation-name:\s*fadeIn/);
   });
+});
+
+it("opens the drawer with a selected quote and prefilled question", () => {
+  const s = setup([agent(1, "Hello")]);
+  const { rerender } = render(s.ui);
+  rerender(<PetLayer state={s.state} {...s.props} selectionOpen={1} quote="a passage" onDismissQuote={vi.fn()} composer={{ ...s.props.composer, value: copy.selectionQuestion }} />);
+  expect(screen.getByText("a passage")).toBeTruthy();
+  expect(screen.getByRole("textbox")).toHaveProperty("value", copy.selectionQuestion);
 });

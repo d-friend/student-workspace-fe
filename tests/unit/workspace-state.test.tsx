@@ -1,6 +1,8 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useSyncExternalStore } from "react";
+import { act, cleanup, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
+import { usePet } from "@/hooks/usePet";
 import { createWorkspace } from "@/hooks/useWorkspace";
 import { currentSession, putWorkspaceState } from "@/lib/api";
 import { copy } from "@/lib/copy";
@@ -95,7 +97,7 @@ it("restores committed scaffold lines and saves the next answer with its verdict
   const context = ctx({ blocks: { s1: stepsState } });
   render(<Steps block={steps} ctx={context} />);
   expect(screen.getByText("x = 2")).toBeTruthy();
-  expect(screen.getByText(copy.stateOk)).toBeTruthy();
+  expect(screen.getByLabelText(copy.stateOk)).toBeTruthy();
   expect(context.saveBlock).not.toHaveBeenCalled();
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "C" })); });
   expect(context.saveBlock).toHaveBeenCalledWith("s1", { type: "steps", entries: [...stepsState.entries, { text: "C", state: "ok", answer: "0", item: 1 }], done: false, free: false });
@@ -143,4 +145,24 @@ it("redraws restored tab work without reporting completion or saving again", () 
   expect(screen.queryByRole("button", { name: "C" })).toBeNull();
   expect(context.report).not.toHaveBeenCalled();
   expect(context.saveBlock).not.toHaveBeenCalled();
+});
+
+
+it("a wrong scaffold choice drives PATCH to doubt; a correct retry celebrates", async () => {
+  vi.useFakeTimers();
+  const { ws, api } = controller();
+  await vi.advanceTimersByTimeAsync(0);
+  api.check.mockResolvedValueOnce({ ok: false, state: "review", done: false })
+    .mockResolvedValueOnce({ ok: true, state: "ok", done: false });
+  const mood = renderHook(() => usePet(useSyncExternalStore(ws.subscribe, ws.getState, ws.getState)));
+  const context = ctx();
+  context.check = (id, answer, previous, item) => ws.actions.check("w1", id, answer, previous, item);
+  render(<Steps block={{ ...steps, scaffold: [{ kind: "choice", prompt: "Choose", options: ["Wrong", "Right"] }] }} ctx={context} />);
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Wrong" })); });
+  expect(api.check).toHaveBeenLastCalledWith("s", { workspaceId: "w1", blockId: "s1", answer: "0", previous: [], item: 0 });
+  expect(mood.result.current.mood).toBe("doubt");
+  expect(mood.result.current.celebrateKey).toBe(0);
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Right" })); });
+  expect(mood.result.current.mood).toBe("happy");
+  expect(mood.result.current.celebrateKey).toBe(1);
 });

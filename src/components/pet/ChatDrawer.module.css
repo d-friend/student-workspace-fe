@@ -235,3 +235,7 @@
     opacity: 0;
   }
 }
+
+.quote { display: flex; align-items: start; gap: 8px; margin: 8px 16px; padding: 8px 12px; border-left: 2px solid var(--border); color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.quote span { flex: 1; min-width: 0; }
+.quote button { border: 0; background: transparent; color: inherit; cursor: pointer; }

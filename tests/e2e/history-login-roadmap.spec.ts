@@ -6,7 +6,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { copy } from "../../src/lib/copy";
 
 // Uses the real mock backend, SSE, persistence and Next rewrite from playwright.config.ts.
-const SOLVE = "Tiếp tuyến của y = x³ − 2x";
+const SOLVE = "Ca nô xuôi và ngược dòng";
 const LEARN = "Phương trình bậc nhất";
 const NEXT = "Học tiếp: Đạo hàm của hàm hợp";
 const composer = (page: Page) => page.getByLabel(copy.inputLabel);
@@ -34,7 +34,8 @@ async function chat(page: Page) {
 }
 
 async function closeChat(page: Page) {
-  await page.keyboard.press("Escape");
+  // The drawer only handles Escape with focus inside it: press on its composer, which waits until the turn lets it take input.
+  await composer(page).press("Escape");
   await expect(page.getByRole("dialog", { name: copy.drawerLabel })).toHaveCount(0);
 }
 
@@ -77,14 +78,15 @@ test("two solve tabs and one learn tab keep distinct identities and local work w
   for (const [index, draft] of ["first solve draft", "second solve draft"].entries()) {
     await solves.nth(index).click();
     await expect(solves.nth(index)).toHaveAttribute("aria-selected", "true");
-    await page.getByRole("tabpanel").getByLabel(copy.blankLabel(1)).fill(draft);
+    await page.getByRole("tabpanel").locator("[data-action-bar]").getByRole("button", { name: copy.otherWay }).click();
+    await page.getByRole("tabpanel").getByLabel(copy.lineLabel(1)).fill(draft);
     await expect.poll(async () => (await current(page)).active_workspace_id).toBe(saved.tabs[index].workspace_id);
   }
   await page.getByRole("tab", { name: LEARN, exact: true }).click();
   await expect(page.getByRole("tabpanel").getByRole("heading", { name: "Ý tưởng" })).toBeVisible();
   for (const [index, draft] of ["first solve draft", "second solve draft"].entries()) {
     await solves.nth(index).click();
-    await expect(page.getByRole("tabpanel").getByLabel(copy.blankLabel(1))).toHaveValue(draft);
+    await expect(page.getByRole("tabpanel").getByLabel(copy.lineLabel(1))).toHaveValue(draft);
   }
 });
 
@@ -93,8 +95,10 @@ test("finishing a solve offers next-topic chips and the lesson chip builds a lea
   await expect(page.getByRole("heading", { name: copy.entryTitle })).toBeVisible();
   await send(page, "__build");
   // A real student check finishes the problem; no synthetic task_completed or stubbed SSE.
-  await page.getByRole("button", { name: copy.otherWay }).click();
-  await page.getByLabel(copy.lineLabel(1)).fill("y=10*x-16");
+  for (const option of ["Vận tốc ca nô khi nước yên lặng", "Dòng nước cùng chiều chuyển động", "Tổng thời gian hai lượt là 4 giờ"]) {
+    await page.getByRole("button", { name: option, exact: true }).click();
+  }
+  await page.getByLabel(copy.blankLabel(4)).fill("12");
   await page.getByRole("button", { name: copy.check, exact: true }).click();
   await expect(page.getByText(copy.doneLabel, { exact: true })).toBeVisible();
   await chat(page);

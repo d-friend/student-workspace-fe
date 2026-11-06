@@ -20,6 +20,7 @@ export function PetBubble({
   onClose,
   autoHide,
   onHide,
+  inline = false,
   side,
   flip,
   style,
@@ -30,6 +31,8 @@ export function PetBubble({
   onClose: () => void;
   autoHide: boolean;
   onHide: () => void;
+  // Inline replies take space in the step instead of floating over the stage.
+  inline?: boolean;
   // In the lane (PetLayer): which side of the pet it opens on, whether it opens upward, and where it stands.
   side?: "right" | "above";
   flip?: boolean;
@@ -63,6 +66,7 @@ export function PetBubble({
     <div
       role={error ? "alert" : "status"}
       data-bubble=""
+      data-inline={inline || undefined}
       data-side={side}
       data-flip={flip || undefined}
       style={style}

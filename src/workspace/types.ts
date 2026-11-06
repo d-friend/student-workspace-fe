@@ -3,7 +3,7 @@ export type Phase = "learn" | "solve" | "practice";
 export type QuizAnswer = "choice" | "number" | "exact" | "expr" | "open";
 export type GeometryTool = "point" | "segment" | "line" | "circle" | "midpoint" | "perpendicular" | "parallel" | "angle";
 
-export type ScaffoldItem = { kind: "choice"; prompt: string; options: string[] } | { kind: "blank"; template: string };
+export type ScaffoldItem = { kind: "choice"; prompt: string; options: string[]; stage?: number } | { kind: "blank"; template: string; stage?: number };
 
 // Mirrors backend/app/workspace_doc.py (spec-workspace section 3). Ids match ^[a-z][a-z0-9_]{0,23}$ and are unique per doc.
 export type Block =
@@ -15,7 +15,7 @@ export type Block =
   | { type: "example"; id: string; title: string; problem_md: string; steps: string[] }
   | { type: "quiz"; id: string; question_md: string; answer: QuizAnswer; options?: string[]; explanation_md: string }
   | { type: "problem"; id: string; md: string; image?: { src: string; alt: string } }
-  | { type: "steps"; id: string; problem_id: string; input: "math" | "text"; help?: string; scaffold?: ScaffoldItem[] }
+  | { type: "steps"; id: string; problem_id: string; input: "math" | "text"; help?: string; scaffold?: ScaffoldItem[]; roadmap?: string }
   | {
       type: "graph";
       id: string;
@@ -45,7 +45,7 @@ export type WorkspaceDoc = {
 
 export type SavedBlockState =
   | { type: "quiz"; tries: number; done: boolean; text: string; selected: string | null; answered: { option: string; ok: boolean } | null }
-  | { type: "steps"; entries: { text: string; state: "ok" | "review"; answer?: string; item?: number }[]; done: boolean; free: boolean };
+  | { type: "steps"; entries: { text: string; state: "ok" | "review"; answer?: string; item?: number }[]; done: boolean; free: boolean; takeaway?: string };
 
 export type StudentWork = {
   blocks?: Record<string, SavedBlockState>;
@@ -59,6 +59,8 @@ export type CheckResponse = {
   ok: boolean;
   state: "ok" | "review";
   done: boolean;
+  line?: string;
+  takeaway?: string;
   reached?: string | null;
   message?: string | null;
 };
@@ -75,7 +77,7 @@ export type BlockCtx = {
   overrides: Record<string, Record<number, "ok" | "review">>; // from SSE line_state, by block id
   hintCount: number; // "Gợi ý" presses in this doc
   onSolved: (blockId: string) => void; // a steps block reached its final checkpoint
-  help: { level: number; onHint: () => void; onIdea?: () => void; ideaPending: boolean } | null; // Doc sets it; Steps shows it in its active row
+  help: { level: number; onHint: () => void; onIdea?: () => void; ideaPending: boolean; free?: boolean } | null; // Doc provides working-mode action state
   finished?: boolean; // Doc sets it per steps block; completed blocks ask for no more lines
   hidden?: boolean; // Doc sets it: this doc is not the shown phase (it stays mounted), so its blocks give up the pet anchor
   simulationPending?: Record<string, boolean>;

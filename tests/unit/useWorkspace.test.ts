@@ -1655,3 +1655,14 @@ describe("problem handed over from the landing page (?q=)", () => {
   });
 
 });
+
+it("includes a selection event in the student's typed turn", async () => {
+  const t = await boot();
+  const quote = { text: "a passage", where: "explanation", block_id: "b1" };
+  t.ws.actions.setInput(copy.selectionQuestion);
+  t.ws.actions.report("selection_asked", quote);
+  await t.ws.actions.submit();
+  expect(lastContent(t.api)).toContain('"type":"selection_asked"');
+  expect(lastContent(t.api)).toContain('"data":{"text":"a passage","where":"explanation","block_id":"b1"}');
+  expect(lastContent(t.api)).toContain(copy.selectionQuestion);
+});

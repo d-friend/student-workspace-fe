@@ -20,9 +20,12 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const [failed, setFailed] = useState<Attempt | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(initial?.done ?? false);
-  const [free, setFree] = useState(initial?.free ?? false);
+  const [learnFree, setLearnFree] = useState(initial?.free ?? false);
+  const free = ctx.phase === "learn" ? learnFree : (ctx.help?.free ?? initial?.free ?? false);
+  const previousFree = useRef(free);
   const finished = done || !!ctx.finished; // the master can complete a block the code could not (prose lines)
   const anchorRef = usePetAnchorRef(!finished && !ctx.hidden);
+  const inline = ctx.phase === "solve" || ctx.phase === "practice";
   const inputId = useId();
   const promptId = useId();
   const group = useRef<HTMLDivElement>(null);
@@ -40,6 +43,14 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const [pre, post = ""] = item?.kind === "blank" ? item.template.split("___") : [];
 
   useEffect(() => {
+    if (free && !previousFree.current) {
+      setText("");
+      input.current?.focus();
+    }
+    previousFree.current = free;
+  }, [free]);
+
+  useEffect(() => {
     if (!refocus.current) return;
     refocus.current = false;
     (input.current ?? group.current?.querySelector("button"))?.focus(); // the disabled buttons dropped focus
@@ -54,9 +65,10 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
     try {
       const r = await ctx.check(block.id, a.answer, previous, ...(a.item === undefined ? [] : [a.item]));
       const retried = dirty.current || ctx.hintCount > hintBase.current;
-      const committed = [...entries.slice(0, pos), { text: a.text, state: r.state, answer: a.answer, ...(a.item !== undefined && { item: a.item }) }];
+      const line = r.state === "ok" && a.input === "choice" ? (r.line ?? a.text) : a.text;
+      const committed = [...entries.slice(0, pos), { text: line, state: r.state, answer: a.answer, ...(a.item !== undefined && { item: a.item }) }];
       setEntries(committed);
-      ctx.saveBlock?.(block.id, { type: "steps", entries: committed, done: r.done, free });
+      ctx.saveBlock?.(block.id, { type: "steps", entries: committed, done: r.done, free, ...(r.done && r.takeaway !== undefined && { takeaway: r.takeaway }) });
       ctx.report("line_checked", { block_id: block.id, line: pos + 1, text: a.text, ok: r.ok, state: r.state, retried, input: a.input });
       if (r.state === "ok") {
         dirty.current = false;
@@ -77,18 +89,16 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   }
 
   return (
-    <section className={styles.card}>
+    <section className={`${styles.card} ${ctx.phase !== "learn" ? styles.solveSteps : ""}`}>
       <ol className={styles.lines} aria-live="polite">
         {entries.map((e, i) => (
           <li key={`${i}-${effective[i]}`} className={`${styles.line} ${effective[i] === "review" ? styles.lineReview : ""}`}>
-            <span className={styles.n}>{i + 1}</span>
+            {ctx.phase === "learn" && <span className={styles.n}>{i + 1}</span>}
+            {ctx.phase !== "learn" && effective[i] === "ok" && <span className={styles.badge}><IconCheck size={20} stroke={2} role="img" aria-label={copy.stateOk} /></span>}
             <span className={styles.lineText}>
               <MathInline text={e.text} />
             </span>
-            <span className={`${styles.badge} ${effective[i] === "review" ? styles.badgeReview : ""}`}>
-              {effective[i] === "ok" ? <IconCheck size={20} stroke={2} aria-hidden="true" /> : <IconAlertCircle size={20} stroke={2} aria-hidden="true" />}
-              {effective[i] === "ok" ? copy.stateOk : copy.stateReview}
-            </span>
+            {(effective[i] === "review" || ctx.phase === "learn") && <span className={`${styles.badge} ${effective[i] === "review" ? styles.badgeReview : ""}`}>{effective[i] === "review" ? <IconAlertCircle size={20} stroke={2} aria-hidden="true" /> : <IconCheck size={20} stroke={2} aria-hidden="true" />}{effective[i] === "review" ? copy.stateReview : copy.stateOk}</span>}
           </li>
         ))}
         {failed !== null && (
@@ -101,16 +111,25 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
         )}
       </ol>
       {!finished && (
-        <div ref={anchorRef} data-pet-anchor data-n={pos + 1} className={styles.active}>
+        <div ref={anchorRef} data-pet-anchor data-pet-inline={inline ? "" : undefined} data-n={pos + 1} data-item={item ? pos : undefined} className={styles.active}>
+          {inline && (
+            <div className={styles.patchQuestion}>
+              <div data-pet-slot className={styles.patchSlot} />
+              <p id={promptId} data-sel="prompt" className={styles.patchPrompt}>
+                <MathInline text={item?.kind === "choice" ? item.prompt : item?.kind === "blank" ? copy.fillBlank : copy.lineLabel(pos + 1)} />
+              </p>
+            </div>
+          )}
           {item?.kind === "choice" ? (
             <>
-              <p id={promptId} className={styles.entryLabel}>
+              {!inline && <p id={promptId} data-sel="prompt" className={styles.entryLabel}>
                 <MathInline text={item.prompt} />
-              </p>
+              </p>}
               <div ref={group} role="group" aria-labelledby={promptId} className={styles.options}>
                 {item.options.map((o, i) => (
-                  <button key={i} type="button" className={styles.btn} disabled={busy} onClick={() => void run({ answer: String(i), text: o, input: "choice", item: pos })}>
-                    <MathInline text={o} />
+                  <button key={i} type="button" className={`${styles.btn} ${styles.option}`} disabled={busy} onClick={(event) => { const selection = window.getSelection(); if (selection && !selection.isCollapsed && selection.anchorNode && event.currentTarget.contains(selection.anchorNode)) return; void run({ answer: String(i), text: o, input: "choice", item: pos }); }}>
+                    <span className={styles.optionLabel} aria-hidden="true">{String.fromCharCode(65 + i)}</span>
+                    <span data-sel="option" className={styles.optionText}><MathInline text={o} /></span>
                   </button>
                 ))}
               </div>
@@ -151,14 +170,15 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
               </button>
             </form>
           )}
-          {ctx.help && <HelpBar {...ctx.help} />}
-          {item && (
+          {inline && <div data-pet-spoken-slot className={styles.patchSpoken} />}
+          {ctx.phase === "learn" && ctx.help && <HelpBar {...ctx.help} />}
+          {ctx.phase === "learn" && item && (
             <button
               type="button"
               className={styles.btn}
               onClick={() => {
                 // shortcut: no way back to the scaffold; add one if students ask for it.
-                setFree(true);
+                setLearnFree(true);
                 setText("");
                 refocus.current = true;
                 ctx.report("other_way_chosen", { block_id: block.id, line: pos + 1 });

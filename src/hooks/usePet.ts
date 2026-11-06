@@ -84,6 +84,8 @@ export function usePet(s: PetSignals): {
     // task_done from the agent's complete_task only grows taskDone; it never touches verdict.
     const grew = done > m.done;
     next = { ...next, seq: s.verdict.seq, done };
+    // A quick wrong choice on the next item must not keep the previous item's happy window.
+    if (s.verdict.seq !== m.seq && s.verdict.state === "review") next = { ...next, happyOn: false };
     if (ok || grew) {
       const happyMs = grew || s.verdict.done ? DONE_MS : OK_MS;
       next = { ...next, happyKey: next.happyKey + 1, happyOn: true, happyMs };

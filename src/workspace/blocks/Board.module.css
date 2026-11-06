@@ -1,6 +1,7 @@
 .wrap { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .board {
   position: relative;
+  isolation: isolate;
   width: 100%;
   aspect-ratio: 4 / 3;
   overflow: hidden;

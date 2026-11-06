@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { copy } from "@/lib/copy";
@@ -48,7 +49,8 @@ test("steps ok line", async () => {
   expect(screen.getByText("Viết một dòng")).toBeTruthy();
   type("x=1");
   submit();
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
+  expect(screen.queryByText(copy.stateOk)).toBeNull();
   expect(c.report).toHaveBeenCalledWith("line_checked", { block_id: "s1", line: 1, text: "x=1", ok: true, state: "ok", retried: false, input: "free" });
   expect(screen.getByLabelText(copy.lineLabel(2))).toBeTruthy();
 });
@@ -58,7 +60,7 @@ test("steps review line", async () => {
   type("x=2");
   fireEvent.submit(screen.getByRole("textbox").closest("form")!);
   await screen.findByText(copy.stateReview);
-  expect(screen.queryByText(copy.stateOk)).toBeNull();
+  expect(screen.queryByLabelText(copy.stateOk)).toBeNull();
 });
 
 test("network failure keeps line pending", async () => {
@@ -69,7 +71,7 @@ test("network failure keeps line pending", async () => {
   await screen.findByText(copy.checkFailed);
   expect(screen.queryByText(copy.stateReview)).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: copy.retry }));
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
   expect(c.check).toHaveBeenCalledTimes(2);
   expect(c.report).toHaveBeenCalledWith("line_checked", expect.objectContaining({ line: 1, retried: true }));
 });
@@ -83,7 +85,7 @@ test("line remounts when its state changes so the tint replays", async () => {
   const before = container.querySelector("li");
   type("b");
   submit();
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
   expect(container.querySelector("li")).not.toBe(before);
 });
 
@@ -95,7 +97,7 @@ test("retried after review then ok", async () => {
   await screen.findByText(copy.stateReview);
   type("b");
   submit();
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
   expect(c.report).toHaveBeenLastCalledWith("line_checked", { block_id: "s1", line: 1, text: "b", ok: true, state: "ok", retried: true, input: "free" });
 });
 
@@ -105,7 +107,7 @@ test("retried after hint", async () => {
   rerender(<>{renderBlock(steps, { ...c, hintCount: 1 })}</>);
   type("a");
   submit();
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
   expect(c.report).toHaveBeenCalledWith("line_checked", expect.objectContaining({ retried: true }));
 });
 
@@ -114,10 +116,10 @@ test("override from ctx wins", async () => {
   const { rerender } = show(c);
   type("a");
   submit();
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
   rerender(<>{renderBlock(steps, { ...c, overrides: { s1: { 1: "review" } } })}</>);
   expect(screen.getByText(copy.stateReview)).toBeTruthy();
-  expect(screen.queryByText(copy.stateOk)).toBeNull();
+  expect(screen.queryByLabelText(copy.stateOk)).toBeNull();
 });
 
 test("previous lines passed to check", async () => {
@@ -125,7 +127,7 @@ test("previous lines passed to check", async () => {
   show(c);
   type("a");
   submit();
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
   await waitFor(() => expect(screen.getByRole("textbox")).toHaveProperty("disabled", false));
   type("b");
   submit();
@@ -183,13 +185,16 @@ test("taskDone prop reports via master", () => {
   expect(doneCalls(c)).toEqual([["task_completed", { similar: false, helped: false, max_hint: 0, via: "master" }]]);
 });
 
-test("practice doc reports similar true", async () => {
+test("practice doc reports similar true and exposes the done slots", async () => {
   const c = ctxWith([fin]);
-  render(view({ practice: ws("practice") }, "practice", c));
+  const { container } = render(view({ practice: ws("practice") }, "practice", c));
   type("a");
   submit();
   await screen.findByText(copy.doneLabel);
   expect(doneCalls(c)[0][1]).toMatchObject({ similar: true });
+  expect(container.querySelectorAll("[data-pet-anchor]")).toHaveLength(1);
+  expect(container.querySelector("[data-pet-done] [data-pet-slot]")).toBeTruthy();
+  expect(container.querySelector("[data-pet-done] [data-pet-spoken-slot]")).toBeTruthy();
 });
 
 test("idea button only in solve", () => {
@@ -217,7 +222,7 @@ test("steps stops accepting lines once the task is done", async () => {
   show(c);
   type("x=1");
   submit();
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
   expect(c.onSolved).toHaveBeenCalledWith("s1");
   expect(screen.queryByRole("textbox")).toBeNull();
   expect(screen.queryByRole("button", { name: copy.check })).toBeNull();
@@ -242,6 +247,34 @@ const scaffolded: Block = {
 const showS = (c: BlockCtx) => render(<>{renderBlock(scaffolded, c)}</>);
 const gap = (n: number, v: string) => fireEvent.change(screen.getByLabelText(copy.blankLabel(n)), { target: { value: v } });
 const lineCalls = (c: BlockCtx) => (c.report as ReturnType<typeof vi.fn>).mock.calls.filter((a) => a[0] === "line_checked");
+
+test("solve blank shows its template once and a generic prompt", () => {
+  const { container } = showS(ctxWith());
+  expect(container.querySelector('[data-sel="prompt"]')?.textContent).toBe(copy.fillBlank);
+  expect(container.querySelector("form")?.textContent).toContain("y′ =");
+  expect(container.textContent?.match(/y′ =/g)).toHaveLength(1);
+  expect(screen.getByLabelText(copy.blankLabel(1))).toBeTruthy();
+});
+
+test("solve choice shows its prompt once and names the group", () => {
+  const choice: Block = { ...(steps as Extract<Block, { type: "steps" }>), scaffold: [{ kind: "choice", prompt: "Chọn đáp án", options: ["Một", "Hai"] }] };
+  render(<>{renderBlock(choice, ctxWith())}</>);
+  expect(screen.getAllByText("Chọn đáp án")).toHaveLength(1);
+  expect(screen.getByRole("group", { name: "Chọn đáp án" })).toBeTruthy();
+});
+
+test("choice labels are ordered and excluded from accessible names", () => {
+  const choice: Block = {
+    ...(steps as Extract<Block, { type: "steps" }>),
+    scaffold: [{ kind: "choice", prompt: "Chọn", options: ["Một", "Hai", "Ba"] }],
+  };
+  render(<>{renderBlock(choice, ctxWith())}</>);
+  const buttons = screen.getByRole("group", { name: "Chọn" }).querySelectorAll("button");
+  expect(Array.from(buttons, (button) => button.querySelector('[aria-hidden="true"]')?.textContent)).toEqual(["A", "B", "C"]);
+  for (const name of ["Một", "Hai", "Ba"]) {
+    expect(screen.getByRole("button", { name: new RegExp(`^${name}$`) })).toBeTruthy();
+  }
+});
 
 test("blank item sends the gap and records the filled line", async () => {
   const c = ctxWith([ok]);
@@ -308,14 +341,15 @@ test("last item overridden falls back to free", async () => {
 
 test("other way switches to free typing for good", async () => {
   const c = ctxWith([ok, ok]);
-  showS(c);
+  const workspace: Workspace = { id: "solve", doc: { ...doc("solve"), blocks: [scaffolded] } };
+  render(view({ solve: workspace }, "solve", c));
   fireEvent.click(screen.getByRole("button", { name: copy.otherWay }));
   expect(c.report).toHaveBeenCalledWith("other_way_chosen", { block_id: "s1", line: 1 });
   const free = screen.getByLabelText(copy.lineLabel(1));
   expect(document.activeElement).toBe(free);
   fireEvent.change(free, { target: { value: "x" } });
   submit();
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
   expect(vi.mocked(c.check).mock.calls.at(-1)![3]).toBeUndefined();
   expect(lineCalls(c).at(-1)![1]).toMatchObject({ input: "free" });
   expect(screen.getByLabelText(copy.lineLabel(2))).toBeTruthy();
@@ -323,7 +357,7 @@ test("other way switches to free typing for good", async () => {
   expect(screen.queryByRole("button", { name: copy.otherWay })).toBeNull();
 });
 
-test("help bar sits in the active row", async () => {
+test("action bar is the last doc child and contains all active actions", async () => {
   const c = ctxWith([fin]);
   const sc = (extra: Partial<Workspace["doc"]> = {}): Workspace => ({
     id: "solve",
@@ -331,7 +365,16 @@ test("help bar sits in the active row", async () => {
   });
   const { unmount } = render(view({ solve: sc() }, "solve", c));
   const hint = screen.getByRole("button", { name: copy.hint });
-  expect(hint.closest("[data-pet-anchor]")).toBeTruthy();
+  const bar = hint.closest("[data-action-bar]")!;
+  expect(bar.parentElement?.lastElementChild).toBe(bar);
+  expect(bar.contains(screen.getByRole("button", { name: copy.idea }))).toBe(true);
+  expect(bar.contains(screen.getByRole("button", { name: copy.otherWay }))).toBe(true);
+  fireEvent.click(hint);
+  expect(screen.getByText(copy.hintLevel(1))).toBeTruthy();
+  expect(hint.querySelectorAll('[aria-hidden="true"] span')).toHaveLength(3);
+  expect(c.report).toHaveBeenCalledWith("help_requested", { block_id: "s1", level: 1 });
+  fireEvent.click(screen.getByRole("button", { name: copy.idea }));
+  expect(c.report).toHaveBeenCalledWith("foundation_requested", {});
   expect(screen.getAllByRole("button", { name: copy.hint })).toHaveLength(1);
   gap(1, "a");
   submit();
@@ -396,4 +439,164 @@ test("choice options render $math$, and typed stars stay literal", async () => {
   expect(container.textContent).not.toContain("$");
   expect(container.querySelector("em")).toBeNull();
   expect(screen.getByText("2*x+3*y")).toBeTruthy();
+});
+
+
+test("progress follows saved accepted scaffold entries", async () => {
+  function Harness() {
+    const [state, setState] = useState<Workspace["state"]>(null);
+    const workspace: Workspace = { id: "solve", state, doc: { ...doc("solve"), blocks: [scaffolded] } };
+    const c = ctxWith([ok], { saveBlock: (id, saved) => setState((previous) => ({ ...previous, blocks: { ...previous?.blocks, [id]: saved } })) });
+    return view({ solve: workspace }, "solve", c);
+  }
+  render(<Harness />);
+  expect(screen.getByText("Bước 1/3")).toBeTruthy();
+  gap(1, "2");
+  submit();
+  expect(await screen.findByText("Bước 2/3")).toBeTruthy();
+});
+
+test("problem collapses after an accepted line and can be expanded", async () => {
+  const workspace = ws("solve");
+  workspace.doc.blocks[0] = { type: "problem", id: "p1", md: "Tìm 12 và $x$.", image: { src: "/problem.png", alt: "Hình đề" } };
+  render(view({ solve: workspace }, "solve", ctxWith([ok])));
+  expect(screen.getByAltText("Hình đề")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: copy.expandProblem })).toBeNull();
+  type("a");
+  submit();
+  const toggle = await screen.findByRole("button", { name: copy.expandProblem });
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(toggle.querySelectorAll("mark")).toHaveLength(2);
+  expect(screen.queryByAltText("Hình đề")).toBeNull();
+  fireEvent.click(toggle);
+  expect(screen.getByRole("button", { name: copy.collapseProblem }).getAttribute("aria-expanded")).toBe("true");
+  expect(screen.getByText(/Tìm 12 và/)).toBeTruthy();
+  expect(screen.getByAltText("Hình đề")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: copy.collapseProblem }));
+  expect(screen.getByRole("button", { name: copy.expandProblem }).getAttribute("aria-expanded")).toBe("false");
+});
+
+test.each(["solve", "practice"] as const)("restored %s problem starts collapsed", (phase) => {
+  const workspace = ws(phase);
+  workspace.state = { blocks: { [`s_${phase}`]: { type: "steps", entries: [{ text: "a", state: "ok" }], done: false, free: false } } };
+  render(view({ [phase]: workspace }, phase, ctxWith()));
+  expect(screen.getByRole("button", { name: copy.expandProblem }).getAttribute("aria-expanded")).toBe("false");
+});
+
+test("learn problems never collapse even with saved accepted entries", () => {
+  const workspace = ws("learn");
+  workspace.state = { blocks: { s_learn: { type: "steps", entries: [{ text: "a", state: "ok" }], done: false, free: false } } };
+  render(view({ learn: workspace }, "learn", ctxWith()));
+  expect(screen.getByText("Đề thử")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: copy.expandProblem })).toBeNull();
+});
+
+test("an override of a saved review line collapses the problem", () => {
+  const workspace = ws("solve");
+  workspace.state = { blocks: { s_solve: { type: "steps", entries: [{ text: "a", state: "review" }], done: false, free: false } } };
+  render(view({ solve: workspace }, "solve", ctxWith([], { overrides: { s_solve: { 1: "ok" } } })));
+  expect(screen.getByRole("button", { name: copy.expandProblem })).toBeTruthy();
+});
+
+
+test.each(["solve", "practice"] as const)("%s steps expose inline slots until finished", (phase) => {
+  const c = ctxWith([], { phase });
+  const { container, rerender } = render(<>{renderBlock(scaffolded, c)}</>);
+  const anchor = container.querySelector("[data-pet-anchor][data-pet-inline]")!;
+  expect(anchor.querySelector("[data-pet-slot]")).toBeTruthy();
+  expect(anchor.querySelector("[data-pet-spoken-slot]")).toBeTruthy();
+  rerender(<>{renderBlock(scaffolded, { ...c, finished: true })}</>);
+  expect(container.querySelector("[data-pet-slot]")).toBeNull();
+  expect(container.querySelector("[data-pet-spoken-slot]")).toBeNull();
+});
+
+test("learn steps keep the lane anchor without inline slots", () => {
+  const { container } = showS(ctxWith([], { phase: "learn" }));
+  expect(container.querySelector("[data-pet-anchor]")).toBeTruthy();
+  expect(container.querySelector("[data-pet-inline]")).toBeNull();
+  expect(container.querySelector("[data-pet-slot]")).toBeNull();
+});
+
+test("completing the final answer removes the inline slots", async () => {
+  const { container } = showS(ctxWith([fin]));
+  expect(container.querySelector("[data-pet-slot]")).toBeTruthy();
+  gap(1, "2");
+  submit();
+  await waitFor(() => expect(container.querySelector("[data-pet-slot]")).toBeNull());
+});
+
+test("accepted choices save the returned line and fall back to the option text", async () => {
+  const block: Block = { type: "steps", id: "s1", problem_id: "p1", input: "text", scaffold: [
+    { kind: "choice", prompt: "First?", options: ["First option", "Other"] },
+    { kind: "choice", prompt: "Second?", options: ["Second option", "Other"] },
+  ] };
+  const saveBlock = vi.fn();
+  const c = ctxWith([{ ...ok, line: "Solution line" }, ok], { saveBlock });
+  render(<>{renderBlock(block, c)}</>);
+  fireEvent.click(screen.getByRole("button", { name: "First option" }));
+  await screen.findByText("Solution line");
+  fireEvent.click(screen.getByRole("button", { name: "Second option" }));
+  await waitFor(() => expect(saveBlock).toHaveBeenLastCalledWith("s1", expect.objectContaining({ entries: [
+    expect.objectContaining({ text: "Solution line" }), expect.objectContaining({ text: "Second option" }),
+  ] })));
+  expect(c.check).toHaveBeenLastCalledWith("s1", "0", ["Solution line"], 1);
+});
+
+test("blank entries keep the filled template even when a line is returned", async () => {
+  const c = ctxWith([{ ...fin, line: "Ignored", takeaway: "Remember this" }], { saveBlock: vi.fn() });
+  showS(c);
+  gap(1, "2");
+  submit();
+  await waitFor(() => expect(c.saveBlock).toHaveBeenCalledWith("s1", expect.objectContaining({
+    entries: [expect.objectContaining({ text: expect.stringContaining("2") })], takeaway: "Remember this", done: true,
+  })));
+  expect(screen.queryByText("Ignored")).toBeNull();
+});
+
+test("takeaway and topic appear after completion and after restoration", async () => {
+  const workspace = ws("solve");
+  const block = workspace.doc.blocks.find((b) => b.type === "steps")!;
+  if (block.type !== "steps") throw new Error("missing steps");
+  block.roadmap = "motion_current";
+  const c = ctxWith([{ ...fin, takeaway: "Use the time relation" }]);
+  const { unmount } = render(view({ solve: workspace }, "solve", c));
+  type("a");
+  submit();
+  expect(await screen.findByText(copy.takeaway("Use the time relation"))).toBeTruthy();
+  expect(screen.getByText(copy.roadmapTitle.motion_current)).toBeTruthy();
+  unmount();
+  workspace.state = { blocks: { [block.id]: { type: "steps", entries: [{ text: "a", state: "ok" }], done: true, free: false, takeaway: "Use the time relation" } } };
+  render(view({ solve: workspace }, "solve", ctxWith()));
+  expect(screen.getByText(copy.takeaway("Use the time relation"))).toBeTruthy();
+  expect(screen.getByText(copy.roadmapTitle.motion_current)).toBeTruthy();
+});
+
+test("a banner without takeaway has no topic tag", () => {
+  render(<DoneBanner hints={0} roadmap="motion_current" />);
+  expect(screen.getByText(copy.doneLabel)).toBeTruthy();
+  expect(screen.queryByText(copy.roadmapTitle.motion_current)).toBeNull();
+  expect(screen.queryByText(/Điều cần nhớ/)).toBeNull();
+});
+
+
+test("master completion has no takeaway or topic", () => {
+  const workspace = ws("solve");
+  const block = workspace.doc.blocks.find((b) => b.type === "steps");
+  if (block?.type !== "steps") throw new Error("missing steps");
+  block.roadmap = "motion_current";
+  render(view({ solve: workspace }, "solve", ctxWith(), { taskDone: { solve: [block.id] } }));
+  expect(screen.getByText(copy.doneLabel)).toBeTruthy();
+  expect(screen.queryByText(copy.roadmapTitle.motion_current)).toBeNull();
+  expect(screen.queryByText(/Điều cần nhớ/)).toBeNull();
+});
+
+test("drag-selecting an option does not answer", () => {
+  const c = ctxWith();
+  const choice: Block = { ...(steps as Extract<Block, { type: "steps" }>), scaffold: [{ kind: "choice", prompt: "Pick", options: ["10", "4"] }] };
+  render(<>{renderBlock(choice, c)}</>);
+  const button = screen.getByRole("button", { name: "10" });
+  const selection = vi.spyOn(window, "getSelection").mockReturnValue({ isCollapsed: false, anchorNode: button } as unknown as Selection);
+  fireEvent.click(button);
+  expect(c.check).not.toHaveBeenCalled();
+  selection.mockRestore();
 });

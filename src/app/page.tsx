@@ -16,6 +16,7 @@ import { copy } from "@/lib/copy";
 import { frameDoc } from "@/lib/frame";
 import type { BlockCtx, Workspace } from "@/workspace/types";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
+import type { SelectionQuote } from "@/workspace/SelectionAsk";
 import styles from "./page.module.css";
 
 const JPEG_PREFIX = "data:image/jpeg;base64,";
@@ -78,6 +79,11 @@ export default function Page() {
   const photoSrc = ws.photo === null ? null : JPEG_PREFIX + ws.photo;
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // The quote belongs to the session it was picked in: "Bài mới" bumps newProblemCount, which drops it.
+  const [picked, setPicked] = useState<{ quote: SelectionQuote; session: number } | null>(null);
+  const quote = picked && picked.session === ws.newProblemCount ? picked.quote : null;
+  const setQuote = (q: SelectionQuote | null) => setPicked(q && { quote: q, session: ws.newProblemCount });
+  const [selectionOpen, setSelectionOpen] = useState(0);
   const desktop = useDesktop();
   const side = useSidebar();
 
@@ -101,7 +107,12 @@ export default function Page() {
   const composer = {
     value: ws.input,
     onChange: ws.setInput,
-    onSend: () => void ws.submit(),
+    onSend: () => {
+      if (ws.sendDisabled || (!ws.input.trim() && !photoSrc)) return;
+      if (quote) ws.report("selection_asked", quote);
+      setQuote(null);
+      void ws.submit();
+    },
     onPickPhoto: () => pick("composer_button"),
     onSnapPhoto: () => pick("composer_button", cameraInput),
     placeholder: ws.hasMessages ? copy.placeholderWorking : copy.placeholderEmpty,
@@ -122,6 +133,7 @@ export default function Page() {
           brokenTabs={ws.brokenTabs}
           onRebuild={ws.rebuildTab}
           busy={ws.busy}
+          onSelectionAsk={(selection) => { setQuote(selection); ws.setInput(copy.selectionQuestion); setSelectionOpen((n) => n + 1); }}
         />
       </div>
     );
@@ -248,6 +260,9 @@ export default function Page() {
       onOfferLater={() => void ws.answerOffer(false)}
       onOpt={(t) => void ws.answerOpt(t)}
       composer={composer}
+      selectionOpen={selectionOpen}
+      quote={quote?.text}
+      onDismissQuote={() => setQuote(null)}
     />
   );
   return (

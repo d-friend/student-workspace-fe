@@ -31,6 +31,8 @@ export function ChatDrawer({
   actions,
   composer,
   composerRef,
+  quote,
+  onDismissQuote,
   onClose,
   leaving = false,
 }: {
@@ -38,6 +40,8 @@ export function ChatDrawer({
   actions: ChatActions;
   composer: Omit<ComposerProps, "inputRef">;
   composerRef: RefObject<HTMLTextAreaElement | null>;
+  quote?: string;
+  onDismissQuote?: () => void;
   onClose: () => void;
   leaving?: boolean;
 }) {
@@ -131,6 +135,7 @@ export function ChatDrawer({
           })}
           {state.watching && <WatchingCue />}
         </ChatLog>
+        {!leaving && quote && <blockquote className={styles.quote}><span>{quote}</span><button type="button" aria-label={copy.selectionDismiss} onClick={onDismissQuote}><IconX size={16} aria-hidden="true" /></button></blockquote>}
         {!leaving && <Composer {...composer} inputRef={composerRef} />}
       </div>
     </>

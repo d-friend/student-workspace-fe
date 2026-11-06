@@ -1,6 +1,7 @@
 "use client";
 
 import { type CSSProperties, type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useDesktop } from "@/hooks/useDesktop";
 import { usePet } from "@/hooks/usePet";
 import { FLY_MS } from "@/hooks/useUnfold";
@@ -28,6 +29,7 @@ const SCROLL_MS = 120; // after the last scroll event the pet is no longer "movi
 const BUBBLE_GAP = 12; // pet to bubble, beside it
 const BUBBLE_CLEAR = 12; // between a docked bubble and the doc above it
 const BUBBLE_W = 300; // PetBubble.module.css max-width
+const ZERO: Rect = { left: 0, top: 0, right: 0, bottom: 0 };
 const PAD_REACH = 24; // how far a bubble over the pet reaches into the doc sheet's side padding
 const ABOVE_MIN = 200; // above the pet needs this much room over it, else the bubble opens below
 
@@ -62,6 +64,9 @@ export function PetLayer({
   composer,
   onOpenChange,
   onChatOpened,
+  selectionOpen = 0,
+  quote,
+  onDismissQuote,
   flying = false,
   ...actions
 }: {
@@ -76,6 +81,9 @@ export function PetLayer({
   onOpenChange?: (open: boolean) => void;
   // Called once per closed-to-open, with whether the unread badge was showing.
   onChatOpened: (unread: boolean) => void;
+  selectionOpen?: number;
+  quote?: string;
+  onDismissQuote?: () => void;
   // The unfold is carrying the pet from the entry to its dock (spec §6): it travels, hops, and is happy about it.
   flying?: boolean;
 } & ChatActions) {
@@ -122,6 +130,14 @@ export function PetLayer({
     setLeaving(false);
     setOpen(true);
   }, [onChatOpened, unread]);
+  const selectionSeen = useRef(selectionOpen);
+  useEffect(() => {
+    if (selectionSeen.current === selectionOpen) return;
+    selectionSeen.current = selectionOpen;
+    // An event signal from the page (a selection was asked about), not derived state; openDrawer also reports tracking.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!open) openDrawer();
+  }, [selectionOpen, open, openDrawer]);
   // Whatever was said while the drawer was open has been seen, so it does not pop back as a bubble.
   // The drawer has no place on the entry (Bài mới from the drawer lands there).
   if (entry && open) setOpen(false);
@@ -182,16 +198,60 @@ export function PetLayer({
   // The entry is silent until a conversation exists. A text-only reply (an unreadable photo, a clarification) lands
   // back on the entry, and the student must still see it: the entry has no drawer, the bubble is the only place.
   const talked = state.bubbles.length > 0;
-  // A build with nothing said yet (a foundation request) still shows its progress.
-  const showBubble =
-    !open && !travelling && (latest !== undefined || status !== null) && (key === null || key !== hiddenKey) && (!entry || talked);
   const chips =
     latest?.kind === "agent" && !latest.waiting && latest.id === state.bubbles.findLast((b) => b.kind === "agent")?.id;
+  const awaitingAnswer = Boolean(
+    (chips && (state.restateChips || state.offerChips || state.optChips)) ||
+    (latest?.kind === "agent" && latest.ask !== null),
+  );
   const docked = open && desktop && !entry;
 
   // The lane: beside the active line of the doc, only when nothing else has a claim on the pet.
   const { anchor, scroller } = usePetAnchor();
-  const laneOn = !entry && !open && !leaving && !travelling && anchor !== null && scroller !== null;
+  // The registered anchor belongs to the shown question or finished doc. Both targets are required: older
+  // anchors/previews without slots keep the original lane/dock behaviour.
+  const inlineSlot = anchor?.hasAttribute("data-pet-inline") ? anchor.querySelector<HTMLElement>("[data-pet-slot]") : null;
+  const spokenSlot = anchor?.querySelector<HTMLElement>("[data-pet-spoken-slot]") ?? null;
+  const inlineOn = !entry && !travelling && inlineSlot !== null && spokenSlot !== null;
+  const doneInline = inlineOn && anchor?.hasAttribute("data-pet-done");
+  const itemId = inlineSlot !== null && spokenSlot !== null && anchor?.matches("[data-pet-anchor][data-n]")
+    ? JSON.stringify([anchor?.closest<HTMLElement>("[data-block-id]")?.dataset.blockId, anchor?.dataset.n])
+    : null;
+  const [seenItem, setSeenItem] = useState<{ anchor: HTMLElement | null; id: string | null }>({ anchor: null, id: null });
+  const [staleTurn, setStaleTurn] = useState<number | null>(null);
+  const [staleKey, setStaleKey] = useState<string | null>(null);
+  if (seenItem.anchor !== anchor || seenItem.id !== itemId) {
+    setSeenItem({ anchor, id: itemId });
+    // Speech from before this item belongs in the log, not under its choices. Pending questions
+    // remain interactive, using the same exceptions as autoHide below.
+    if (itemId !== null && !awaitingAnswer) {
+      setStaleKey(key);
+      setStaleTurn(turn);
+    }
+  }
+  // Automatic question hiding must not discard a closing reply that preceded the done-anchor handoff.
+  // Manual dismissal (hiddenKey) still applies everywhere; a build with no words still shows progress.
+  const showBubble =
+    !open && !travelling && (latest !== undefined || status !== null) &&
+    (key === null || (key !== hiddenKey && (doneInline || key !== staleKey))) && (!entry || talked);
+  const [, setAnchorTick] = useState(0);
+  useEffect(() => {
+    if (!anchor) return;
+    const n = anchor.dataset.n;
+    const inlineAttribute = anchor.hasAttribute("data-pet-inline");
+    // Steps can advance using local state after publishing the verdict. Its registered DOM node
+    // stays the same, so observe it rather than depending on a coincidental PetLayer render.
+    const observer = new MutationObserver(() => {
+      if (
+        anchor.dataset.n !== n || anchor.hasAttribute("data-pet-inline") !== inlineAttribute ||
+        anchor.querySelector("[data-pet-slot]") !== inlineSlot ||
+        anchor.querySelector("[data-pet-spoken-slot]") !== spokenSlot
+      ) setAnchorTick((tick) => tick + 1);
+    });
+    observer.observe(anchor, { attributes: true, attributeFilter: ["data-n", "data-pet-inline"], childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [anchor, itemId, inlineSlot, spokenSlot]);
+  const laneOn = !inlineOn && !entry && !open && !leaving && !travelling && anchor !== null && scroller !== null;
   const [place, setPlace] = useState<Place>({ mode: "dock" });
   const [stageSize, setStageSize] = useState({ w: 0, h: 0 });
   const [scrolling, setScrolling] = useState(false);
@@ -240,19 +300,21 @@ export function PetLayer({
       setPlace({ mode: "dock" }); // re-entry must not start from the old spot
     };
   }, [laneOn, anchor, scroller]);
+  // Inline needs no measuring: both slots exist, so the pet is in the flow of the step.
+  const inline = inlineOn && placePet({ inline: true, anchor: ZERO, column: null, stage: ZERO, pet: 44, bubbleW: BUBBLE_W }).mode === "inline";
   const lane = laneOn && place.mode === "lane" ? place : null;
-  // The doc's bottom padding keeps its last line clear of the docked pet; in the lane the pet is beside it.
-  const inLane = lane !== null;
+  // Only a floating dock needs space reserved under the doc.
+  const inFlow = lane !== null || inline;
   useEffect(() => {
-    if (!inLane || !scroller) return;
+    if (!inFlow || !scroller) return;
     scroller.style.setProperty("--pet-clear", "0px");
     return () => void scroller.style.removeProperty("--pet-clear");
-  }, [inLane, scroller]);
+  }, [inFlow, scroller]);
   const laneBubble = lane ? bubbleStyle(lane, stageSize.w, stageSize.h) : null;
 
   // Docked, the bubble stands over the doc. Reserve its height under the doc and scroll the active line above it, so
   // the choices and the check button stay reachable (the bubble hides on its own after a few seconds).
-  const dockedBubble = showBubble && !lane && scroller !== null;
+  const dockedBubble = showBubble && !lane && !inline && scroller !== null;
   useEffect(() => {
     const bubble = layerRef.current?.querySelector("[data-bubble]");
     if (!dockedBubble || !scroller || !bubble) return;
@@ -275,79 +337,86 @@ export function PetLayer({
     };
   }, [dockedBubble, scroller, anchor, spoken.length, state.optChips, state.offerChips, state.restateChips]);
 
+  const petButton = (
+    <button
+      ref={petRef}
+      data-moving={lane && scrolling ? "scroll" : undefined}
+      // The reduced-motion stylesheet rule covers a change mid-session; this one is what a teleport looks like at once.
+      style={lane ? { top: lane.top, left: lane.left, transition: matchMedia("(prefers-reduced-motion: reduce)").matches ? "none" : undefined } : undefined}
+      type="button"
+      className={inline ? styles.inlinePet : styles.pet}
+      aria-label={entry ? copy.brand : open ? copy.petClose : copy.petOpen}
+      aria-describedby={unread && !entry ? "pet-unread" : undefined}
+      inert={open && !desktop}
+      onClick={
+        entry
+          ? () => {
+              setHiddenKey(null); // a dismissed reply comes back
+              celebrate();
+            }
+          : open
+            ? closeDrawer
+            : openDrawer
+      }
+    >
+      <Pet mood={travelling ? "happy" : mood} celebrateKey={celebrateKey} />
+      {unread && !open && !entry && (
+        <span id="pet-unread" className={styles.badge}>
+          <span className={styles.srOnly}>{copy.petUnread}</span>
+        </span>
+      )}
+    </button>
+  );
+  // An announce and its completion can straddle the item's appearance. Both belong to the
+  // stale turn even when the completion has a new message key. Choices/questions still stay.
+  const showSpoken = showBubble && !(inline && itemId !== null && staleTurn !== null && turn === staleTurn && !awaitingAnswer);
+  const spokenBubble = showSpoken ? (
+    <PetBubble
+      key={turn}
+      inline={inline}
+      bubbles={spoken}
+      status={status}
+      onClose={() => {
+        setHiddenKey(key);
+        if (!entry) setUnread(true);
+      }}
+      // The entry keeps its message: there it can be the only place an instruction (a retake) is shown. So does
+      // a bubble that is asking the student to choose (its chips) or a question: it stays until they answer or close it.
+      autoHide={!entry && !awaitingAnswer}
+      onHide={() => setHiddenKey(key)}
+      side={lane?.side}
+      flip={laneBubble?.up}
+      style={laneBubble?.style}
+    >
+      {chips && state.restateChips && (
+        <RestateChips onConfirm={actions.onConfirmRestate} onCorrect={actions.onCorrectRestate} />
+      )}
+      {chips && state.offerChips && <OfferChips onAccept={actions.onAcceptOffer} onLater={actions.onOfferLater} />}
+      {chips && state.optChips && (
+        <OptChips options={state.optChips} kind={state.optChipKind} seed={state.optChipSeed} onPick={actions.onOpt} onWriteOwn={() => inputRef.current?.focus(true)} />
+      )}
+    </PetBubble>
+  ) : null;
+
   return (
     // With a photo picked the greeting is gone, so the pet docks; it is still the entry's pet.
     <div
       ref={layerRef}
       className={styles.layer}
-      data-place={entry && !hasPhoto ? "entry" : "dock"}
+      data-place={inline ? "inline" : entry && !hasPhoto ? "entry" : "dock"}
       data-fly={travelling || undefined}
       data-chat={docked || undefined}
       data-lane={lane ? "" : undefined}
     >
-      <button
-        ref={petRef}
-        data-moving={lane && scrolling ? "scroll" : undefined}
-        // The reduced-motion stylesheet rule covers a change mid-session; this one is what a teleport looks like at once.
-        style={lane ? { top: lane.top, left: lane.left, transition: matchMedia("(prefers-reduced-motion: reduce)").matches ? "none" : undefined } : undefined}
-        type="button"
-        className={styles.pet}
-        aria-label={entry ? copy.brand : open ? copy.petClose : copy.petOpen}
-        aria-describedby={unread && !entry ? "pet-unread" : undefined}
-        inert={open && !desktop}
-        onClick={
-          entry
-            ? () => {
-                setHiddenKey(null); // a dismissed reply comes back
-                celebrate();
-              }
-            : open
-              ? closeDrawer
-              : openDrawer
-        }
-      >
-        <Pet mood={travelling ? "happy" : mood} celebrateKey={celebrateKey} />
-        {unread && !open && !entry && (
-          <span id="pet-unread" className={styles.badge}>
-            <span className={styles.srOnly}>{copy.petUnread}</span>
-          </span>
-        )}
-      </button>
-      {showBubble && (
-        <PetBubble
-          key={turn}
-          bubbles={spoken}
-          status={status}
-          onClose={() => {
-            setHiddenKey(key);
-            if (!entry) setUnread(true);
-          }}
-          // The entry keeps its message: there it can be the only place an instruction (a retake) is shown. So does
-          // a bubble that is asking the student to choose (its chips) or a question: it stays until they answer or close it.
-          autoHide={
-            !entry &&
-            !(chips && (state.restateChips || state.offerChips || state.optChips)) &&
-            !(latest?.kind === "agent" && latest.ask !== null)
-          }
-          onHide={() => setHiddenKey(key)}
-          side={lane?.side}
-          flip={laneBubble?.up}
-          style={laneBubble?.style}
-        >
-          {chips && state.restateChips && (
-            <RestateChips onConfirm={actions.onConfirmRestate} onCorrect={actions.onCorrectRestate} />
-          )}
-          {chips && state.offerChips && <OfferChips onAccept={actions.onAcceptOffer} onLater={actions.onOfferLater} />}
-          {chips && state.optChips && (
-            <OptChips options={state.optChips} kind={state.optChipKind} seed={state.optChipSeed} onPick={actions.onOpt} onWriteOwn={() => inputRef.current?.focus(true)} />
-          )}
-        </PetBubble>
-      )}
+      {inline && inlineSlot ? createPortal(petButton, inlineSlot) : petButton}
+      {inline && spokenSlot ? createPortal(spokenBubble, spokenSlot) : spokenBubble}
       {(open || leaving) && !entry && (
         <ChatDrawer
           state={state}
           actions={actions}
           composer={composer}
+          quote={quote}
+          onDismissQuote={onDismissQuote}
           composerRef={composerRef}
           onClose={closeDrawer}
           leaving={!open}

@@ -1,6 +1,7 @@
 export type Rect = { left: number; top: number; right: number; bottom: number };
 export type Place =
   | { mode: "dock" }
+  | { mode: "inline" }
   | { mode: "lane"; left: number; top: number; side: "right" | "above"; flip: boolean };
 
 const GAP = 24; // between the doc column and the pet
@@ -10,8 +11,10 @@ const RIGHT_MIN = 348; // lane width that fits a 232px bubble to the right of th
 
 // The pet stands in the lane right of the doc column, level with the anchor; it docks when the lane is too narrow.
 // bubbleW is part of the contract with PetLayer; the right/above switch uses RIGHT_MIN.
-export function placePet({ anchor, column, stage, pet }: { anchor: Rect | null; column: Rect | null; stage: Rect; pet: number; bubbleW: number }): Place {
-  if (!anchor || !column) return { mode: "dock" };
+export function placePet({ anchor, column, stage, pet, inline = false }: { anchor: Rect | null; column: Rect | null; stage: Rect; pet: number; bubbleW: number; inline?: boolean }): Place {
+  if (!anchor) return { mode: "dock" };
+  if (inline) return { mode: "inline" };
+  if (!column) return { mode: "dock" };
   const left = column.right + GAP;
   const lane = stage.right - left;
   if (lane < Math.max(pet + 16, LANE_MIN)) return { mode: "dock" };

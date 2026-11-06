@@ -240,3 +240,18 @@
     }
   }
 }
+
+/* Inline replies take space below the active answer, including their chips. */
+.bubble[data-inline] {
+  position: static;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-shadow: none;
+  border-radius: 6px 20px 20px 20px;
+}
+.bubble[data-inline]:not(.leaving) { animation: inlineIn 0.2s ease-out; }
+@keyframes inlineIn { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .bubble[data-inline]:not(.leaving) { animation: none; }
+}

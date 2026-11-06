@@ -157,3 +157,22 @@
     opacity: 0;
   }
 }
+
+/* A portal leaves the floating layer's positioning and custom properties behind. */
+.inlinePet {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  animation: petIn 0.2s ease-out;
+}
+.inlinePet > * { grid-area: 1 / 1; }
+.inlinePet .badge { position: static; width: 10px; height: 10px; justify-self: end; align-self: start; }
+.inlinePet:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  .inlinePet { animation: none; }
+}

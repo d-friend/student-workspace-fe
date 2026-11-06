@@ -512,28 +512,79 @@ describe("PetLayer in the lane", () => {
     vi.useRealTimers();
   });
 
-  function Doc({ active, scroller }: { active: boolean; scroller: boolean }) {
+  function Doc({ active, scroller, inline = false, slots = true }: { active: boolean; scroller: boolean; inline?: boolean; slots?: boolean }) {
     const setScroller = usePetScrollerRef();
     const anchorRef = usePetAnchorRef(active);
     return (
       <div data-testid="scroller" ref={scroller ? (el) => setScroller?.(el) : undefined}>
         <div data-pet-column>
-          <div ref={anchorRef} data-pet-anchor />
+          <div ref={anchorRef} data-pet-anchor data-pet-inline={inline ? "" : undefined}>
+            {inline && slots && <><div data-pet-slot /><div data-pet-spoken-slot /></>}
+          </div>
         </div>
       </div>
     );
   }
-  function ui(extra: Partial<WorkspaceState> = {}, bubbles: Bubble[] = [], o: { active?: boolean; scroller?: boolean; flying?: boolean } = {}) {
+  function ui(extra: Partial<WorkspaceState> = {}, bubbles: Bubble[] = [], o: { active?: boolean; scroller?: boolean; flying?: boolean; inline?: boolean; slots?: boolean } = {}) {
     const s = setup(bubbles, extra);
     return (
       <PetAnchorProvider>
-        <Doc active={o.active ?? true} scroller={o.scroller ?? true} />
+        <Doc active={o.active ?? true} scroller={o.scroller ?? true} inline={o.inline} slots={o.slots} />
         <PetLayer state={s.state} {...s.props} flying={o.flying} />
       </PetAnchorProvider>
     );
   }
   const layer = (c: HTMLElement) => c.querySelector<HTMLElement>("[data-place]")!;
   const scroller = () => screen.getByTestId("scroller");
+
+  it.each([375, 1700])("at %ipx portals PATCH and its reply/chips inline, with nothing floating", (width) => {
+    mockRects(() => { live.layer.right = live.scroller.right = width; });
+    const { container } = render(ui({ optChips: ["A", "B"], offerChips: true }, [agent(1, "Em thử bước này nhé", { opts: ["A", "B"], offer: true })], { inline: true }));
+    const slot = container.querySelector("[data-pet-slot]")!;
+    const spoken = container.querySelector("[data-pet-spoken-slot]")!;
+    expect(slot.contains(pet())).toBe(true);
+    expect(layer(container).dataset.place).toBe("inline");
+    expect(layer(container).querySelector("button")).toBeNull();
+    expect(layer(container).querySelector("[data-bubble]")).toBeNull();
+    expect(spoken.contains(screen.getByRole("status"))).toBe(true);
+    expect(within(spoken as HTMLElement).getByRole("button", { name: "A" })).toBeTruthy();
+    expect(within(spoken as HTMLElement).getByRole("button", { name: copy.offerYes })).toBeTruthy();
+    expect(scroller().style.getPropertyValue("--pet-clear")).toBe("0px");
+    fireEvent.click(pet());
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    // Opening chat never brings a second, floating PATCH back.
+    expect(layer(container).querySelector("button > [data-state]")).toBeNull();
+    expect(slot.querySelector("button")).toBeTruthy();
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(document.activeElement).toBe(pet());
+  });
+
+  it("flies to the dock first, then moves inline when the unfold settles", () => {
+    mockRects(() => {});
+    const { container, rerender } = render(ui({}, [], { inline: true, flying: true }));
+    expect(layer(container).contains(pet())).toBe(true);
+    expect(container.querySelector("[data-pet-slot] button")).toBeNull();
+    rerender(ui({}, [], { inline: true, flying: false }));
+    expect(container.querySelector("[data-pet-slot]")!.contains(pet())).toBe(true);
+    expect(layer(container).querySelector("button")).toBeNull();
+  });
+
+  it("a missing inline slot falls back to the existing placement", () => {
+    mockRects(() => {});
+    const { container } = render(ui({}, [], { inline: true, slots: false }));
+    expect(layer(container).contains(pet())).toBe(true);
+    expect(pet().style.left).toBe("1152px");
+  });
+
+  it("finishing or switching away from the inline doc restores the floating pet", () => {
+    mockRects(() => {});
+    const { container, rerender } = render(ui({}, [], { inline: true }));
+    expect(layer(container).contains(pet())).toBe(false);
+    rerender(ui({}, [], { inline: true, active: false }));
+    expect(layer(container).contains(pet())).toBe(true);
+    rerender(ui());
+    expect(layer(container).hasAttribute("data-lane")).toBe(true);
+  });
 
   it("(a) with an anchor and a wide stage the pet is placed beside the line, right of the column", () => {
     mockRects(() => {});

@@ -157,6 +157,14 @@ describe("usePet", () => {
     expect(mood()).toBe("listening"); // the keystroke 1.3 s ago still counts
   });
 
+  it("a wrong answer ends the previous step's celebration immediately", () => {
+    const { to, mood } = setup();
+    to({ verdict: verdict(1, "ok") });
+    expect(mood()).toBe("happy");
+    to({ verdict: verdict(2, "review") });
+    expect(mood()).toBe("doubt");
+  });
+
   it("(f) review, then the agent speaks: talking while it speaks, doubt 1.8 s after", () => {
     const { to, mood, wait } = setup({ ...base, verdict: verdict(1, "review") });
     to({ busy: true });

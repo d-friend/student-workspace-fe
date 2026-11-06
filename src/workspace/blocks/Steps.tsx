@@ -25,6 +25,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const previousFree = useRef(free);
   const finished = done || !!ctx.finished; // the master can complete a block the code could not (prose lines)
   const anchorRef = usePetAnchorRef(!finished && !ctx.hidden);
+  const inline = ctx.phase === "solve" || ctx.phase === "practice";
   const inputId = useId();
   const promptId = useId();
   const group = useRef<HTMLDivElement>(null);
@@ -109,12 +110,20 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
         )}
       </ol>
       {!finished && (
-        <div ref={anchorRef} data-pet-anchor data-n={pos + 1} className={styles.active}>
+        <div ref={anchorRef} data-pet-anchor data-pet-inline={inline ? "" : undefined} data-n={pos + 1} className={styles.active}>
+          {inline && (
+            <div className={styles.patchQuestion}>
+              <div data-pet-slot className={styles.patchSlot} />
+              <p id={promptId} className={styles.patchPrompt}>
+                <MathInline text={item?.kind === "choice" ? item.prompt : item?.kind === "blank" ? item.template : copy.lineLabel(pos + 1)} />
+              </p>
+            </div>
+          )}
           {item?.kind === "choice" ? (
             <>
-              <p id={promptId} className={styles.entryLabel}>
+              {!inline && <p id={promptId} className={styles.entryLabel}>
                 <MathInline text={item.prompt} />
-              </p>
+              </p>}
               <div ref={group} role="group" aria-labelledby={promptId} className={styles.options}>
                 {item.options.map((o, i) => (
                   <button key={i} type="button" className={`${styles.btn} ${styles.option}`} disabled={busy} onClick={() => void run({ answer: String(i), text: o, input: "choice", item: pos })}>
@@ -160,6 +169,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
               </button>
             </form>
           )}
+          {inline && <div data-pet-spoken-slot className={styles.patchSpoken} />}
           {ctx.phase === "learn" && ctx.help && <HelpBar {...ctx.help} />}
           {ctx.phase === "learn" && item && (
             <button

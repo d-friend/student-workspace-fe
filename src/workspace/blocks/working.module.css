@@ -102,3 +102,11 @@
   .actionBar .longLabel { display: none; }
   .actionBar .shortLabel { display: inline; }
 }
+
+/* The question belongs to PATCH; both portal targets stay in normal document flow. */
+.patchQuestion { display: flex; align-items: flex-start; gap: 10px; align-self: stretch; min-width: 0; }
+.patchSlot { flex: 0 0 44px; width: 44px; min-height: 44px; }
+.patchPrompt { flex: 1; min-width: 0; margin: 0; padding: 12px 16px; border: 1px solid var(--border); border-radius: 6px 20px 20px 20px; background: var(--panel); font: 600 15px/1.5 var(--font-sans); color: var(--text); overflow-wrap: anywhere; }
+.patchPrompt > span { display: inline-block; max-width: 100%; overflow-x: auto; vertical-align: middle; }
+.patchSpoken { align-self: stretch; min-width: 0; }
+.patchSpoken:empty { display: none; }

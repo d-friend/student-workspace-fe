@@ -479,3 +479,30 @@ test("an override of a saved review line collapses the problem", () => {
   render(view({ solve: workspace }, "solve", ctxWith([], { overrides: { s_solve: { 1: "ok" } } })));
   expect(screen.getByRole("button", { name: copy.expandProblem })).toBeTruthy();
 });
+
+
+test.each(["solve", "practice"] as const)("%s steps expose inline slots until finished", (phase) => {
+  const c = ctxWith([], { phase });
+  const { container, rerender } = render(<>{renderBlock(scaffolded, c)}</>);
+  const anchor = container.querySelector("[data-pet-anchor][data-pet-inline]")!;
+  expect(anchor.querySelector("[data-pet-slot]")).toBeTruthy();
+  expect(anchor.querySelector("[data-pet-spoken-slot]")).toBeTruthy();
+  rerender(<>{renderBlock(scaffolded, { ...c, finished: true })}</>);
+  expect(container.querySelector("[data-pet-slot]")).toBeNull();
+  expect(container.querySelector("[data-pet-spoken-slot]")).toBeNull();
+});
+
+test("learn steps keep the lane anchor without inline slots", () => {
+  const { container } = showS(ctxWith([], { phase: "learn" }));
+  expect(container.querySelector("[data-pet-anchor]")).toBeTruthy();
+  expect(container.querySelector("[data-pet-inline]")).toBeNull();
+  expect(container.querySelector("[data-pet-slot]")).toBeNull();
+});
+
+test("completing the final answer removes the inline slots", async () => {
+  const { container } = showS(ctxWith([fin]));
+  expect(container.querySelector("[data-pet-slot]")).toBeTruthy();
+  gap(1, "2");
+  submit();
+  await waitFor(() => expect(container.querySelector("[data-pet-slot]")).toBeNull());
+});

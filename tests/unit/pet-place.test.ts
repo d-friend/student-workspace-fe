@@ -46,3 +46,18 @@ test("a pet in the lower 40% of the stage flips", () => {
   expect(placePet({ ...base, anchor: at(700) })).toMatchObject({ flip: true });
   expect(placePet({ ...base, anchor: at(100) })).toMatchObject({ flip: false });
 });
+
+
+test("an inline anchor takes priority over lane width, but still needs an anchor", () => {
+  expect(placePet({ ...base, anchor: at(300), inline: true })).toEqual({ mode: "inline" });
+  expect(placePet({ ...base, column: null, anchor: at(300), inline: true })).toEqual({ mode: "inline" });
+  expect(placePet({ ...base, anchor: null, inline: true })).toEqual({ mode: "dock" });
+});
+
+test("explicitly non-inline placement keeps the existing lane and dock decisions", () => {
+  for (const input of [
+    { ...base, anchor: at(300) },
+    { ...base, anchor: at(300), stage: { ...stage, right: 375 } },
+    { ...base, anchor: null },
+  ]) expect(placePet({ ...input, inline: false })).toEqual(placePet(input));
+});

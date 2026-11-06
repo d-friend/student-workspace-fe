@@ -21,13 +21,12 @@ export function StepProgress({ block, state, overrides = {} }: { block: StepsBlo
   const stage = block.scaffold?.[current - 1]?.stage;
   return (
     <div className={styles.progress}>
-      <span>{copy.stepProgress(current, total)}</span>
-      {nodes && <div className={styles.progressNodes}>{nodes.map((name, i) => (
+      {nodes ? <div className={styles.progressRow}><div className={styles.progressNodes}>{nodes.map((name, i) => (
         <span key={i} className={`${styles.progressNode} ${stage !== undefined && i < stage ? styles.progressDone : ""} ${i === stage ? styles.progressCurrent : ""}`} aria-current={i === stage ? "step" : undefined}>
           <span className={styles.progressMarker} aria-hidden="true">{stage !== undefined && i < stage ? "✓" : i + 1}</span>
           <span className={styles.progressName}>{name}</span>
         </span>
-      ))}</div>}
+      ))}</div><span className={styles.progressCount} aria-label={copy.stepProgress(current, total)}>{current}/{total}</span></div> : <span>{copy.stepProgress(current, total)}</span>}
     </div>
   );
 }

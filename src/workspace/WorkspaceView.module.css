@@ -142,7 +142,9 @@
 @media (max-width: 799px) {
   .stickyProblem, .progress { top: 60px; }
 }
-.progressNodes { display: flex; align-items: flex-start; gap: 8px; margin-top: 6px; }
+.progressRow { display: flex; align-items: flex-start; gap: 8px; }
+.progressNodes { display: flex; flex: 1; align-items: flex-start; gap: 8px; min-width: 0; }
+.progressCount { flex: none; color: var(--muted); font-size: 12px; font-weight: 400; font-variant-numeric: tabular-nums; }
 .progressNode { display: flex; align-items: center; gap: 4px; min-width: 0; color: var(--muted); font-weight: 400; }
 .progressMarker { flex: none; }
 .progressDone { color: var(--text); font-weight: 600; }

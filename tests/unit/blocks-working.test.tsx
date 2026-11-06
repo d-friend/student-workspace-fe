@@ -506,3 +506,68 @@ test("completing the final answer removes the inline slots", async () => {
   submit();
   await waitFor(() => expect(container.querySelector("[data-pet-slot]")).toBeNull());
 });
+
+test("accepted choices save the returned line and fall back to the option text", async () => {
+  const block: Block = { type: "steps", id: "s1", problem_id: "p1", input: "text", scaffold: [
+    { kind: "choice", prompt: "First?", options: ["First option", "Other"] },
+    { kind: "choice", prompt: "Second?", options: ["Second option", "Other"] },
+  ] };
+  const saveBlock = vi.fn();
+  const c = ctxWith([{ ...ok, line: "Solution line" }, ok], { saveBlock });
+  render(<>{renderBlock(block, c)}</>);
+  fireEvent.click(screen.getByRole("button", { name: "First option" }));
+  await screen.findByText("Solution line");
+  fireEvent.click(screen.getByRole("button", { name: "Second option" }));
+  await waitFor(() => expect(saveBlock).toHaveBeenLastCalledWith("s1", expect.objectContaining({ entries: [
+    expect.objectContaining({ text: "Solution line" }), expect.objectContaining({ text: "Second option" }),
+  ] })));
+  expect(c.check).toHaveBeenLastCalledWith("s1", "0", ["Solution line"], 1);
+});
+
+test("blank entries keep the filled template even when a line is returned", async () => {
+  const c = ctxWith([{ ...fin, line: "Ignored", takeaway: "Remember this" }], { saveBlock: vi.fn() });
+  showS(c);
+  gap(1, "2");
+  submit();
+  await waitFor(() => expect(c.saveBlock).toHaveBeenCalledWith("s1", expect.objectContaining({
+    entries: [expect.objectContaining({ text: expect.stringContaining("2") })], takeaway: "Remember this", done: true,
+  })));
+  expect(screen.queryByText("Ignored")).toBeNull();
+});
+
+test("takeaway and topic appear after completion and after restoration", async () => {
+  const workspace = ws("solve");
+  const block = workspace.doc.blocks.find((b) => b.type === "steps")!;
+  if (block.type !== "steps") throw new Error("missing steps");
+  block.roadmap = "motion_current";
+  const c = ctxWith([{ ...fin, takeaway: "Use the time relation" }]);
+  const { unmount } = render(view({ solve: workspace }, "solve", c));
+  type("a");
+  submit();
+  expect(await screen.findByText(copy.takeaway("Use the time relation"))).toBeTruthy();
+  expect(screen.getByText(copy.roadmapTitle.motion_current)).toBeTruthy();
+  unmount();
+  workspace.state = { blocks: { [block.id]: { type: "steps", entries: [{ text: "a", state: "ok" }], done: true, free: false, takeaway: "Use the time relation" } } };
+  render(view({ solve: workspace }, "solve", ctxWith()));
+  expect(screen.getByText(copy.takeaway("Use the time relation"))).toBeTruthy();
+  expect(screen.getByText(copy.roadmapTitle.motion_current)).toBeTruthy();
+});
+
+test("a banner without takeaway has no topic tag", () => {
+  render(<DoneBanner hints={0} roadmap="motion_current" />);
+  expect(screen.getByText(copy.doneLabel)).toBeTruthy();
+  expect(screen.queryByText(copy.roadmapTitle.motion_current)).toBeNull();
+  expect(screen.queryByText(/Điều cần nhớ/)).toBeNull();
+});
+
+
+test("master completion has no takeaway or topic", () => {
+  const workspace = ws("solve");
+  const block = workspace.doc.blocks.find((b) => b.type === "steps");
+  if (block?.type !== "steps") throw new Error("missing steps");
+  block.roadmap = "motion_current";
+  render(view({ solve: workspace }, "solve", ctxWith(), { taskDone: { solve: [block.id] } }));
+  expect(screen.getByText(copy.doneLabel)).toBeTruthy();
+  expect(screen.queryByText(copy.roadmapTitle.motion_current)).toBeNull();
+  expect(screen.queryByText(/Điều cần nhớ/)).toBeNull();
+});

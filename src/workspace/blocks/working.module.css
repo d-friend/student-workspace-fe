@@ -83,8 +83,11 @@
 .solveSteps .line, .solveSteps .active { background: none; }
 .solveSteps .active { padding-left: 0; }
 .solveSteps .active::before { content: none; }
-.solveSteps .lineText, .solveSteps .lineText:first-child { padding-left: 0; }
-.solveSteps .line > .badge:first-child { margin: 0 12px 0 0; }
+.solveSteps .line { align-items: flex-start; min-height: 0; font: 500 16px/1.5 var(--font-sans); }
+.solveSteps .lineText, .solveSteps .lineText:first-child { padding: 4px 0; }
+.solveSteps .badge { margin-top: 6px; }
+.solveSteps .badge svg { width: 20px; height: 20px; padding: 2px; }
+.solveSteps .line > .badge:first-child { margin: 6px 8px 0 0; }
 @media (max-width: 799px) {
   .solveProblem, .solveSteps { padding: 0; border: 0; background: transparent; border-radius: 0; }
 }
@@ -110,3 +113,6 @@
 .patchPrompt > span { display: inline-block; max-width: 100%; overflow-x: auto; vertical-align: middle; }
 .patchSpoken { align-self: stretch; min-width: 0; }
 .patchSpoken:empty { display: none; }
+
+.doneTakeaway { flex-basis: 100%; margin: 0; font: 500 16px/1.5 var(--font-sans); }
+.doneTopic { display: inline-block; margin-left: 8px; padding: 2px 8px; border: 1px solid currentColor; border-radius: 999px; font-size: 13px; }

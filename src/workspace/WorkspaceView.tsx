@@ -58,6 +58,11 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
     w.doc.blocks.filter((b) => b.type === "quiz").every((b) => restoredQuizzes.has(b.id)));
   const level = Math.min(presses, 3);
   const working = p !== "learn";
+  const finishedSteps = w.doc.blocks.find((b): b is Extract<Block, { type: "steps" }> => {
+    const saved = state.blocks[b.id];
+    return b.type === "steps" && saved?.type === "steps" && saved.done && !!saved.takeaway;
+  });
+  const finishedState = finishedSteps && state.blocks[finishedSteps.id];
   const stepsId = w.doc.blocks.find((b) => b.type === "steps")?.id ?? "";
 
   useEffect(() => {
@@ -134,7 +139,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
           </>}
         </BlockBoundary>
       ); })}
-      {allDone && <DoneBanner hints={presses} />}
+      {allDone && <DoneBanner hints={presses} takeaway={finishedState?.type === "steps" ? finishedState.takeaway : undefined} roadmap={finishedSteps?.roadmap} />}
       {p === "learn" && w.doc.sources.length > 0 && (
         <aside className={styles.sources}>
           <h2>{copy.sources}</h2>

@@ -17,13 +17,16 @@ export function StepProgress({ block, state, overrides = {} }: { block: StepsBlo
   if (!total) return null;
   const accepted = acceptedSteps(block, state, overrides);
   const current = Math.min(accepted + 1, total);
-  const nodes = block.roadmap ? copy.roadmaps?.[block.roadmap] : undefined;
+  const nodes = block.roadmap && Object.hasOwn(copy.roadmaps, block.roadmap) ? copy.roadmaps[block.roadmap] : undefined;
   const stage = block.scaffold?.[current - 1]?.stage;
   return (
     <div className={styles.progress}>
       <span>{copy.stepProgress(current, total)}</span>
       {nodes && <div className={styles.progressNodes}>{nodes.map((name, i) => (
-        <span key={i} className={i === stage ? styles.progressCurrent : styles.progressNode} aria-current={i === stage ? "step" : undefined}>{name}</span>
+        <span key={i} className={`${styles.progressNode} ${stage !== undefined && i < stage ? styles.progressDone : ""} ${i === stage ? styles.progressCurrent : ""}`} aria-current={i === stage ? "step" : undefined}>
+          <span className={styles.progressMarker} aria-hidden="true">{stage !== undefined && i < stage ? "✓" : i + 1}</span>
+          <span className={styles.progressName}>{name}</span>
+        </span>
       ))}</div>}
     </div>
   );

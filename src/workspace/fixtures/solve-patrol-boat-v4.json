@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "phase": "solve",
+  "title": "Ca nô tuần tra xuôi và ngược dòng",
+  "blocks": [
+    {
+      "type": "problem",
+      "id": "p1",
+      "md": "Một ca nô tuần tra đi ngược dòng 60 km, rồi xuôi dòng 48 km. Vận tốc dòng nước là 2 km/h và thời gian xuôi dòng ít hơn thời gian ngược dòng 1 giờ. Tìm vận tốc của ca nô khi nước yên lặng."
+    },
+    {
+      "type": "steps",
+      "id": "s1",
+      "problem_id": "p1",
+      "input": "math",
+      "roadmap": "motion_current",
+      "scaffold": [
+        { "kind": "choice", "stage": 0, "prompt": "Vì sao chọn vận tốc khi nước yên lặng làm ẩn?", "options": ["Vì đó là đại lượng bài toán yêu cầu tìm", "Vì đó là vận tốc đã biết trong đề bài", "Vì đó là thời gian ca nô đi xuôi dòng"] },
+        { "kind": "choice", "stage": 2, "prompt": "Thời gian đi ngược dòng được biểu thị thế nào?", "options": ["Thời gian ngược dòng là $\\frac{60}{v-2}$ giờ", "Thời gian ngược dòng là $\\frac{60}{v+2}$ giờ", "Thời gian ngược dòng là $\\frac{48}{v-2}$ giờ"] },
+        { "kind": "choice", "stage": 3, "prompt": "Vì sao lấy thời gian ngược dòng trừ thời gian xuôi dòng?", "options": ["Vì thời gian ngược dòng dài hơn thời gian xuôi dòng 1 giờ", "Vì thời gian xuôi dòng dài hơn thời gian ngược dòng 1 giờ", "Vì hai thời gian đi xuôi và ngược dòng luôn bằng nhau"] },
+        { "kind": "blank", "stage": 4, "template": "$v = $ ___" },
+        { "kind": "choice", "stage": 5, "prompt": "Nghiệm tìm được cần thỏa mãn điều kiện nào?", "options": ["Vận tốc nước yên lặng lớn hơn 2 km/h", "Vận tốc nước yên lặng nhỏ hơn 2 km/h", "Vận tốc nước yên lặng bằng đúng 2 km/h"] }
+      ]
+    }
+  ],
+  "sources": []
+}

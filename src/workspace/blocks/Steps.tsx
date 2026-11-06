@@ -65,9 +65,10 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
     try {
       const r = await ctx.check(block.id, a.answer, previous, ...(a.item === undefined ? [] : [a.item]));
       const retried = dirty.current || ctx.hintCount > hintBase.current;
-      const committed = [...entries.slice(0, pos), { text: a.text, state: r.state, answer: a.answer, ...(a.item !== undefined && { item: a.item }) }];
+      const line = r.state === "ok" && a.input === "choice" ? (r.line ?? a.text) : a.text;
+      const committed = [...entries.slice(0, pos), { text: line, state: r.state, answer: a.answer, ...(a.item !== undefined && { item: a.item }) }];
       setEntries(committed);
-      ctx.saveBlock?.(block.id, { type: "steps", entries: committed, done: r.done, free });
+      ctx.saveBlock?.(block.id, { type: "steps", entries: committed, done: r.done, free, ...(r.done && r.takeaway !== undefined && { takeaway: r.takeaway }) });
       ctx.report("line_checked", { block_id: block.id, line: pos + 1, text: a.text, ok: r.ok, state: r.state, retried, input: a.input });
       if (r.state === "ok") {
         dirty.current = false;

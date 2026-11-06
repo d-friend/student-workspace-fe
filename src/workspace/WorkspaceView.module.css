@@ -142,9 +142,14 @@
 @media (max-width: 799px) {
   .stickyProblem, .progress { top: 60px; }
 }
-.progressNodes { display: flex; gap: 8px; margin-top: 6px; }
-.progressNode { color: var(--muted); }
+.progressNodes { display: flex; align-items: flex-start; gap: 8px; margin-top: 6px; }
+.progressNode { display: flex; align-items: center; gap: 4px; min-width: 0; color: var(--muted); font-weight: 400; }
+.progressMarker { flex: none; }
+.progressDone { color: var(--text); font-weight: 600; }
 .progressCurrent { color: var(--text); font-weight: 700; text-decoration: underline; }
+@media (max-width: 799px) {
+  .progressNode:not(.progressCurrent) .progressName { display: none; }
+}
 
 @media (max-width: 799px) {
   .doc:has(> [data-action-bar]) { padding-bottom: calc(65px + env(safe-area-inset-bottom)); }

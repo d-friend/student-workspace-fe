@@ -185,13 +185,16 @@ test("taskDone prop reports via master", () => {
   expect(doneCalls(c)).toEqual([["task_completed", { similar: false, helped: false, max_hint: 0, via: "master" }]]);
 });
 
-test("practice doc reports similar true", async () => {
+test("practice doc reports similar true and exposes the done slots", async () => {
   const c = ctxWith([fin]);
-  render(view({ practice: ws("practice") }, "practice", c));
+  const { container } = render(view({ practice: ws("practice") }, "practice", c));
   type("a");
   submit();
   await screen.findByText(copy.doneLabel);
   expect(doneCalls(c)[0][1]).toMatchObject({ similar: true });
+  expect(container.querySelectorAll("[data-pet-anchor]")).toHaveLength(1);
+  expect(container.querySelector("[data-pet-done] [data-pet-slot]")).toBeTruthy();
+  expect(container.querySelector("[data-pet-done] [data-pet-spoken-slot]")).toBeTruthy();
 });
 
 test("idea button only in solve", () => {

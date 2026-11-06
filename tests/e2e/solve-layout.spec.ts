@@ -69,6 +69,56 @@ for (const viewport of viewports) {
     });
   }
 
+  test(`live solve finishes with PATCH and chips below the banner at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    await page.getByLabel(copy.inputLabel).fill("__build");
+    await page.getByLabel(copy.inputLabel).press("Enter");
+    for (const option of ["Vận tốc ca nô khi nước yên lặng", "Dòng nước cùng chiều chuyển động", "Tổng thời gian hai lượt là 4 giờ"]) {
+      await page.getByRole("button", { name: option, exact: true }).click();
+    }
+    await page.getByLabel(copy.blankLabel(4)).fill("12");
+    await page.getByRole("button", { name: copy.check, exact: true }).click();
+    const doc = page.locator('section[data-phase="solve"]');
+    const banner = doc.getByRole("status").filter({ hasText: copy.doneLabel });
+    await expect(banner).toBeVisible();
+    const done = doc.locator("[data-pet-done]");
+    const spoken = done.locator("[data-pet-spoken-slot]");
+    const next = spoken.getByRole("button", { name: /^Học tiếp:/ });
+    const similar = spoken.getByRole("button", { name: "Bài tương tự", exact: true });
+    await expect(next).toBeVisible();
+    await expect(similar).toBeVisible();
+    await done.scrollIntoViewIfNeeded();
+    const bannerBox = await banner.boundingBox();
+    const columnBox = await page.locator("[data-pet-column]").boundingBox();
+    expect(bannerBox).not.toBeNull();
+    expect(columnBox).not.toBeNull();
+    for (const chip of [next, similar, spoken.getByRole("button", { name: copy.writeOwn, exact: true })]) {
+      await expect(chip).toBeVisible();
+      const box = await chip.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.y).toBeGreaterThanOrEqual(bannerBox!.y + bannerBox!.height);
+      expect(box!.x).toBeGreaterThanOrEqual(columnBox!.x);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(columnBox!.x + columnBox!.width);
+    }
+    const pet = done.locator("[data-pet-slot]").getByRole("button", { name: copy.petOpen });
+    await expect(pet).toBeVisible();
+    const petBox = await pet.boundingBox();
+    expect(petBox).not.toBeNull();
+    expect(intersects(petBox!, bannerBox!)).toBe(false);
+    const accepted = doc.locator("li").filter({ has: page.getByLabel(copy.stateOk, { exact: true }) });
+    await expect(accepted).toHaveCount(4);
+    for (const line of await accepted.all()) {
+      const box = await line.boundingBox();
+      expect(box).not.toBeNull();
+      expect(intersects(petBox!, box!)).toBe(false);
+    }
+    await expect(page.locator('[data-place="inline"]')).toHaveCount(1);
+    await expect(page.locator("[data-place] [data-bubble]")).toHaveCount(0);
+    await expect(page.locator("[data-place] button")).toHaveCount(0);
+    await expect.poll(() => horizontalOverflow(page)).toEqual([]);
+  });
+
   test(`live solve keeps PATCH clear and advances at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto("/");

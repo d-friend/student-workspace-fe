@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { usePetScrollerRef } from "@/components/pet/PetAnchor";
+import { usePetAnchorRef, usePetScrollerRef } from "@/components/pet/PetAnchor";
 import { copy } from "@/lib/copy";
 import { ShareButton } from "@/components/work/ShareButton";
 import { SelectionAsk, type SelectionQuote } from "./SelectionAsk";
@@ -60,6 +60,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
     w.doc.blocks.filter((b) => b.type === "quiz").every((b) => restoredQuizzes.has(b.id)));
   const level = Math.min(presses, 3);
   const working = p !== "learn";
+  const doneAnchorRef = usePetAnchorRef(working && allDone && !hidden);
   const finishedSteps = w.doc.blocks.find((b): b is Extract<Block, { type: "steps" }> => {
     const saved = state.blocks[b.id];
     return b.type === "steps" && saved?.type === "steps" && saved.done && !!saved.takeaway;
@@ -144,6 +145,12 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
         </div>
       ); })}
       {allDone && <DoneBanner hints={presses} takeaway={finishedState?.type === "steps" ? finishedState.takeaway : undefined} roadmap={finishedSteps?.roadmap} />}
+      {working && allDone && (
+        <div ref={doneAnchorRef} data-pet-anchor data-pet-done data-pet-inline className={styles.donePet}>
+          <div data-pet-slot />
+          <div data-pet-spoken-slot className={styles.doneSpoken} />
+        </div>
+      )}
       {p === "learn" && w.doc.sources.length > 0 && (
         <aside className={styles.sources}>
           <h2>{copy.sources}</h2>

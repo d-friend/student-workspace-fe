@@ -198,9 +198,6 @@ export function PetLayer({
   // The entry is silent until a conversation exists. A text-only reply (an unreadable photo, a clarification) lands
   // back on the entry, and the student must still see it: the entry has no drawer, the bubble is the only place.
   const talked = state.bubbles.length > 0;
-  // A build with nothing said yet (a foundation request) still shows its progress.
-  const showBubble =
-    !open && !travelling && (latest !== undefined || status !== null) && (key === null || key !== hiddenKey) && (!entry || talked);
   const chips =
     latest?.kind === "agent" && !latest.waiting && latest.id === state.bubbles.findLast((b) => b.kind === "agent")?.id;
   const awaitingAnswer = Boolean(
@@ -211,25 +208,32 @@ export function PetLayer({
 
   // The lane: beside the active line of the doc, only when nothing else has a claim on the pet.
   const { anchor, scroller } = usePetAnchor();
-  // The registered anchor belongs to the shown, unfinished block. Both targets are required: older
+  // The registered anchor belongs to the shown question or finished doc. Both targets are required: older
   // anchors/previews without slots keep the original lane/dock behaviour.
   const inlineSlot = anchor?.hasAttribute("data-pet-inline") ? anchor.querySelector<HTMLElement>("[data-pet-slot]") : null;
   const spokenSlot = anchor?.querySelector<HTMLElement>("[data-pet-spoken-slot]") ?? null;
   const inlineOn = !entry && !travelling && inlineSlot !== null && spokenSlot !== null;
-  const itemId = inlineSlot !== null && spokenSlot !== null
+  const doneInline = inlineOn && anchor?.hasAttribute("data-pet-done");
+  const itemId = inlineSlot !== null && spokenSlot !== null && anchor?.matches("[data-pet-anchor][data-n]")
     ? JSON.stringify([anchor?.closest<HTMLElement>("[data-block-id]")?.dataset.blockId, anchor?.dataset.n])
     : null;
   const [seenItem, setSeenItem] = useState<{ anchor: HTMLElement | null; id: string | null }>({ anchor: null, id: null });
   const [staleTurn, setStaleTurn] = useState<number | null>(null);
+  const [staleKey, setStaleKey] = useState<string | null>(null);
   if (seenItem.anchor !== anchor || seenItem.id !== itemId) {
     setSeenItem({ anchor, id: itemId });
     // Speech from before this item belongs in the log, not under its choices. Pending questions
     // remain interactive, using the same exceptions as autoHide below.
     if (itemId !== null && !awaitingAnswer) {
-      setHiddenKey(key);
+      setStaleKey(key);
       setStaleTurn(turn);
     }
   }
+  // Automatic question hiding must not discard a closing reply that preceded the done-anchor handoff.
+  // Manual dismissal (hiddenKey) still applies everywhere; a build with no words still shows progress.
+  const showBubble =
+    !open && !travelling && (latest !== undefined || status !== null) &&
+    (key === null || (key !== hiddenKey && (doneInline || key !== staleKey))) && (!entry || talked);
   const [, setAnchorTick] = useState(0);
   useEffect(() => {
     if (!anchor) return;
@@ -247,7 +251,7 @@ export function PetLayer({
     observer.observe(anchor, { attributes: true, attributeFilter: ["data-n", "data-pet-inline"], childList: true, subtree: true });
     return () => observer.disconnect();
   }, [anchor, itemId, inlineSlot, spokenSlot]);
-  const laneOn = !entry && !open && !leaving && !travelling && anchor !== null && scroller !== null;
+  const laneOn = !inlineOn && !entry && !open && !leaving && !travelling && anchor !== null && scroller !== null;
   const [place, setPlace] = useState<Place>({ mode: "dock" });
   const [stageSize, setStageSize] = useState({ w: 0, h: 0 });
   const [scrolling, setScrolling] = useState(false);
@@ -365,7 +369,7 @@ export function PetLayer({
   );
   // An announce and its completion can straddle the item's appearance. Both belong to the
   // stale turn even when the completion has a new message key. Choices/questions still stay.
-  const showSpoken = showBubble && !(inline && staleTurn !== null && turn === staleTurn && !awaitingAnswer);
+  const showSpoken = showBubble && !(inline && itemId !== null && staleTurn !== null && turn === staleTurn && !awaitingAnswer);
   const spokenBubble = showSpoken ? (
     <PetBubble
       key={turn}

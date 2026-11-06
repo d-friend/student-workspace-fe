@@ -158,3 +158,7 @@
 }
 
 .block { display: contents; }
+
+/* The finished conversation stays below the banner in the document flow at every width. */
+.donePet { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+.doneSpoken { width: 100%; min-width: 0; }

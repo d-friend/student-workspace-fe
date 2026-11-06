@@ -512,24 +512,25 @@ describe("PetLayer in the lane", () => {
     vi.useRealTimers();
   });
 
-  function Doc({ active, scroller, inline = false, slots = true }: { active: boolean; scroller: boolean; inline?: boolean; slots?: boolean }) {
+  function Doc({ active, scroller, inline = false, slots = true, done = false }: { active: boolean; scroller: boolean; inline?: boolean; slots?: boolean; done?: boolean }) {
     const setScroller = usePetScrollerRef();
-    const anchorRef = usePetAnchorRef(active);
+    const anchorRef = usePetAnchorRef(active && !done);
+    const doneRef = usePetAnchorRef(active && done);
     return (
       <div data-testid="scroller" ref={scroller ? (el) => setScroller?.(el) : undefined}>
         <div data-pet-column data-block-id="steps-1">
-          <div ref={anchorRef} data-pet-anchor data-pet-inline={inline ? "" : undefined} data-n="1">
+          <div key={done ? "done" : "question"} ref={done ? doneRef : anchorRef} data-pet-anchor data-pet-done={done ? "" : undefined} data-pet-inline={inline ? "" : undefined} data-n={done ? undefined : "1"}>
             {inline && slots && <><div data-pet-slot /><div data-pet-spoken-slot /></>}
           </div>
         </div>
       </div>
     );
   }
-  function ui(extra: Partial<WorkspaceState> = {}, bubbles: Bubble[] = [], o: { active?: boolean; scroller?: boolean; flying?: boolean; inline?: boolean; slots?: boolean } = {}) {
+  function ui(extra: Partial<WorkspaceState> = {}, bubbles: Bubble[] = [], o: { active?: boolean; scroller?: boolean; flying?: boolean; inline?: boolean; slots?: boolean; done?: boolean } = {}) {
     const s = setup(bubbles, extra);
     return (
       <PetAnchorProvider>
-        <Doc active={o.active ?? true} scroller={o.scroller ?? true} inline={o.inline} slots={o.slots} />
+        <Doc active={o.active ?? true} scroller={o.scroller ?? true} inline={o.inline} slots={o.slots} done={o.done} />
         <PetLayer state={s.state} {...s.props} flying={o.flying} />
       </PetAnchorProvider>
     );
@@ -663,6 +664,76 @@ describe("PetLayer in the lane", () => {
     expect(document.activeElement).toBe(pet());
   });
 
+  it.each([375, 1280, 1700])("at %ipx the done slot owns PATCH, closing speech and chips without a lane", (width) => {
+    mockRects(() => { live.layer.right = live.scroller.right = width; });
+    const options = ["Học tiếp: Đạo hàm", "Bài tương tự"];
+    const { container } = render(ui({ optChips: options }, [agent(9, "Bạn giải xong rồi.", { turn: 5 })], { inline: true, done: true }));
+    const done = container.querySelector<HTMLElement>("[data-pet-done]")!;
+    expect(done.querySelector("[data-pet-slot]")!.contains(pet())).toBe(true);
+    const spoken = done.querySelector<HTMLElement>("[data-pet-spoken-slot]")!;
+    expect(within(spoken).getByText("Bạn giải xong rồi.")).toBeTruthy();
+    for (const name of [...options, copy.writeOwn]) expect(within(spoken).getByRole("button", { name })).toBeTruthy();
+    expect(layer(container).dataset.place).toBe("inline");
+    expect(layer(container).hasAttribute("data-lane")).toBe(false);
+    expect(layer(container).children).toHaveLength(0);
+    expect(pet().style.top).toBe("");
+    expect(pet().style.left).toBe("");
+    expect(scroller().style.getPropertyValue("--pet-clear")).toBe("0px");
+    fireEvent.click(pet());
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(done.querySelector("[data-pet-slot] button")).toBeTruthy();
+  });
+
+  it.each(["before", "during", "after"])("keeps a chipless final reply arriving %s the question-to-done handoff", (timing) => {
+    mockRects(() => {});
+    const announce = agent(1, "Mình dựng nhé.", { turn: 4 });
+    const closing = agent(2, "Bạn giải xong rồi.", { turn: 4 });
+    const { container, rerender } = render(ui({}, [announce], { inline: true }));
+    expect(screen.queryByText(announce.text)).toBeNull();
+    if (timing === "before") rerender(ui({}, [announce, closing], { inline: true }));
+    rerender(ui({}, timing === "after" ? [announce] : [announce, closing], { inline: true, done: true }));
+    if (timing === "after") rerender(ui({}, [announce, closing], { inline: true, done: true }));
+    const spoken = container.querySelector<HTMLElement>("[data-pet-done] [data-pet-spoken-slot]")!;
+    expect(within(spoken).getByText(closing.text)).toBeTruthy();
+    expect(layer(container).querySelector("[data-bubble]")).toBeNull();
+  });
+
+  it("restores speech hidden automatically by the question anchor when its key survives into done", () => {
+    mockRects(() => {});
+    const closing = [agent(2, "Bạn giải xong rồi.", { turn: 4 })];
+    const { container, rerender } = render(ui({}, closing, { inline: true }));
+    expect(screen.queryByText("Bạn giải xong rồi.")).toBeNull();
+    rerender(ui({}, closing, { inline: true, done: true }));
+    expect(within(container.querySelector<HTMLElement>("[data-pet-done]")!).getByText("Bạn giải xong rồi.")).toBeTruthy();
+  });
+
+  it.each([375, 1700])("learn's non-inline anchor keeps floating speech at %ipx", (width) => {
+    mockRects(() => { live.layer.right = live.scroller.right = width; });
+    const { container } = render(ui({}, [agent(1, "Mình học tiếp nhé.")]));
+    expect(layer(container).contains(pet())).toBe(true);
+    expect(layer(container).contains(screen.getByText("Mình học tiếp nhé."))).toBe(true);
+    expect(layer(container).dataset.place).toBe("dock");
+    expect(container.querySelector("[data-pet-slot]")).toBeNull();
+  });
+
+  it("preserves a manually dismissed closing reply across the done handoff", () => {
+    mockRects(() => {});
+    const { container, rerender } = render(ui({}, [], { inline: true }));
+    const closing = [agent(2, "Bạn giải xong rồi.", { turn: 2 })];
+    rerender(ui({}, closing, { inline: true }));
+    fireEvent.click(screen.getByRole("button", { name: copy.bubbleClose }));
+    rerender(ui({}, closing, { inline: true, done: true }));
+    expect(container.querySelector("[data-pet-done] [data-bubble]")).toBeNull();
+    expect(container.querySelector("[data-pet-done] [data-pet-slot]")!.contains(pet())).toBe(true);
+  });
+
+  it("a done anchor missing its slots keeps the floating fallback", () => {
+    mockRects(() => {});
+    const { container } = render(ui({}, [agent(1, "Xong rồi")], { inline: true, done: true, slots: false }));
+    expect(layer(container).contains(pet())).toBe(true);
+    expect(layer(container).querySelector("[data-bubble]")).toBeTruthy();
+  });
+
   it("flies to the dock first, then moves inline when the unfold settles", () => {
     mockRects(() => {});
     const { container, rerender } = render(ui({}, [], { inline: true, flying: true }));
@@ -680,7 +751,7 @@ describe("PetLayer in the lane", () => {
     expect(pet().style.left).toBe("1152px");
   });
 
-  it("finishing or switching away from the inline doc restores the floating pet", () => {
+  it("switching away without a done slot restores the floating pet", () => {
     mockRects(() => {});
     const { container, rerender } = render(ui({}, [], { inline: true }));
     expect(layer(container).contains(pet())).toBe(false);

@@ -77,8 +77,10 @@ test("the pet opens the conversation; Escape closes it and focus returns", async
 
 test("closing the bubble shows the unread badge; opening the chat clears it", async ({ page }) => {
   await build(page);
-  // The bubble shows the latest thing said ("Xong rồi."), not the announce before it.
-  const bubble = page.getByRole("status").filter({ hasText: "Xong rồi." });
+  // The build turn's speech stays in the log under a solve doc's first question (spec: inline PATCH); a hint's reply is a
+  // later turn and shows inline. The mock echoes the event it got.
+  await page.getByRole("button", { name: new RegExp(`^${copy.hint}`) }).click();
+  const bubble = page.getByRole("status").filter({ hasText: "help_requested" });
   await expect(bubble).toBeVisible();
   await bubble.getByRole("button", { name: copy.bubbleClose }).click();
   await expect(bubble).toHaveCount(0);

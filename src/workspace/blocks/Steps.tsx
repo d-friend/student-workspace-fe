@@ -109,8 +109,9 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
               </p>
               <div ref={group} role="group" aria-labelledby={promptId} className={styles.options}>
                 {item.options.map((o, i) => (
-                  <button key={i} type="button" className={styles.btn} disabled={busy} onClick={() => void run({ answer: String(i), text: o, input: "choice", item: pos })}>
-                    <MathInline text={o} />
+                  <button key={i} type="button" className={`${styles.btn} ${styles.option}`} disabled={busy} onClick={() => void run({ answer: String(i), text: o, input: "choice", item: pos })}>
+                    <span className={styles.optionLabel} aria-hidden="true">{String.fromCharCode(65 + i)}</span>
+                    <span className={styles.optionText}><MathInline text={o} /></span>
                   </button>
                 ))}
               </div>

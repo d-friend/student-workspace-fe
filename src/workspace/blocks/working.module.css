@@ -36,8 +36,11 @@
 .active::before { content: attr(data-n); content: attr(data-n) / ""; position: absolute; left: 0; top: 14px; width: calc(var(--g) - 14px); text-align: right; font: 600 13px/1.4 var(--font-sans); color: var(--brand); }
 .active > .entry, .active > .blank { align-self: stretch; }
 .active > .entryLabel { margin: 0; }
-.options { display: flex; flex-wrap: wrap; gap: 8px; }
-.options .btn { min-height: 44px; padding: 0 14px; font: 500 16px/1.4 var(--font-sans); border-radius: 11px; border-color: var(--control-border); background: var(--agent); }
+.options { display: grid; grid-template-columns: minmax(0, 1fr); align-self: stretch; gap: 8px; }
+.options .option { display: flex; align-items: baseline; gap: 10px; box-sizing: border-box; width: 100%; min-width: 0; min-height: 48px; padding: 10px 14px; font: 500 16px/1.4 var(--font-sans); text-align: left; white-space: normal; overflow-wrap: anywhere; border-radius: 11px; border-color: var(--control-border); background: var(--agent); }
+.optionLabel { flex: none; width: 1.25em; color: var(--brand); font-weight: 600; }
+.optionText { min-width: 0; flex: 1; }
+.optionText > span { display: inline-block; max-width: 100%; overflow-x: auto; vertical-align: middle; }
 .options .btn:hover:not(:disabled) { border-color: var(--control-border); background: var(--panel); }
 .blank { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font: 500 22px/1.4 var(--font-sans); letter-spacing: 0.01em; }
 .gap { width: 12ch; height: 44px; padding: 0 4px; font: inherit; letter-spacing: inherit; background: transparent; border: 0; border-bottom: 2px solid var(--control-border); border-radius: 0; }

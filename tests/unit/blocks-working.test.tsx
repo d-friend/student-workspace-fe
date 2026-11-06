@@ -243,6 +243,19 @@ const showS = (c: BlockCtx) => render(<>{renderBlock(scaffolded, c)}</>);
 const gap = (n: number, v: string) => fireEvent.change(screen.getByLabelText(copy.blankLabel(n)), { target: { value: v } });
 const lineCalls = (c: BlockCtx) => (c.report as ReturnType<typeof vi.fn>).mock.calls.filter((a) => a[0] === "line_checked");
 
+test("choice labels are ordered and excluded from accessible names", () => {
+  const choice: Block = {
+    ...(steps as Extract<Block, { type: "steps" }>),
+    scaffold: [{ kind: "choice", prompt: "Chọn", options: ["Một", "Hai", "Ba"] }],
+  };
+  render(<>{renderBlock(choice, ctxWith())}</>);
+  const buttons = screen.getByRole("group", { name: "Chọn" }).querySelectorAll("button");
+  expect(Array.from(buttons, (button) => button.querySelector('[aria-hidden="true"]')?.textContent)).toEqual(["A", "B", "C"]);
+  for (const name of ["Một", "Hai", "Ba"]) {
+    expect(screen.getByRole("button", { name: new RegExp(`^${name}$`) })).toBeTruthy();
+  }
+});
+
 test("blank item sends the gap and records the filled line", async () => {
   const c = ctxWith([ok]);
   showS(c);

@@ -37,11 +37,12 @@ const within = (node: React.ReactNode) => (
 
 test("the anchor is the active row in scaffold mode and in free mode, null once done", async () => {
   const c = mk(true);
-  const { container } = render(within(renderBlock(scaffolded, c)));
+  const { container, rerender } = render(within(renderBlock(scaffolded, c)));
   const row = container.querySelector("[data-pet-anchor]");
   expect(row).toBeTruthy();
   expect(seen.anchor).toBe(row);
-  fireEvent.click(screen.getByRole("button", { name: copy.otherWay }));
+  // "Mình có cách khác" lives in the doc-level action bar now; it switches the block to free mode through ctx.help.free.
+  rerender(within(renderBlock(scaffolded, { ...c, help: { level: 0, onHint: vi.fn(), ideaPending: false, free: true } })));
   expect(seen.anchor).toBe(container.querySelector("[data-pet-anchor]"));
   expect(seen.anchor).toBeTruthy();
   fireEvent.change(screen.getByRole("textbox"), { target: { value: "x" } });

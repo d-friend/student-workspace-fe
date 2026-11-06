@@ -323,7 +323,8 @@ test("last item overridden falls back to free", async () => {
 
 test("other way switches to free typing for good", async () => {
   const c = ctxWith([ok, ok]);
-  showS(c);
+  const workspace: Workspace = { id: "solve", doc: { ...doc("solve"), blocks: [scaffolded] } };
+  render(view({ solve: workspace }, "solve", c));
   fireEvent.click(screen.getByRole("button", { name: copy.otherWay }));
   expect(c.report).toHaveBeenCalledWith("other_way_chosen", { block_id: "s1", line: 1 });
   const free = screen.getByLabelText(copy.lineLabel(1));
@@ -338,7 +339,7 @@ test("other way switches to free typing for good", async () => {
   expect(screen.queryByRole("button", { name: copy.otherWay })).toBeNull();
 });
 
-test("help bar sits in the active row", async () => {
+test("action bar is the last doc child and contains all active actions", async () => {
   const c = ctxWith([fin]);
   const sc = (extra: Partial<Workspace["doc"]> = {}): Workspace => ({
     id: "solve",
@@ -346,7 +347,16 @@ test("help bar sits in the active row", async () => {
   });
   const { unmount } = render(view({ solve: sc() }, "solve", c));
   const hint = screen.getByRole("button", { name: copy.hint });
-  expect(hint.closest("[data-pet-anchor]")).toBeTruthy();
+  const bar = hint.closest("[data-action-bar]")!;
+  expect(bar.parentElement?.lastElementChild).toBe(bar);
+  expect(bar.contains(screen.getByRole("button", { name: copy.idea }))).toBe(true);
+  expect(bar.contains(screen.getByRole("button", { name: copy.otherWay }))).toBe(true);
+  fireEvent.click(hint);
+  expect(screen.getByText(copy.hintLevel(1))).toBeTruthy();
+  expect(hint.querySelectorAll('[aria-hidden="true"] span')).toHaveLength(3);
+  expect(c.report).toHaveBeenCalledWith("help_requested", { block_id: "s1", level: 1 });
+  fireEvent.click(screen.getByRole("button", { name: copy.idea }));
+  expect(c.report).toHaveBeenCalledWith("foundation_requested", {});
   expect(screen.getAllByRole("button", { name: copy.hint })).toHaveLength(1);
   gap(1, "a");
   submit();

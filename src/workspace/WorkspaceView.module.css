@@ -145,3 +145,7 @@
 .progressNodes { display: flex; gap: 8px; margin-top: 6px; }
 .progressNode { color: var(--muted); }
 .progressCurrent { color: var(--text); font-weight: 700; text-decoration: underline; }
+
+@media (max-width: 799px) {
+  .doc:has(> [data-action-bar]) { padding-bottom: calc(65px + env(safe-area-inset-bottom)); }
+}

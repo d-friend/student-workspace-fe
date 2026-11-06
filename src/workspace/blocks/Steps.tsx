@@ -20,7 +20,9 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const [failed, setFailed] = useState<Attempt | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(initial?.done ?? false);
-  const [free, setFree] = useState(initial?.free ?? false);
+  const [learnFree, setLearnFree] = useState(initial?.free ?? false);
+  const free = ctx.phase === "learn" ? learnFree : (ctx.help?.free ?? initial?.free ?? false);
+  const previousFree = useRef(free);
   const finished = done || !!ctx.finished; // the master can complete a block the code could not (prose lines)
   const anchorRef = usePetAnchorRef(!finished && !ctx.hidden);
   const inputId = useId();
@@ -38,6 +40,14 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   // Past the last item without done (the master judged it ok, or an override moved on) the student types freely.
   const item = block.scaffold && !free && pos < block.scaffold.length ? block.scaffold[pos] : null;
   const [pre, post = ""] = item?.kind === "blank" ? item.template.split("___") : [];
+
+  useEffect(() => {
+    if (free && !previousFree.current) {
+      setText("");
+      input.current?.focus();
+    }
+    previousFree.current = free;
+  }, [free]);
 
   useEffect(() => {
     if (!refocus.current) return;
@@ -150,14 +160,14 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
               </button>
             </form>
           )}
-          {ctx.help && <HelpBar {...ctx.help} />}
-          {item && (
+          {ctx.phase === "learn" && ctx.help && <HelpBar {...ctx.help} />}
+          {ctx.phase === "learn" && item && (
             <button
               type="button"
               className={styles.btn}
               onClick={() => {
                 // shortcut: no way back to the scaffold; add one if students ask for it.
-                setFree(true);
+                setLearnFree(true);
                 setText("");
                 refocus.current = true;
                 ctx.report("other_way_chosen", { block_id: block.id, line: pos + 1 });

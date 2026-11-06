@@ -8,9 +8,9 @@ import { acceptedSteps, StepProgress } from "./StepProgress";
 import { Problem } from "./blocks/Problem";
 import { DoneBanner } from "./DoneBanner";
 import { MdInline } from "./md";
-import { HelpBar } from "./HelpBar";
+import { ActionBar } from "./ActionBar";
 import { PhaseSwitch } from "./PhaseSwitch";
-import type { BlockCtx, Phase, SavedBlockState, Workspace } from "./types";
+import type { Block, BlockCtx, Phase, SavedBlockState, Workspace } from "./types";
 import { canReturnToProblem } from "./navigation";
 import styles from "./WorkspaceView.module.css";
 
@@ -38,6 +38,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
   onRebuild?: (id: string) => void;
 }) {
   const [presses, setPresses] = useState(0);
+  const [freeBlocks, setFreeBlocks] = useState<Record<string, boolean>>({});
   const [savedBlocks, setSavedBlocks] = useState<Record<string, SavedBlockState>>({});
   const state = { ...w.state, blocks: { ...w.state?.blocks, ...savedBlocks } };
   const stepsIds = w.doc.blocks.filter((b) => b.type === "steps").map((b) => b.id);
@@ -128,12 +129,11 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
           {renderBlock(b, b.type === "steps" ? {
             ...ctx,
             finished: completedIds.has(b.id),
-            help: { ...help, onHint: () => onHint(b.id) },
+            help: { ...help, onHint: () => onHint(b.id), free: freeBlocks[b.id] || (state.blocks[b.id]?.type === "steps" && (state.blocks[b.id] as Extract<SavedBlockState, { type: "steps" }>).free) },
           } : ctx)}
           </>}
         </BlockBoundary>
       ); })}
-      {working && !stepsId && <HelpBar level={help.level} onHint={help.onHint} onIdea={help.onIdea} ideaPending={help.ideaPending} />}
       {allDone && <DoneBanner hints={presses} />}
       {p === "learn" && w.doc.sources.length > 0 && (
         <aside className={styles.sources}>
@@ -160,6 +160,17 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
           {copy.backToProblem}
         </button>
       )}
+      {working && !allDone && (() => {
+        const active = w.doc.blocks.find((b): b is Extract<Block, { type: "steps" }> => b.type === "steps" && !completedIds.has(b.id));
+        const saved = active && state.blocks[active.id];
+        const free = active && (freeBlocks[active.id] || (saved?.type === "steps" && saved.free));
+        const pos = active ? acceptedSteps(active, state, ctx.overrides[active.id]) : 0;
+        const onOtherWay = active && !free && pos < (active.scaffold?.length ?? 0) ? () => {
+          setFreeBlocks((previous) => ({ ...previous, [active.id]: true }));
+          ctx.report("other_way_chosen", { block_id: active.id, line: pos + 1 });
+        } : undefined;
+        return <ActionBar {...help} onHint={() => onHint(active?.id ?? "")} onOtherWay={onOtherWay} sticky />;
+      })()}
     </section>
   );
 }

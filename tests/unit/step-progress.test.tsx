@@ -37,6 +37,16 @@ test.each([
   expect(screen.queryByText(label)).toBeNull();
 });
 
+test("all nodes are done when every item is accepted", () => {
+  const state: StudentWork = { blocks: { s1: { type: "steps", entries: Array.from({ length: 4 }, () => ({ text: "A", state: "ok" as const })), done: true, free: false } } };
+  const { container } = render(<StepProgress block={block} state={state} />);
+  copy.roadmaps.motion_current.forEach((name) => {
+    expect(screen.getByText(name).parentElement?.textContent).toBe(`✓${name}`);
+  });
+  expect(container.querySelector('[aria-current="step"]')).toBeNull();
+  expect(screen.getByLabelText(copy.stepProgress(4, 4)).textContent).toBe("4/4");
+});
+
 test("items without a stage highlight no node", () => {
   const untagged: typeof block = { ...block, scaffold: [{ kind: "blank", template: "___" }] };
   const { container } = render(<StepProgress block={untagged} />);

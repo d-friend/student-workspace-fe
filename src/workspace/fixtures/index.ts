@@ -11,6 +11,7 @@ import learn_history from "./learn-history.json";
 import math from "./math.json";
 import problem from "./problem.json";
 import quiz from "./quiz.json";
+import solve_patrol_boat from "./solve-patrol-boat.json";
 import solve_tangent from "./solve-tangent.json";
 import steps from "./steps.json";
 import steps_scaffold from "./steps-scaffold.json";
@@ -30,6 +31,7 @@ const raw: Record<string, unknown> = {
   "math.json": math,
   "problem.json": problem,
   "quiz.json": quiz,
+  "solve-patrol-boat.json": solve_patrol_boat,
   "solve-tangent.json": solve_tangent,
   "steps-scaffold.json": steps_scaffold,
   "steps.json": steps,

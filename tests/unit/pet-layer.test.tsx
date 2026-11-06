@@ -800,3 +800,11 @@ describe("PetBubble.module.css cascade", () => {
     expect(reduced).toMatch(/\.bubble\[data-side\]:not\(\.leaving\)\s*\{[^}]*animation-name:\s*fadeIn/);
   });
 });
+
+it("opens the drawer with a selected quote and prefilled question", () => {
+  const s = setup([agent(1, "Hello")]);
+  const { rerender } = render(s.ui);
+  rerender(<PetLayer state={s.state} {...s.props} selectionOpen={1} quote="a passage" onDismissQuote={vi.fn()} composer={{ ...s.props.composer, value: copy.selectionQuestion }} />);
+  expect(screen.getByText("a passage")).toBeTruthy();
+  expect(screen.getByRole("textbox")).toHaveProperty("value", copy.selectionQuestion);
+});

@@ -116,3 +116,5 @@
 
 .doneTakeaway { flex-basis: 100%; margin: 0; font: 500 16px/1.5 var(--font-sans); }
 .doneTopic { display: inline-block; margin-left: 8px; padding: 2px 8px; border: 1px solid currentColor; border-radius: 999px; font-size: 13px; }
+
+@media (pointer: fine) { .optionText { user-select: text; } }

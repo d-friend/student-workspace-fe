@@ -111,25 +111,25 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
         )}
       </ol>
       {!finished && (
-        <div ref={anchorRef} data-pet-anchor data-pet-inline={inline ? "" : undefined} data-n={pos + 1} className={styles.active}>
+        <div ref={anchorRef} data-pet-anchor data-pet-inline={inline ? "" : undefined} data-n={pos + 1} data-item={item ? pos : undefined} className={styles.active}>
           {inline && (
             <div className={styles.patchQuestion}>
               <div data-pet-slot className={styles.patchSlot} />
-              <p id={promptId} className={styles.patchPrompt}>
+              <p id={promptId} data-sel="prompt" className={styles.patchPrompt}>
                 <MathInline text={item?.kind === "choice" ? item.prompt : item?.kind === "blank" ? item.template : copy.lineLabel(pos + 1)} />
               </p>
             </div>
           )}
           {item?.kind === "choice" ? (
             <>
-              {!inline && <p id={promptId} className={styles.entryLabel}>
+              {!inline && <p id={promptId} data-sel="prompt" className={styles.entryLabel}>
                 <MathInline text={item.prompt} />
               </p>}
               <div ref={group} role="group" aria-labelledby={promptId} className={styles.options}>
                 {item.options.map((o, i) => (
-                  <button key={i} type="button" className={`${styles.btn} ${styles.option}`} disabled={busy} onClick={() => void run({ answer: String(i), text: o, input: "choice", item: pos })}>
+                  <button key={i} type="button" className={`${styles.btn} ${styles.option}`} disabled={busy} onClick={(event) => { const selection = window.getSelection(); if (selection && !selection.isCollapsed && selection.anchorNode && event.currentTarget.contains(selection.anchorNode)) return; void run({ answer: String(i), text: o, input: "choice", item: pos }); }}>
                     <span className={styles.optionLabel} aria-hidden="true">{String.fromCharCode(65 + i)}</span>
-                    <span className={styles.optionText}><MathInline text={o} /></span>
+                    <span data-sel="option" className={styles.optionText}><MathInline text={o} /></span>
                   </button>
                 ))}
               </div>

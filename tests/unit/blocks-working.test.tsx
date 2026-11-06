@@ -571,3 +571,14 @@ test("master completion has no takeaway or topic", () => {
   expect(screen.queryByText(copy.roadmapTitle.motion_current)).toBeNull();
   expect(screen.queryByText(/Điều cần nhớ/)).toBeNull();
 });
+
+test("drag-selecting an option does not answer", () => {
+  const c = ctxWith();
+  const choice: Block = { ...(steps as Extract<Block, { type: "steps" }>), scaffold: [{ kind: "choice", prompt: "Pick", options: ["10", "4"] }] };
+  render(<>{renderBlock(choice, c)}</>);
+  const button = screen.getByRole("button", { name: "10" });
+  const selection = vi.spyOn(window, "getSelection").mockReturnValue({ isCollapsed: false, anchorNode: button } as unknown as Selection);
+  fireEvent.click(button);
+  expect(c.check).not.toHaveBeenCalled();
+  selection.mockRestore();
+});

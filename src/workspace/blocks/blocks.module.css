@@ -103,3 +103,5 @@
   .reveal { animation: none; }
   .btn:active, .option:active { transform: none; }
 }
+
+@media (pointer: fine) { .optionText { user-select: text; } }

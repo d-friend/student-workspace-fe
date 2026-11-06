@@ -13,7 +13,7 @@ export function Example({ block }: BlockProps<Extract<Block, { type: "example" }
       <div className={styles.prose}>
         <Md text={block.problem_md} />
       </div>
-      <ol className={styles.steps}>
+      <ol data-sel="explanation" className={styles.steps}>
         {block.steps.slice(0, shown).map((s, i) => (
           <li key={i} className={styles.reveal}>
             <Md text={s} />

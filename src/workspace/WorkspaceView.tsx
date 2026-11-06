@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePetScrollerRef } from "@/components/pet/PetAnchor";
 import { copy } from "@/lib/copy";
 import { ShareButton } from "@/components/work/ShareButton";
+import { SelectionAsk, type SelectionQuote } from "./SelectionAsk";
 import { BlockBoundary } from "./BlockBoundary";
 import { renderBlock } from "./blocks";
 import { acceptedSteps, StepProgress } from "./StepProgress";
@@ -23,6 +24,7 @@ type Props = {
   busy?: boolean;
   brokenTabs?: Record<string, true>;
   onRebuild?: (id: string) => void;
+  onSelectionAsk?: (quote: SelectionQuote) => void;
 };
 
 function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onRebuild }: {
@@ -123,7 +125,8 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
         const firstSteps = problem && w.doc.blocks.find((item) => item.type === "steps" && item.problem_id === problem.id);
         const progressMoved = working && b.type === "steps" && firstSteps?.id === b.id && acceptedSteps(b, state, ctx.overrides[b.id]) > 0;
         return (
-        <BlockBoundary key={b.id} blockId={b.id} report={ctx.report}>
+        <div key={b.id} className={styles.block} data-block-id={b.id} data-sel={b.type === "problem" ? "problem" : p === "learn" ? "lesson" : "explanation"}>
+        <BlockBoundary blockId={b.id} report={ctx.report}>
           {sticky && b.type === "problem" && steps?.type === "steps" ? (
             <div className={styles.stickyProblem}>
               <Problem block={b} ctx={ctx} collapsible />
@@ -138,6 +141,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
           } : ctx)}
           </>}
         </BlockBoundary>
+        </div>
       ); })}
       {allDone && <DoneBanner hints={presses} takeaway={finishedState?.type === "steps" ? finishedState.takeaway : undefined} roadmap={finishedSteps?.roadmap} />}
       {p === "learn" && w.doc.sources.length > 0 && (
@@ -180,7 +184,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
   );
 }
 
-export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild }: Props) {
+export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild, onSelectionAsk }: Props) {
   // Hidden docs share this scroller; keep an independent offset for each workspace.
   const scroller = useRef<HTMLDivElement>(null);
   const tops = useRef<Record<string, number>>({});
@@ -197,6 +201,7 @@ export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {}
         petScroller?.(el);
       }}
       className={styles.scroll} data-flat={tabs.find((tab) => tab.id === activeId)?.phase !== "learn" || undefined} onScroll={(e) => (tops.current[shown.current] = e.currentTarget.scrollTop)}>
+      <SelectionAsk scroller={scroller} activeId={activeId} onAsk={onSelectionAsk} />
       <div className={styles.view} data-pet-column>
         <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} />
         {tabs.map((w) => (

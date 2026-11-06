@@ -1,5 +1,8 @@
 // Every string in the UI (plan-frontend "Copy"), in Vietnamese and English. No em-dashes, no emoji.
 const vi = {
+  selectionAsk: "Hỏi PATCH về đoạn này",
+  selectionQuestion: "Giải thích giúp mình đoạn này",
+  selectionDismiss: "Bỏ trích dẫn",
   historyToday: "Hôm nay",
   historyYesterday: "Hôm qua",
   historyWeek: "7 ngày qua",
@@ -198,6 +201,9 @@ const vi = {
 };
 
 const en: typeof vi = {
+  selectionAsk: "Ask PATCH about this",
+  selectionQuestion: "Please explain this passage",
+  selectionDismiss: "Remove quote",
   historyToday: "Today",
   historyYesterday: "Yesterday",
   historyWeek: "Past 7 days",

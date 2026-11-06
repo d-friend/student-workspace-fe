@@ -54,7 +54,7 @@ export function Quiz({ block, ctx }: BlockProps<Quiz>) {
 
   return (
     <section className={styles.card}>
-      <div id={qId} className={styles.prose}>
+      <div id={qId} data-sel="prompt" className={styles.prose}>
         <Md text={block.question_md} />
       </div>
       {block.answer === "choice" ? (
@@ -74,7 +74,7 @@ export function Quiz({ block, ctx }: BlockProps<Quiz>) {
                 aria-disabled={done}
                 tabIndex={current ? 0 : -1}
                 className={`${styles.option} ${shown?.ok ? styles.optionOk : ""} ${shown && !shown.ok ? styles.optionReview : ""}`}
-                onClick={() => submit(o)}
+                onClick={(event) => { const selection = window.getSelection(); if (selection && !selection.isCollapsed && selection.anchorNode && event.currentTarget.contains(selection.anchorNode)) return; void submit(o); }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
@@ -88,7 +88,7 @@ export function Quiz({ block, ctx }: BlockProps<Quiz>) {
                   }
                 }}
               >
-                <Md text={o} />
+                <div data-sel="option" className={styles.optionText}><Md text={o} /></div>
                 {shown && (
                   <span className={styles.badge}>
                     {shown.ok ? <IconCheck size={20} stroke={2} aria-hidden="true" /> : <IconAlertTriangle size={20} stroke={2} aria-hidden="true" />}
@@ -128,7 +128,7 @@ export function Quiz({ block, ctx }: BlockProps<Quiz>) {
         {isOpen && done && <p className={styles.small}>{copy.sent}</p>}
         {failed && <p className={styles.small}>{copy.checkFailed}</p>}
         {done && !isOpen && (
-          <div className={`${styles.prose} ${styles.reveal}`}>
+          <div data-sel="explanation" className={`${styles.prose} ${styles.reveal}`}>
             <Md text={block.explanation_md} />
           </div>
         )}

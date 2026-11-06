@@ -154,3 +154,5 @@
 @media (max-width: 799px) {
   .doc:has(> [data-action-bar]) { padding-bottom: calc(65px + env(safe-area-inset-bottom)); }
 }
+
+.block { display: contents; }

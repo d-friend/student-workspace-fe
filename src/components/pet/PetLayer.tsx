@@ -64,6 +64,9 @@ export function PetLayer({
   composer,
   onOpenChange,
   onChatOpened,
+  selectionOpen = 0,
+  quote,
+  onDismissQuote,
   flying = false,
   ...actions
 }: {
@@ -78,6 +81,9 @@ export function PetLayer({
   onOpenChange?: (open: boolean) => void;
   // Called once per closed-to-open, with whether the unread badge was showing.
   onChatOpened: (unread: boolean) => void;
+  selectionOpen?: number;
+  quote?: string;
+  onDismissQuote?: () => void;
   // The unfold is carrying the pet from the entry to its dock (spec §6): it travels, hops, and is happy about it.
   flying?: boolean;
 } & ChatActions) {
@@ -124,6 +130,14 @@ export function PetLayer({
     setLeaving(false);
     setOpen(true);
   }, [onChatOpened, unread]);
+  const selectionSeen = useRef(selectionOpen);
+  useEffect(() => {
+    if (selectionSeen.current === selectionOpen) return;
+    selectionSeen.current = selectionOpen;
+    // An event signal from the page (a selection was asked about), not derived state; openDrawer also reports tracking.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!open) openDrawer();
+  }, [selectionOpen, open, openDrawer]);
   // Whatever was said while the drawer was open has been seen, so it does not pop back as a bubble.
   // The drawer has no place on the entry (Bài mới from the drawer lands there).
   if (entry && open) setOpen(false);
@@ -363,6 +377,8 @@ export function PetLayer({
           state={state}
           actions={actions}
           composer={composer}
+          quote={quote}
+          onDismissQuote={onDismissQuote}
           composerRef={composerRef}
           onClose={closeDrawer}
           leaving={!open}

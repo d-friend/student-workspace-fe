@@ -1,0 +1,12 @@
+.button {
+  position: fixed;
+  z-index: 100;
+  max-width: 100vw;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  background: var(--panel);
+  font: 600 14px/1.3 var(--font-sans);
+  cursor: pointer;
+}

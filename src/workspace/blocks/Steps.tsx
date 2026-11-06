@@ -77,18 +77,16 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   }
 
   return (
-    <section className={styles.card}>
+    <section className={`${styles.card} ${ctx.phase !== "learn" ? styles.solveSteps : ""}`}>
       <ol className={styles.lines} aria-live="polite">
         {entries.map((e, i) => (
           <li key={`${i}-${effective[i]}`} className={`${styles.line} ${effective[i] === "review" ? styles.lineReview : ""}`}>
-            <span className={styles.n}>{i + 1}</span>
+            {ctx.phase === "learn" && <span className={styles.n}>{i + 1}</span>}
+            {ctx.phase !== "learn" && effective[i] === "ok" && <span className={styles.badge}><IconCheck size={20} stroke={2} role="img" aria-label={copy.stateOk} /></span>}
             <span className={styles.lineText}>
               <MathInline text={e.text} />
             </span>
-            <span className={`${styles.badge} ${effective[i] === "review" ? styles.badgeReview : ""}`}>
-              {effective[i] === "ok" ? <IconCheck size={20} stroke={2} aria-hidden="true" /> : <IconAlertCircle size={20} stroke={2} aria-hidden="true" />}
-              {effective[i] === "ok" ? copy.stateOk : copy.stateReview}
-            </span>
+            {(effective[i] === "review" || ctx.phase === "learn") && <span className={`${styles.badge} ${effective[i] === "review" ? styles.badgeReview : ""}`}>{effective[i] === "review" ? <IconAlertCircle size={20} stroke={2} aria-hidden="true" /> : <IconCheck size={20} stroke={2} aria-hidden="true" />}{effective[i] === "review" ? copy.stateReview : copy.stateOk}</span>}
           </li>
         ))}
         {failed !== null && (

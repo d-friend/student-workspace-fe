@@ -37,7 +37,7 @@ test("works without opening the chat", async ({ page }) => {
   await page.getByRole("button", { name: copy.otherWay }).click();
   await page.getByLabel(copy.lineLabel(1)).fill("f'(x)=3x^2-2");
   await page.getByRole("button", { name: copy.check }).click();
-  await expect(page.getByText(copy.stateOk, { exact: true })).toBeVisible();
+  await expect(page.getByLabel(copy.stateOk, { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: copy.hint }).click();
   await expect(page.getByText(copy.hintLevel(1))).toBeAttached();
@@ -60,7 +60,7 @@ test("works without opening the chat", async ({ page }) => {
   await page.getByRole("tab", { name: LEARN, exact: true }).click();
   await expect(page.getByRole("heading", { name: "Ý tưởng" })).toBeVisible();
   await page.getByRole("tab", { name: SOLVE, exact: true }).click();
-  await expect(page.getByText(copy.stateOk, { exact: true })).toBeVisible();
+  await expect(page.getByLabel(copy.stateOk, { exact: true })).toBeVisible();
   await expect(page.getByLabel(copy.lineLabel(2))).toBeVisible();
 });
 

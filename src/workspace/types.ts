@@ -3,7 +3,7 @@ export type Phase = "learn" | "solve" | "practice";
 export type QuizAnswer = "choice" | "number" | "exact" | "expr" | "open";
 export type GeometryTool = "point" | "segment" | "line" | "circle" | "midpoint" | "perpendicular" | "parallel" | "angle";
 
-export type ScaffoldItem = { kind: "choice"; prompt: string; options: string[] } | { kind: "blank"; template: string };
+export type ScaffoldItem = { kind: "choice"; prompt: string; options: string[]; stage?: number } | { kind: "blank"; template: string; stage?: number };
 
 // Mirrors backend/app/workspace_doc.py (spec-workspace section 3). Ids match ^[a-z][a-z0-9_]{0,23}$ and are unique per doc.
 export type Block =
@@ -15,7 +15,7 @@ export type Block =
   | { type: "example"; id: string; title: string; problem_md: string; steps: string[] }
   | { type: "quiz"; id: string; question_md: string; answer: QuizAnswer; options?: string[]; explanation_md: string }
   | { type: "problem"; id: string; md: string; image?: { src: string; alt: string } }
-  | { type: "steps"; id: string; problem_id: string; input: "math" | "text"; help?: string; scaffold?: ScaffoldItem[] }
+  | { type: "steps"; id: string; problem_id: string; input: "math" | "text"; help?: string; scaffold?: ScaffoldItem[]; roadmap?: string }
   | {
       type: "graph";
       id: string;

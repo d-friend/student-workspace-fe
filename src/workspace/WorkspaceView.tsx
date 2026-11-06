@@ -4,6 +4,7 @@ import { copy } from "@/lib/copy";
 import { ShareButton } from "@/components/work/ShareButton";
 import { BlockBoundary } from "./BlockBoundary";
 import { renderBlock } from "./blocks";
+import { StepProgress } from "./StepProgress";
 import { DoneBanner } from "./DoneBanner";
 import { MdInline } from "./md";
 import { HelpBar } from "./HelpBar";
@@ -104,6 +105,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
       </header>
       {w.doc.blocks.map((b) => (
         <BlockBoundary key={b.id} blockId={b.id} report={ctx.report}>
+          {working && b.type === "steps" && <StepProgress block={b} state={w.state} overrides={ctx.overrides[b.id]} />}
           {renderBlock(b, b.type === "steps" ? {
             ...ctx,
             finished: completedIds.has(b.id),
@@ -158,7 +160,7 @@ export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {}
         scroller.current = el;
         petScroller?.(el);
       }}
-      className={styles.scroll} onScroll={(e) => (tops.current[shown.current] = e.currentTarget.scrollTop)}>
+      className={styles.scroll} data-flat={tabs.find((tab) => tab.id === activeId)?.phase !== "learn" || undefined} onScroll={(e) => (tops.current[shown.current] = e.currentTarget.scrollTop)}>
       <div className={styles.view} data-pet-column>
         <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} />
         {tabs.map((w) => (

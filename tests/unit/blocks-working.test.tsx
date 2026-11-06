@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { copy } from "@/lib/copy";
@@ -48,7 +49,8 @@ test("steps ok line", async () => {
   expect(screen.getByText("Viết một dòng")).toBeTruthy();
   type("x=1");
   submit();
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
+  expect(screen.queryByText(copy.stateOk)).toBeNull();
   expect(c.report).toHaveBeenCalledWith("line_checked", { block_id: "s1", line: 1, text: "x=1", ok: true, state: "ok", retried: false, input: "free" });
   expect(screen.getByLabelText(copy.lineLabel(2))).toBeTruthy();
 });
@@ -58,7 +60,7 @@ test("steps review line", async () => {
   type("x=2");
   fireEvent.submit(screen.getByRole("textbox").closest("form")!);
   await screen.findByText(copy.stateReview);
-  expect(screen.queryByText(copy.stateOk)).toBeNull();
+  expect(screen.queryByLabelText(copy.stateOk)).toBeNull();
 });
 
 test("network failure keeps line pending", async () => {
@@ -69,7 +71,7 @@ test("network failure keeps line pending", async () => {
   await screen.findByText(copy.checkFailed);
   expect(screen.queryByText(copy.stateReview)).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: copy.retry }));
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
   expect(c.check).toHaveBeenCalledTimes(2);
   expect(c.report).toHaveBeenCalledWith("line_checked", expect.objectContaining({ line: 1, retried: true }));
 });
@@ -83,7 +85,7 @@ test("line remounts when its state changes so the tint replays", async () => {
   const before = container.querySelector("li");
   type("b");
   submit();
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
   expect(container.querySelector("li")).not.toBe(before);
 });
 
@@ -95,7 +97,7 @@ test("retried after review then ok", async () => {
   await screen.findByText(copy.stateReview);
   type("b");
   submit();
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
   expect(c.report).toHaveBeenLastCalledWith("line_checked", { block_id: "s1", line: 1, text: "b", ok: true, state: "ok", retried: true, input: "free" });
 });
 
@@ -105,7 +107,7 @@ test("retried after hint", async () => {
   rerender(<>{renderBlock(steps, { ...c, hintCount: 1 })}</>);
   type("a");
   submit();
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
   expect(c.report).toHaveBeenCalledWith("line_checked", expect.objectContaining({ retried: true }));
 });
 
@@ -114,10 +116,10 @@ test("override from ctx wins", async () => {
   const { rerender } = show(c);
   type("a");
   submit();
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
   rerender(<>{renderBlock(steps, { ...c, overrides: { s1: { 1: "review" } } })}</>);
   expect(screen.getByText(copy.stateReview)).toBeTruthy();
-  expect(screen.queryByText(copy.stateOk)).toBeNull();
+  expect(screen.queryByLabelText(copy.stateOk)).toBeNull();
 });
 
 test("previous lines passed to check", async () => {
@@ -125,7 +127,7 @@ test("previous lines passed to check", async () => {
   show(c);
   type("a");
   submit();
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
   await waitFor(() => expect(screen.getByRole("textbox")).toHaveProperty("disabled", false));
   type("b");
   submit();
@@ -217,7 +219,7 @@ test("steps stops accepting lines once the task is done", async () => {
   show(c);
   type("x=1");
   submit();
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
   expect(c.onSolved).toHaveBeenCalledWith("s1");
   expect(screen.queryByRole("textbox")).toBeNull();
   expect(screen.queryByRole("button", { name: copy.check })).toBeNull();
@@ -328,7 +330,7 @@ test("other way switches to free typing for good", async () => {
   expect(document.activeElement).toBe(free);
   fireEvent.change(free, { target: { value: "x" } });
   submit();
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
   expect(vi.mocked(c.check).mock.calls.at(-1)![3]).toBeUndefined();
   expect(lineCalls(c).at(-1)![1]).toMatchObject({ input: "free" });
   expect(screen.getByLabelText(copy.lineLabel(2))).toBeTruthy();
@@ -409,4 +411,19 @@ test("choice options render $math$, and typed stars stay literal", async () => {
   expect(container.textContent).not.toContain("$");
   expect(container.querySelector("em")).toBeNull();
   expect(screen.getByText("2*x+3*y")).toBeTruthy();
+});
+
+
+test("progress follows saved accepted scaffold entries", async () => {
+  function Harness() {
+    const [state, setState] = useState<Workspace["state"]>(null);
+    const workspace: Workspace = { id: "solve", state, doc: { ...doc("solve"), blocks: [scaffolded] } };
+    const c = ctxWith([ok], { saveBlock: (id, saved) => setState((previous) => ({ ...previous, blocks: { ...previous?.blocks, [id]: saved } })) });
+    return view({ solve: workspace }, "solve", c);
+  }
+  render(<Harness />);
+  expect(screen.getByText("Bước 1/3")).toBeTruthy();
+  gap(1, "2");
+  submit();
+  expect(await screen.findByText("Bước 2/3")).toBeTruthy();
 });

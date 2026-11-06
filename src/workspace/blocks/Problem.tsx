@@ -5,9 +5,9 @@ import styles from "./working.module.css";
 
 type Problem = Extract<Block, { type: "problem" }>;
 
-export function Problem({ block }: BlockProps<Problem>) {
+export function Problem({ block, ctx }: BlockProps<Problem>) {
   return (
-    <section className={styles.card}>
+    <section className={`${styles.card} ${ctx.phase !== "learn" ? styles.solveProblem : ""}`}>
       <h2 className={styles.label}>{copy.problemLabel}</h2>
       <div className={styles.problem}>
         <Md text={block.md} />

@@ -21,6 +21,7 @@
 
 /* Under 800px the menu, feedback and theme buttons float over the page's top 56px: start below them. */
 @media (max-width: 799px) {
+  .scroll[data-flat] { background-image: none; }
   .view {
     padding-top: 60px;
   }
@@ -134,3 +135,8 @@
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+.progress { position: sticky; top: 0; z-index: 1; padding: 8px 0; background: var(--panel); font: 600 14px/1.4 var(--font-sans); color: var(--text); }
+.progressNodes { display: flex; gap: 8px; margin-top: 6px; }
+.progressNode { color: var(--muted); }
+.progressCurrent { color: var(--text); font-weight: 700; text-decoration: underline; }

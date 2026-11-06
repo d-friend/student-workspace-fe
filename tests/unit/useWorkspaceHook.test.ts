@@ -139,7 +139,7 @@ it("a retyped line is judged on its own after the master withdrew an ok", async 
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: copy.check }));
   });
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
 
   vi.mocked(api.turn).mockImplementationOnce(async (_s, _m, onDelta, onEvent) => {
     onEvent!({ event: "line_state", workspaceId: "S1", blockId: "s1", line: 1, state: "review" });
@@ -154,7 +154,7 @@ it("a retyped line is judged on its own after the master withdrew an ok", async 
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: copy.check }));
   });
-  await screen.findByText(copy.stateOk);
+  await screen.findByLabelText(copy.stateOk);
   expect(screen.queryByText(copy.stateReview)).toBeNull();
   expect(screen.getByRole("textbox", { name: copy.lineLabel(2) })).toBeTruthy();
 });

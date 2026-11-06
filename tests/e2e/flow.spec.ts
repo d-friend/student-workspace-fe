@@ -42,7 +42,7 @@ test("build, check a line, add a learn phase, switch keeping input, reload", asy
   const line = page.getByLabel(copy.lineLabel(1));
   await line.fill("f'(x)=3x^2-2");
   await page.getByRole("button", { name: copy.check }).click();
-  await expect(page.getByText(copy.stateOk, { exact: true })).toBeVisible();
+  await expect(page.getByLabel(copy.stateOk, { exact: true })).toBeVisible();
 
   // Type the next line without sending it, then add the learn phase.
   await page.getByLabel(copy.lineLabel(2)).fill("f'(2)=1");

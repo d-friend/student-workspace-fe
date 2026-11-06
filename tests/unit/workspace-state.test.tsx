@@ -95,7 +95,7 @@ it("restores committed scaffold lines and saves the next answer with its verdict
   const context = ctx({ blocks: { s1: stepsState } });
   render(<Steps block={steps} ctx={context} />);
   expect(screen.getByText("x = 2")).toBeTruthy();
-  expect(screen.getByText(copy.stateOk)).toBeTruthy();
+  expect(screen.getByLabelText(copy.stateOk)).toBeTruthy();
   expect(context.saveBlock).not.toHaveBeenCalled();
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "C" })); });
   expect(context.saveBlock).toHaveBeenCalledWith("s1", { type: "steps", entries: [...stepsState.entries, { text: "C", state: "ok", answer: "0", item: 1 }], done: false, free: false });

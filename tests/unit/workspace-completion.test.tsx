@@ -24,10 +24,10 @@ function setup(state?: StudentWork, taskDone: string[] = []) {
 }
 const completions = (ctx: BlockCtx) => vi.mocked(ctx.report).mock.calls.filter(([type]) => type === "task_completed");
 async function complete(index = 0) {
-  const previous = screen.queryAllByText(copy.stateOk).length;
+  const previous = screen.queryAllByLabelText(copy.stateOk).length;
   fireEvent.change(screen.getAllByRole("textbox")[index], { target: { value: "2" } });
   fireEvent.click(screen.getAllByRole("button", { name: copy.check })[index]);
-  await waitFor(() => expect(screen.getAllByText(copy.stateOk)).toHaveLength(previous + 1));
+  await waitFor(() => expect(screen.getAllByLabelText(copy.stateOk)).toHaveLength(previous + 1));
 }
 
 test("completing part 1 leaves part 2 editable and reports completion only after both", async () => {

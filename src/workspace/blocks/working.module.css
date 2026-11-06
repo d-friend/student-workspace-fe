@@ -71,3 +71,13 @@
   .line, .badge svg, .done { animation: none; }
   .btn:active, .primary:active, .hint:active, .idea:active { transform: none; }
 }
+
+/* Solve steps use the progress indicator in place of the ruled margin. */
+.solveSteps .line, .solveSteps .active { background: none; }
+.solveSteps .active { padding-left: 0; }
+.solveSteps .active::before { content: none; }
+.solveSteps .lineText, .solveSteps .lineText:first-child { padding-left: 0; }
+.solveSteps .line > .badge:first-child { margin: 0 12px 0 0; }
+@media (max-width: 799px) {
+  .solveProblem, .solveSteps { padding: 0; border: 0; background: transparent; border-radius: 0; }
+}

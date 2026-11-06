@@ -4,6 +4,13 @@
 .problem { max-width: 65ch; font: 600 20px/1.5 var(--font-sans); color: var(--text); }
 .problem p { margin: 0 0 12px; }
 .problem > :last-child { margin-bottom: 0; }
+.problemHeader { background: var(--panel); }
+.problemToggle { display: block; width: 100%; padding: 8px 0; text-align: left; color: var(--text); background: transparent; border: 0; font: 600 20px/1.5 var(--font-sans); cursor: pointer; }
+.problemToggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.problemToggle p { margin: 0 0 12px; }
+.problemClamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; white-space: pre-line; }
+.problemClamp mark { color: inherit; background: var(--idea-bg); font-weight: 700; border-radius: 4px; padding: 0 2px; }
+.collapseControl { display: block; margin-top: 8px; color: var(--brand); font: 600 14px/1.4 var(--font-sans); }
 .prose p { margin: 0 0 12px; }
 .prose > :last-child { margin-bottom: 0; }
 .img { display: block; max-width: 100%; height: auto; border-radius: 14px; }

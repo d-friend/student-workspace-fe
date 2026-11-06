@@ -137,6 +137,11 @@
 }
 
 .progress { position: sticky; top: 0; z-index: 1; padding: 8px 0; background: var(--panel); font: 600 14px/1.4 var(--font-sans); color: var(--text); }
+.stickyProblem { position: sticky; top: 0; z-index: 2; background: var(--panel); }
+.stickyProblem .progress { position: static; }
+@media (max-width: 799px) {
+  .stickyProblem, .progress { top: 60px; }
+}
 .progressNodes { display: flex; gap: 8px; margin-top: 6px; }
 .progressNode { color: var(--muted); }
 .progressCurrent { color: var(--text); font-weight: 700; text-decoration: underline; }

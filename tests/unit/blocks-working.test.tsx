@@ -427,3 +427,45 @@ test("progress follows saved accepted scaffold entries", async () => {
   submit();
   expect(await screen.findByText("Bước 2/3")).toBeTruthy();
 });
+
+test("problem collapses after an accepted line and can be expanded", async () => {
+  const workspace = ws("solve");
+  workspace.doc.blocks[0] = { type: "problem", id: "p1", md: "Tìm 12 và $x$.", image: { src: "/problem.png", alt: "Hình đề" } };
+  render(view({ solve: workspace }, "solve", ctxWith([ok])));
+  expect(screen.getByAltText("Hình đề")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: copy.expandProblem })).toBeNull();
+  type("a");
+  submit();
+  const toggle = await screen.findByRole("button", { name: copy.expandProblem });
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(toggle.querySelectorAll("mark")).toHaveLength(2);
+  expect(screen.queryByAltText("Hình đề")).toBeNull();
+  fireEvent.click(toggle);
+  expect(screen.getByRole("button", { name: copy.collapseProblem }).getAttribute("aria-expanded")).toBe("true");
+  expect(screen.getByText(/Tìm 12 và/)).toBeTruthy();
+  expect(screen.getByAltText("Hình đề")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: copy.collapseProblem }));
+  expect(screen.getByRole("button", { name: copy.expandProblem }).getAttribute("aria-expanded")).toBe("false");
+});
+
+test.each(["solve", "practice"] as const)("restored %s problem starts collapsed", (phase) => {
+  const workspace = ws(phase);
+  workspace.state = { blocks: { [`s_${phase}`]: { type: "steps", entries: [{ text: "a", state: "ok" }], done: false, free: false } } };
+  render(view({ [phase]: workspace }, phase, ctxWith()));
+  expect(screen.getByRole("button", { name: copy.expandProblem }).getAttribute("aria-expanded")).toBe("false");
+});
+
+test("learn problems never collapse even with saved accepted entries", () => {
+  const workspace = ws("learn");
+  workspace.state = { blocks: { s_learn: { type: "steps", entries: [{ text: "a", state: "ok" }], done: false, free: false } } };
+  render(view({ learn: workspace }, "learn", ctxWith()));
+  expect(screen.getByText("Đề thử")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: copy.expandProblem })).toBeNull();
+});
+
+test("an override of a saved review line collapses the problem", () => {
+  const workspace = ws("solve");
+  workspace.state = { blocks: { s_solve: { type: "steps", entries: [{ text: "a", state: "review" }], done: false, free: false } } };
+  render(view({ solve: workspace }, "solve", ctxWith([], { overrides: { s_solve: { 1: "ok" } } })));
+  expect(screen.getByRole("button", { name: copy.expandProblem })).toBeTruthy();
+});

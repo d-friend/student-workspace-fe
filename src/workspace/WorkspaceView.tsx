@@ -4,12 +4,13 @@ import { copy } from "@/lib/copy";
 import { ShareButton } from "@/components/work/ShareButton";
 import { BlockBoundary } from "./BlockBoundary";
 import { renderBlock } from "./blocks";
-import { StepProgress } from "./StepProgress";
+import { acceptedSteps, StepProgress } from "./StepProgress";
+import { Problem } from "./blocks/Problem";
 import { DoneBanner } from "./DoneBanner";
 import { MdInline } from "./md";
 import { HelpBar } from "./HelpBar";
 import { PhaseSwitch } from "./PhaseSwitch";
-import type { BlockCtx, Phase, Workspace } from "./types";
+import type { BlockCtx, Phase, SavedBlockState, Workspace } from "./types";
 import { canReturnToProblem } from "./navigation";
 import styles from "./WorkspaceView.module.css";
 
@@ -37,6 +38,8 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
   onRebuild?: (id: string) => void;
 }) {
   const [presses, setPresses] = useState(0);
+  const [savedBlocks, setSavedBlocks] = useState<Record<string, SavedBlockState>>({});
+  const state = { ...w.state, blocks: { ...w.state?.blocks, ...savedBlocks } };
   const stepsIds = w.doc.blocks.filter((b) => b.type === "steps").map((b) => b.id);
   const restoredIds = stepsIds.filter((id) => {
     const saved = w.state?.blocks?.[id];
@@ -82,7 +85,11 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
   };
   const ctx: BlockCtx = {
     ...base,
-    state: w.state,
+    state,
+    saveBlock: (id, saved) => {
+      setSavedBlocks((previous) => ({ ...previous, [id]: saved }));
+      base.saveBlock?.(id, saved);
+    },
     report,
     hintCount: presses,
     help,
@@ -103,16 +110,29 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
         <h1 className={styles.title}><MdInline text={w.doc.title} /></h1>
         <ShareButton workspaceId={w.id} title={w.doc.title} disabled={w.doc.blocks.some((block) => block.type === "custom" && block.html == null)} />
       </header>
-      {w.doc.blocks.map((b) => (
+      {w.doc.blocks.map((b) => {
+        const steps = b.type === "problem" ? w.doc.blocks.find((item) => item.type === "steps" && item.problem_id === b.id) : undefined;
+        const problem = b.type === "steps" ? w.doc.blocks.find((item) => item.type === "problem" && item.id === b.problem_id) : undefined;
+        const sticky = working && steps?.type === "steps" && acceptedSteps(steps, state, ctx.overrides[steps.id]) > 0;
+        const firstSteps = problem && w.doc.blocks.find((item) => item.type === "steps" && item.problem_id === problem.id);
+        const progressMoved = working && b.type === "steps" && firstSteps?.id === b.id && acceptedSteps(b, state, ctx.overrides[b.id]) > 0;
+        return (
         <BlockBoundary key={b.id} blockId={b.id} report={ctx.report}>
-          {working && b.type === "steps" && <StepProgress block={b} state={w.state} overrides={ctx.overrides[b.id]} />}
+          {sticky && b.type === "problem" && steps?.type === "steps" ? (
+            <div className={styles.stickyProblem}>
+              <Problem block={b} ctx={ctx} collapsible />
+              <StepProgress block={steps} state={state} overrides={ctx.overrides[steps.id]} />
+            </div>
+          ) : <>
+          {working && b.type === "steps" && !progressMoved && <StepProgress block={b} state={state} overrides={ctx.overrides[b.id]} />}
           {renderBlock(b, b.type === "steps" ? {
             ...ctx,
             finished: completedIds.has(b.id),
             help: { ...help, onHint: () => onHint(b.id) },
           } : ctx)}
+          </>}
         </BlockBoundary>
-      ))}
+      ); })}
       {working && !stepsId && <HelpBar level={help.level} onHint={help.onHint} onIdea={help.onIdea} ideaPending={help.ideaPending} />}
       {allDone && <DoneBanner hints={presses} />}
       {p === "learn" && w.doc.sources.length > 0 && (

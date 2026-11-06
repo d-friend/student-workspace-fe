@@ -245,6 +245,21 @@ const showS = (c: BlockCtx) => render(<>{renderBlock(scaffolded, c)}</>);
 const gap = (n: number, v: string) => fireEvent.change(screen.getByLabelText(copy.blankLabel(n)), { target: { value: v } });
 const lineCalls = (c: BlockCtx) => (c.report as ReturnType<typeof vi.fn>).mock.calls.filter((a) => a[0] === "line_checked");
 
+test("solve blank shows its template once and a generic prompt", () => {
+  const { container } = showS(ctxWith());
+  expect(container.querySelector('[data-sel="prompt"]')?.textContent).toBe(copy.fillBlank);
+  expect(container.querySelector("form")?.textContent).toContain("y′ =");
+  expect(container.textContent?.match(/y′ =/g)).toHaveLength(1);
+  expect(screen.getByLabelText(copy.blankLabel(1))).toBeTruthy();
+});
+
+test("solve choice shows its prompt once and names the group", () => {
+  const choice: Block = { ...(steps as Extract<Block, { type: "steps" }>), scaffold: [{ kind: "choice", prompt: "Chọn đáp án", options: ["Một", "Hai"] }] };
+  render(<>{renderBlock(choice, ctxWith())}</>);
+  expect(screen.getAllByText("Chọn đáp án")).toHaveLength(1);
+  expect(screen.getByRole("group", { name: "Chọn đáp án" })).toBeTruthy();
+});
+
 test("choice labels are ordered and excluded from accessible names", () => {
   const choice: Block = {
     ...(steps as Extract<Block, { type: "steps" }>),

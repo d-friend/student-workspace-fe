@@ -116,7 +116,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
             <div className={styles.patchQuestion}>
               <div data-pet-slot className={styles.patchSlot} />
               <p id={promptId} data-sel="prompt" className={styles.patchPrompt}>
-                <MathInline text={item?.kind === "choice" ? item.prompt : item?.kind === "blank" ? item.template : copy.lineLabel(pos + 1)} />
+                <MathInline text={item?.kind === "choice" ? item.prompt : item?.kind === "blank" ? copy.fillBlank : copy.lineLabel(pos + 1)} />
               </p>
             </div>
           )}

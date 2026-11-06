@@ -6,11 +6,11 @@ import { expect, test, type Page } from "@playwright/test";
 import { copy } from "../../src/lib/copy";
 
 // History/login/roadmap spec §4.1: tab labels identify workspace titles, not phases.
-const SOLVE = "Tiếp tuyến của y = x³ − 2x";
+const SOLVE = "Ca nô xuôi và ngược dòng";
 const LEARN = "Phương trình bậc nhất";
 
 // The backend runs with MOCK=true (see playwright.config.ts): replies come from backend/app/agent/mock.py,
-// where "__build" builds the tangent solve workspace and "__learn" builds a learn workspace.
+// where "__build" builds the patrol-boat solve workspace and "__learn" builds a learn workspace.
 
 function psql(sql: string): string {
   return execFileSync("docker", ["exec", "dfriend-db", "psql", "-U", "dfriend", "-d", "dfriend", "-tAc", sql], {
@@ -37,15 +37,14 @@ test("build, check a line, add a learn phase, switch keeping input, reload", asy
   await expect(page.getByRole("heading", { name: copy.entryTitle })).toBeVisible();
 
   await send(page, "__build");
-  await expect(page.getByText("Viết phương trình tiếp tuyến")).toBeVisible();
-  await page.getByRole("button", { name: copy.otherWay }).click();
-  const line = page.getByLabel(copy.lineLabel(1));
-  await line.fill("f'(x)=3x^2-2");
-  await page.getByRole("button", { name: copy.check }).click();
+  await expect(page.getByText("Chọn ẩn là gì?")).toBeVisible();
+  await page.getByRole("button", { name: "Vận tốc ca nô khi nước yên lặng", exact: true }).click();
   await expect(page.getByLabel(copy.stateOk, { exact: true })).toBeVisible();
+  await expect(page.getByText("Gọi vận tốc ca nô khi nước yên lặng là", { exact: false })).toBeVisible();
+  await page.locator("[data-action-bar]").getByRole("button", { name: copy.otherWay }).click();
 
   // Type the next line without sending it, then add the learn phase.
-  await page.getByLabel(copy.lineLabel(2)).fill("f'(2)=1");
+  await page.getByLabel(copy.lineLabel(2)).fill("v+2");
   await chat(page);
   // The bubble only holds the latest line; the drawer's log keeps the announce.
   await expect(page.getByText("Mình dựng nhé.")).toBeVisible();
@@ -55,7 +54,7 @@ test("build, check a line, add a learn phase, switch keeping input, reload", asy
   await page.getByRole("tab", { name: LEARN, exact: true }).click();
   await expect(page.getByRole("heading", { name: "Ý tưởng" })).toBeVisible();
   await page.getByRole("tab", { name: SOLVE, exact: true }).click();
-  await expect(page.getByLabel(copy.lineLabel(2))).toHaveValue("f'(2)=1");
+  await expect(page.getByLabel(copy.lineLabel(2))).toHaveValue("v+2");
 
   // The server stores a turn when its stream ends: wait for it, or the reload races the turn.
   await expect
@@ -74,10 +73,10 @@ const ANSWER = "7654321";
 test("a student gesture starts a turn, new problem, photo, tracking rows without content", async ({ page, context }) => {
   await page.goto("/");
   await send(page, "__build");
-  await expect(page.getByText("Viết phương trình tiếp tuyến")).toBeVisible();
+  await expect(page.getByText("Chọn ẩn là gì?")).toBeVisible();
 
   // A rejected line is a student gesture the master must see: it answers on its own.
-  await page.getByRole("button", { name: copy.otherWay }).click();
+  await page.locator("[data-action-bar]").getByRole("button", { name: copy.otherWay }).click();
   await page.getByLabel(copy.lineLabel(1)).fill(LINE);
   await page.getByRole("button", { name: copy.check }).click();
   await expect(page.getByText(copy.stateReview, { exact: true })).toBeVisible();

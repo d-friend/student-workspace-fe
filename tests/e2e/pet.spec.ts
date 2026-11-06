@@ -5,10 +5,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { copy } from "../../src/lib/copy";
 
 // History/login/roadmap spec §4.1: tabs show their workspace titles.
-const SOLVE = "Tiếp tuyến của y = x³ − 2x";
+const SOLVE = "Ca nô xuôi và ngược dòng";
 const LEARN = "Phương trình bậc nhất";
 
-// Runs against the MOCK=true backend (see playwright.config.ts): "__build" builds the tangent solve workspace,
+// Runs against the MOCK=true backend (see playwright.config.ts): "__build" builds the patrol-boat solve workspace,
 // "__learn" a learn workspace.
 
 function psql(sql: string): string {
@@ -27,17 +27,16 @@ const send = async (page: Page, text: string) => {
 const build = async (page: Page) => {
   await page.goto("/");
   await send(page, "__build");
-  await expect(page.getByText("Viết phương trình tiếp tuyến")).toBeVisible();
+  await expect(page.getByText("Chọn ẩn là gì?")).toBeVisible();
   // The entry stays under the stage for the unfold (about 1 s); wait it out so only one composer exists.
   await expect(page.locator('[data-unfold="settled"]')).toBeAttached();
 };
 
 test("works without opening the chat", async ({ page }) => {
   await build(page);
-  await page.getByRole("button", { name: copy.otherWay }).click();
-  await page.getByLabel(copy.lineLabel(1)).fill("f'(x)=3x^2-2");
-  await page.getByRole("button", { name: copy.check }).click();
+  await page.getByRole("button", { name: "Vận tốc ca nô khi nước yên lặng", exact: true }).click();
   await expect(page.getByLabel(copy.stateOk, { exact: true })).toBeVisible();
+  await expect(page.getByText("Gọi vận tốc ca nô khi nước yên lặng là", { exact: false })).toBeVisible();
 
   await page.getByRole("button", { name: copy.hint }).click();
   await expect(page.getByText(copy.hintLevel(1))).toBeAttached();
@@ -48,7 +47,7 @@ test("works without opening the chat", async ({ page }) => {
   await expect.poll(async () => {
     const saved = await (await page.request.get("/api/sessions/current")).json();
     return saved.tabs.find((tab: { phase: string }) => tab.phase === "solve")?.state?.blocks?.s1?.entries;
-  }).toEqual([expect.objectContaining({ text: "f'(x)=3x^2-2", state: "ok" })]);
+  }).toEqual([expect.objectContaining({ text: "Gọi vận tốc ca nô khi nước yên lặng là $v$ km/h, $v>2$.", state: "ok" })]);
   const { session_id } = await (await page.request.get("/api/sessions/current")).json();
   const turn = await page.request.post(`/api/sessions/${session_id}/turns`, {
     data: { message: { role: "user", content: "__learn" } },
@@ -61,7 +60,7 @@ test("works without opening the chat", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Ý tưởng" })).toBeVisible();
   await page.getByRole("tab", { name: SOLVE, exact: true }).click();
   await expect(page.getByLabel(copy.stateOk, { exact: true })).toBeVisible();
-  await expect(page.getByLabel(copy.lineLabel(2))).toBeVisible();
+  await expect(page.getByText("Vì sao vận tốc xuôi dòng là", { exact: false })).toBeVisible();
 });
 
 test("the pet opens the conversation; Escape closes it and focus returns", async ({ page }) => {
@@ -108,8 +107,7 @@ test("restore never unfolds", async ({ page }) => {
     new MutationObserver(look).observe(document, { subtree: true, childList: true, attributes: true });
   });
   await page.reload();
-  await page.getByRole("button", { name: copy.otherWay }).click(); // a reload restores the scaffold
-  await expect(page.getByLabel(copy.lineLabel(1))).toBeVisible();
+  await expect(page.getByRole("button", { name: "Vận tốc ca nô khi nước yên lặng", exact: true })).toBeVisible(); // a reload restores the scaffold
   await page.waitForTimeout(1500); // longer than the unfold (about 1.05 s)
   expect(await page.evaluate(() => (window as unknown as { __flew: boolean }).__flew)).toBe(false);
 });
@@ -135,7 +133,7 @@ test("real keystrokes reach the entry composer and the drawer composer", async (
   await expect(composer(page)).toHaveValue("abc");
 
   await send(page, "__build");
-  await expect(page.getByText("Viết phương trình tiếp tuyến")).toBeVisible();
+  await expect(page.getByText("Chọn ẩn là gì?")).toBeVisible();
   await expect(page.locator('[data-unfold="settled"]')).toBeAttached();
   await pet(page).click();
   await expect(drawer(page)).toBeVisible();
@@ -151,7 +149,7 @@ test("fill then Enter posts a turn from the entry and from the drawer", async ({
   const first = turn(page);
   await send(page, "__build");
   await first;
-  await expect(page.getByText("Viết phương trình tiếp tuyến")).toBeVisible();
+  await expect(page.getByText("Chọn ẩn là gì?")).toBeVisible();
   await expect(page.locator('[data-unfold="settled"]')).toBeAttached();
 
   await pet(page).click();

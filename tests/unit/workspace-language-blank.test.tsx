@@ -23,6 +23,37 @@ test("workspace language comes from the problem or the first learn text", () => 
   expect(workspaceLocale(doc([{ type: "problem", id: "p", md: "  " }]))).toBe("vi");
 });
 
+test("math-only problems follow the browser locale", () => {
+  const problem = doc([{ type: "problem", id: "p", md: "x^2 - 5x + 6 = 0" }]);
+  setLocale("vi");
+  expect(workspaceLocale(problem)).toBe("vi");
+  setLocale("en");
+  expect(workspaceLocale(problem)).toBe("en");
+});
+
+test("English prose stays English in a Vietnamese browser", () => {
+  setLocale("vi");
+  expect(workspaceLocale(doc([{ type: "problem", id: "p", md: "A car travels 60 km in 2 hours. Find its speed." }]))).toBe("en");
+});
+
+test("Vietnamese prose stays Vietnamese in an English browser", () => {
+  setLocale("en");
+  expect(workspaceLocale(doc([{ type: "problem", id: "p", md: "Một người đi xe đạp từ A đến B" }]))).toBe("vi");
+});
+
+test("English prose is recognized when its math is in dollar delimiters", () => {
+  setLocale("vi");
+  expect(workspaceLocale(doc([{ type: "problem", id: "p", md: "Solve for x in $x^2 - 5x + 6 = 0$." }]))).toBe("en");
+});
+
+test("math commands without prose follow the browser locale", () => {
+  const problem = doc([{ type: "problem", id: "p", md: "\\frac{a}{b} + \\sqrt{2}" }]);
+  setLocale("vi");
+  expect(workspaceLocale(problem)).toBe("vi");
+  setLocale("en");
+  expect(workspaceLocale(problem)).toBe("en");
+});
+
 test("copyFor returns the corresponding existing copy independent of global locale", () => {
   setLocale("en");
   expect(copyFor("en").fillBlank).toBe(copy.fillBlank);

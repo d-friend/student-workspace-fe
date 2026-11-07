@@ -88,6 +88,11 @@
 .solveSteps .badge { margin-top: 6px; }
 .solveSteps .badge svg { width: 20px; height: 20px; padding: 2px; }
 .solveSteps .line > .badge:first-child { margin: 6px 8px 0 0; }
+.solveSteps .line:has(.why) { flex-wrap: wrap; }
+.why { flex-basis: 100%; min-width: 0; padding-left: 28px; }
+.whyToggle { min-height: 44px; padding: 0 8px; margin-left: -8px; color: var(--muted); background: transparent; border: 0; border-radius: 6px; font: 600 13px/1.4 var(--font-sans); cursor: pointer; }
+.whyToggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.whyReason { padding-bottom: 8px; color: var(--muted); font: 400 14px/1.5 var(--font-sans); overflow-wrap: anywhere; }
 @media (max-width: 799px) {
   .solveProblem, .solveSteps { padding: 0; border: 0; background: transparent; border-radius: 0; }
 }

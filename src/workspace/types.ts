@@ -47,7 +47,7 @@ export type WorkspaceDoc = {
 
 export type SavedBlockState =
   | { type: "quiz"; tries: number; done: boolean; text: string; selected: string | null; answered: { option: string; ok: boolean } | null }
-  | { type: "steps"; entries: { text: string; state: "ok" | "review"; answer?: string; item?: number }[]; done: boolean; free: boolean; takeaway?: string };
+  | { type: "steps"; entries: { text: string; state: "ok" | "review"; answer?: string; item?: number; why?: string }[]; done: boolean; free: boolean; takeaway?: string };
 
 export type StudentWork = {
   blocks?: Record<string, SavedBlockState>;
@@ -63,6 +63,7 @@ export type CheckResponse = {
   done: boolean;
   answer_tex?: string;
   line?: string;
+  why?: string;
   takeaway?: string;
   reached?: string | null;
   message?: string | null;
@@ -71,6 +72,7 @@ export type CheckResponse = {
 export type LineState = "ok" | "review" | "pending" | "error";
 
 export type BlockCtx = {
+  sessionId?: string | null;
   preview?: { pending: boolean };
   queued?: QueuedAttempt;
   clearQueued?: () => void;

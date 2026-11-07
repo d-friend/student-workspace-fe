@@ -101,6 +101,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
   };
   const ctx: BlockCtx = {
     ...base,
+    sessionId,
     state,
     saveBlock: (id, saved) => {
       setSavedBlocks((previous) => ({ ...previous, [id]: saved }));

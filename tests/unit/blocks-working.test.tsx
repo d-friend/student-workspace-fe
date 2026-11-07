@@ -8,6 +8,9 @@ import { DoneBanner } from "@/workspace/DoneBanner";
 import { HelpBar } from "@/workspace/HelpBar";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
 import { filledBlank } from "@/workspace/blocks/Steps";
+import { track } from "@/lib/track";
+
+vi.mock("@/lib/track", () => ({ track: vi.fn() }));
 
 afterEach(cleanup);
 
@@ -248,6 +251,67 @@ const scaffolded: Block = {
 const showS = (c: BlockCtx) => render(<>{renderBlock(scaffolded, c)}</>);
 const gap = (n: number, v: string) => fireEvent.change(screen.getByLabelText(copy.blankLabel(n)), { target: { value: v } });
 const lineCalls = (c: BlockCtx) => (c.report as ReturnType<typeof vi.fn>).mock.calls.filter((a) => a[0] === "line_checked");
+
+test("accepted scaffold reasons persist, render math, and track each opening", async () => {
+  vi.mocked(track).mockClear();
+  const saveBlock = vi.fn();
+  const c = ctxWith([{ ...ok, why: "Vì $x^2$ tăng" }], { saveBlock, sessionId: "session-1" });
+  const { unmount } = showS(c);
+  gap(1, "a");
+  submit();
+  const toggle = await screen.findByRole("button", { name: copy.lineWhy });
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  const reason = document.getElementById(toggle.getAttribute("aria-controls")!);
+  expect(reason?.hidden).toBe(true);
+  expect(saveBlock).toHaveBeenCalledWith("s1", expect.objectContaining({ entries: [expect.objectContaining({ item: 0, why: "Vì $x^2$ tăng" })] }));
+  fireEvent.click(toggle);
+  expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  expect(reason?.hidden).toBe(false);
+  expect(reason?.querySelector(".katex")).toBeTruthy();
+  expect(track).toHaveBeenCalledWith("line_why_opened", { block_id: "s1", line: 1 }, "session-1");
+  fireEvent.click(toggle);
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(reason?.hidden).toBe(true);
+  expect(track).toHaveBeenCalledTimes(1);
+  fireEvent.click(toggle);
+  expect(track).toHaveBeenCalledTimes(2);
+  const saved = saveBlock.mock.calls.at(-1)![1];
+  unmount();
+  showS(ctxWith([], { state: { blocks: { s1: saved } } }));
+  expect(screen.getByRole("button", { name: copy.lineWhy }).getAttribute("aria-expanded")).toBe("false");
+});
+
+test("reasons are excluded for review, free, and learn responses", async () => {
+  const saveBlock = vi.fn();
+  const { unmount } = showS(ctxWith([{ ...bad, why: "reason" }], { saveBlock }));
+  gap(1, "a");
+  submit();
+  await screen.findByText(copy.stateReview);
+  expect(screen.queryByRole("button", { name: copy.lineWhy })).toBeNull();
+  expect(saveBlock.mock.calls.at(-1)![1].entries[0].why).toBeUndefined();
+  unmount();
+  const free = show(ctxWith([{ ...ok, why: "reason" }], { saveBlock }));
+  type("a");
+  submit();
+  await screen.findByLabelText(copy.stateOk);
+  expect(screen.queryByRole("button", { name: copy.lineWhy })).toBeNull();
+  expect(saveBlock.mock.calls.at(-1)![1].entries[0].why).toBeUndefined();
+  free.unmount();
+  showS(ctxWith([{ ...ok, why: "reason" }], { phase: "learn", saveBlock }));
+  gap(1, "a");
+  submit();
+  await screen.findByText(copy.stateOk);
+  expect(screen.queryByRole("button", { name: copy.lineWhy })).toBeNull();
+  expect(saveBlock.mock.calls.at(-1)![1].entries[0].why).toBeUndefined();
+});
+
+test("saved review entries and entries without reasons have no toggle", () => {
+  showS(ctxWith([], { state: { blocks: { s1: { type: "steps", entries: [
+    { text: "accepted", state: "ok", item: 0 },
+    { text: "review", state: "review", item: 1, why: "reason" },
+  ], done: false, free: false } } } }));
+  expect(screen.queryByRole("button", { name: copy.lineWhy })).toBeNull();
+});
 
 test("solve blank shows its template once and a generic prompt", () => {
   const { container } = showS(ctxWith());

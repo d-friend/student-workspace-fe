@@ -86,8 +86,8 @@ test("eventMessage keeps the last 20 events", () => {
 });
 
 test("eventMessage drops oversized data", () => {
-  const list = JSON.parse(eventMessage([{ type: "big", data: "x".repeat(5000) }]).slice("[workspace] ".length));
-  expect(list).toEqual([{ type: "big", data: "[omitted: too large]" }]);
+  const list = JSON.parse(eventMessage([{ type: "big", data: "x".repeat(5000), workspace_id: "w1" }]).slice("[workspace] ".length));
+  expect(list).toEqual([{ type: "big", data: "[omitted: too large]", workspace_id: "w1" }]);
 });
 
 test("withPhoto", () => {

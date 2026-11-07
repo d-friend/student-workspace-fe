@@ -121,7 +121,7 @@ it("a master task_done marks only its own workspace when block ids repeat across
   const content = String((vi.mocked(api.turn).mock.calls.at(-1)![1] as { content: string }).content);
   const events = JSON.parse(content.slice("[workspace] ".length));
   expect(events.filter((e: { type: string }) => e.type === "task_completed")).toEqual([
-    { type: "task_completed", data: { similar: false, helped: false, max_hint: 0, via: "master" }, byStudent: false },
+    { type: "task_completed", data: { similar: false, helped: false, max_hint: 0, via: "master" }, byStudent: false, workspace_id: "S1" },
   ]);
 });
 

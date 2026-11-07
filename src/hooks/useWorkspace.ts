@@ -667,8 +667,8 @@ export function createWorkspace(deps: WorkspaceDeps) {
     const win = dom.frameWindow();
     const trusted = (win !== null && e.source === win) || (e.source !== null && customFrames.has(e.source as Window));
     if (!trusted || e.data?.dfriend !== true || typeof e.data.event !== "object") return;
-    const event = e.data.event as WorkspaceEvent;
     const id = e.source !== win && e.source !== null ? customFrames.get(e.source as Window) : undefined;
+    const event = id === undefined ? e.data.event as WorkspaceEvent : { ...e.data.event, workspace_id: id } as WorkspaceEvent;
     if (event?.type === "workspace_error" && id && tabs.find((tab) => tab.id === id)?.restored === true) {
       brokenEvents.set(id, event);
       track("workspace_error_restored", {}, sid());
@@ -930,9 +930,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
     },
 
     // From WorkspaceView. Same event shape as the iframe bridge; a master completion is not a student gesture.
-    report(type: string, data?: unknown, byStudent = true) {
+    report(type: string, data?: unknown, byStudent = true, workspaceId?: string) {
       if (type === "task_completed" && (data as { via?: string } | null | undefined)?.via === "master") byStudent = false;
-      enqueue({ type, data: data ?? null, byStudent, gesture: byStudent ? now() : undefined });
+      enqueue({ type, data: data ?? null, byStudent, gesture: byStudent ? now() : undefined, ...(workspaceId !== undefined && { workspace_id: workspaceId }) });
     },
 
     rebuildTab(workspaceId: string) {
@@ -950,7 +950,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       activate(id);
       if (sessionId !== null) api.setActiveWorkspace(sessionId, id).catch(() => {}); // best effort: the turn then sees the older tab
       if (from) track("tab_switched", { from_phase: from, to_phase: tab.phase }, sid());
-      actions.report("phase_viewed", { phase: tab.phase, workspace_id: id });
+      actions.report("phase_viewed", { phase: tab.phase, workspace_id: id }, true, id);
     },
 
     check(workspaceId: string, blockId: string, answer: string, previous: string[], item?: number): Promise<CheckResponse> {

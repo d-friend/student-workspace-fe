@@ -83,7 +83,7 @@ ${SCRIPT_END}<style>${fontFaces(origin)}${KIT_CSS}</style>`;
 
 const PREFIX = "[workspace] ";
 
-export type WorkspaceEvent = { type: string; data?: unknown; byStudent?: boolean; gesture?: number };
+export type WorkspaceEvent = { type: string; data?: unknown; byStudent?: boolean; gesture?: number; workspace_id?: string };
 
 export function frameDoc(html: string, origin: string): string {
   return head(origin) + html;

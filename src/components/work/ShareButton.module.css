@@ -18,7 +18,7 @@
 }
 
 .button:hover { background: var(--bg); }
-.button:disabled { opacity: 0.6; cursor: wait; }
+.button:disabled, .button[aria-disabled="true"] { opacity: 0.6; cursor: wait; }
 
 .feedback {
   position: absolute;

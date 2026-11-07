@@ -33,6 +33,7 @@ export function ShareButton({ workspaceId, sessionId, workspaceCount, sessionUnr
 
   const share = async (scope: "workspace" | "session") => {
     if (scope === "session" && !sessionId) return;
+    if (open) button.current?.focus();
     setOpen(false);
     setBusy(true);
     setFeedback("");
@@ -49,7 +50,10 @@ export function ShareButton({ workspaceId, sessionId, workspaceCount, sessionUnr
   };
 
   return (
-    <div className={styles.wrap} ref={wrap} onKeyDown={(event) => {
+    <div className={styles.wrap} ref={wrap} onBlur={(event) => {
+      // A null relatedTarget (Safari clicks on buttons, window blur) must not close: pointerdown handles outside clicks.
+      if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+    }} onKeyDown={(event) => {
       if (open && event.key === "Escape") {
         event.preventDefault();
         setOpen(false);
@@ -62,7 +66,11 @@ export function ShareButton({ workspaceId, sessionId, workspaceCount, sessionUnr
         items[(index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]?.focus();
       }
     }}>
-      <button ref={button} type="button" className={styles.button} disabled={busy || (!hasMenu && disabled)} title={!hasMenu && disabled ? "Mô phỏng đang được dựng" : undefined} aria-haspopup={hasMenu ? "menu" : undefined} aria-expanded={hasMenu ? open : undefined} onClick={() => hasMenu ? setOpen(!open) : void share("workspace")}>
+      <button ref={button} type="button" className={styles.button} disabled={!hasMenu && disabled} aria-disabled={busy || undefined} title={!hasMenu && disabled ? "Mô phỏng đang được dựng" : undefined} aria-haspopup={hasMenu ? "menu" : undefined} aria-expanded={hasMenu ? open : undefined} onClick={() => {
+        if (busy) return;
+        if (hasMenu) setOpen(!open);
+        else void share("workspace");
+      }}>
         <IconShare size={18} stroke={1.8} aria-hidden="true" />
         Chia sẻ
       </button>

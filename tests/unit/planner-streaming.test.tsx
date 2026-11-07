@@ -223,3 +223,19 @@ it("replays a blank through the page, saves it and reports the exact original te
   expect(message).toContain('"text":"$x = 2$"');
   expect(message).toContain('"input":"blank"');
 });
+
+it("re-enables the blank input after a failed check and retries it", async () => {
+  let attempt = 0;
+  const check = vi.fn(() => (attempt++ === 0 ? Promise.reject(new Error("offline")) : Promise.resolve({ ok: true, state: "ok" as const, done: false })));
+  const ctx = { phase: "solve", workspaceId: "w", report: vi.fn(), overrides: {}, hintCount: 0, onSolved: vi.fn(), help: null, check } as unknown as BlockCtx;
+  const block = { ...steps, scaffold: [{ kind: "blank" as const, template: "x = ___" }] };
+  render(<PetAnchorProvider><Steps block={block} ctx={ctx} /></PetAnchorProvider>);
+  const input = () => screen.getByRole("textbox", { name: viCopy.blankLabel(1) }) as HTMLInputElement;
+  fireEvent.change(input(), { target: { value: "2x" } });
+  fireEvent.submit(input().closest("form")!);
+  expect(input().disabled).toBe(true); // busy while the check runs
+  await screen.findByText(viCopy.checkFailed);
+  expect(input().disabled).toBe(false); // a failed check hands the input back
+  fireEvent.click(screen.getByRole("button", { name: viCopy.retry }));
+  await waitFor(() => expect(check).toHaveBeenCalledTimes(2));
+});

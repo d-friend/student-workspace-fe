@@ -19,6 +19,7 @@ import {
 import { isRestate, parse, type Parsed } from "@/lib/parse";
 import { readPhoto as realReadPhoto, type PhotoResult } from "@/lib/photo";
 import { track as realTrack, type TrackFn } from "@/lib/track";
+import { matchQueued, type QueuedAnswer } from "@/workspace/queued";
 import type { BlockCtx, CheckResponse, Phase, SavedBlockState, Workspace } from "@/workspace/types";
 
 // Read per call: copy follows the browser language, which is only known after the module loads.
@@ -78,7 +79,8 @@ export type WorkspaceState = {
   building: boolean;
   status: string | null; // the pet bubble's status label from the latest SSE status
   buildingPhase: Phase | null;
-  preview: Preview | null; // the planner's text blocks so far, shown while the rest of the doc is written
+  queuedAnswer: QueuedAnswer | null;
+  preview: Preview | null; // finished blocks and scaffold items, shown while the rest of the doc is written
   buildFailed: boolean; // the planner failed and there is nothing to show
   screen: Screen;
   watching: boolean;
@@ -159,6 +161,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let building = false;
   let status: string | null = null;
   let buildingPhase: Phase | null = null;
+  let queuedAnswer: QueuedAnswer | null = null;
   let preview: Preview | null = null;
   let buildFailed = false;
   let sessionId: string | null = null;
@@ -243,6 +246,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       status,
       buildingPhase,
       preview,
+      queuedAnswer,
       buildFailed: buildFailed && !shown && !busy, // a retry while a turn streams would be a no-op
       screen,
       watching: shown && !busy && watching(messages),
@@ -437,16 +441,30 @@ export function createWorkspace(deps: WorkspaceDeps) {
         announceId = agentId === null ? addBubble(b) : insertBubbleBefore(agentId, b);
       } else if (e.event === "status") {
         buildFailed = e.stage === "failed";
-        if (buildFailed) preview = null;
+        if (buildFailed) { preview = null; queuedAnswer = null; }
         status = e.stage === "failed" ? null : statusLabel(e.stage);
         building = e.stage !== "failed";
         buildingPhase = e.stage === "failed" ? null : (e.phase ?? buildingPhase);
       } else if (e.event === "workspace_partial") {
+        if (queuedAnswer) {
+          const answer = queuedAnswer;
+          const steps = e.blocks.find((b) => b.id === answer.blockId);
+          const item = steps?.type === "steps" ? steps.scaffold?.[0] : null;
+          const sameItem = answer.input === "choice"
+            ? item?.kind === "choice" && item.prompt === answer.prompt
+            : item?.kind === "blank" && item.template === answer.template;
+          if (preview?.phase !== e.phase || !sameItem) queuedAnswer = null;
+        }
         preview = { phase: e.phase, title: e.title, blocks: e.blocks };
       } else if (e.event === "workspace") {
         const old = tabs.find((w) => w.id === e.replaces);
         const replaced = old !== undefined;
-        const tab = { id: e.workspaceId, doc: e.doc, phase: e.phase };
+        const steps = e.doc.blocks.find((b) => b.id === queuedAnswer?.blockId);
+        const attempt = queuedAnswer && preview?.phase === e.phase && steps?.type === "steps" ? matchQueued(queuedAnswer, steps) : null;
+        const tab = { id: e.workspaceId, doc: e.doc, phase: e.phase,
+          ...(attempt && queuedAnswer && { queued: { blockId: queuedAnswer.blockId, ...attempt } }),
+        };
+        queuedAnswer = null;
         tabs = old ? tabs.map((w) => w.id === old.id ? tab : w) : [...tabs, tab];
         const slot = e.doc.blocks.find((b) => b.type === "custom");
         if (e.phase === "learn" && slot?.type === "custom" && slot.html === null) {
@@ -613,6 +631,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
         status = null;
         buildingPhase = null;
         preview = null;
+        queuedAnswer = null;
         simulationPending = {};
         publish();
         if (typed) dom.focusInput(failed);
@@ -712,6 +731,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       preview = null;
     }
     flushSaves();
+    queuedAnswer = null;
     brokenEvents.clear();
     messages = saved.messages;
     sessionId = saved.sessionId;
@@ -819,6 +839,18 @@ export function createWorkspace(deps: WorkspaceDeps) {
   }
 
   const actions = {
+    queueAnswer(answer: QueuedAnswer) {
+      const steps = preview?.blocks.find((b) => b.id === answer.blockId);
+      if (steps?.type !== "steps" || !matchQueued(answer, steps)) return;
+      queuedAnswer = answer;
+      publish();
+    },
+
+    clearQueued(workspaceId: string) {
+      tabs = tabs.map((w) => w.id === workspaceId ? { ...w, queued: undefined } : w);
+      publish();
+    },
+
     saveBlock(workspaceId: string, blockId: string, state: SavedBlockState) {
       const tab = tabs.find((w) => w.id === workspaceId);
       const block = tab?.doc.blocks.find((b) => b.id === blockId);
@@ -1010,6 +1042,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       status = null;
       buildingPhase = null;
       preview = null;
+      queuedAnswer = null;
       buildFailed = false;
       sessionId = null;
       sessionConfirmed = false;

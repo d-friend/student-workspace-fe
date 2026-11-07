@@ -1,14 +1,15 @@
 import { IconAlertCircle, IconCheck } from "@tabler/icons-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { usePetAnchorRef } from "@/components/pet/PetAnchor";
+import { track } from "@/lib/track";
 import { useCopy } from "../WorkspaceCopy";
 import { HelpBar } from "../HelpBar";
-import { MathInline } from "../md";
+import { MathInline, MdInline } from "../md";
 import type { Block, BlockProps } from "../types";
 import styles from "./working.module.css";
 
 type Steps = Extract<Block, { type: "steps" }>;
-type Entry = { text: string; state: "ok" | "review"; answer?: string; item?: number };
+type Entry = { text: string; state: "ok" | "review"; answer?: string; item?: number; why?: string };
 type Attempt = { answer: string; text: string; input: "choice" | "blank" | "free"; item?: number };
 
 export function blankSides(pre: string, post: string): [string, string] {
@@ -22,11 +23,18 @@ export function blankSides(pre: string, post: string): [string, string] {
   return dollars % 2 ? [pre + "$", "$" + post] : [pre, post];
 }
 
+export function filledBlank(pre: string, post: string, answer: string, answerTex?: string): string {
+  if (answerTex === undefined) return pre + answer + post;
+  if (blankSides(pre, post)[0] !== pre) return pre + answerTex + post;
+  return pre + (pre.endsWith("$") ? " " : "") + "$" + answerTex + "$" + (post.startsWith("$") ? " " : "") + post;
+}
+
 export function Steps({ block, ctx }: BlockProps<Steps>) {
   const copy = useCopy();
   const saved = ctx.state?.blocks?.[block.id];
   const initial = saved?.type === "steps" ? saved : null;
   const [entries, setEntries] = useState<Entry[]>(initial?.entries ?? []);
+  const [openWhy, setOpenWhy] = useState<Record<number, boolean>>({});
   const last = initial?.entries.at(-1);
   const [text, setText] = useState(last?.state === "review" ? (last.answer ?? last.text) : "");
   const [failed, setFailed] = useState<Attempt | null>(null);
@@ -40,6 +48,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const inline = ctx.phase === "solve" || ctx.phase === "practice";
   const inputId = useId();
   const promptId = useId();
+  const whyId = useId();
   const group = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const refocus = useRef(false); // focus the input once the next render has put it in place
@@ -79,9 +88,15 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
     try {
       const r = await ctx.check(block.id, a.answer, previous, ...(a.item === undefined ? [] : [a.item]));
       const retried = dirty.current || ctx.hintCount > hintBase.current;
-      const line = r.state === "ok" && a.input === "choice" ? (r.line ?? a.text) : a.text;
-      const committed = [...entries.slice(0, pos), { text: line, state: r.state, answer: a.answer, ...(a.item !== undefined && { item: a.item }) }];
+      const checkedItem = a.item === undefined ? undefined : block.scaffold?.[a.item];
+      let line = r.state === "ok" && a.input === "choice" ? (r.line ?? a.text) : a.text;
+      if (ctx.phase !== "learn" && r.state === "ok" && a.input === "blank" && checkedItem?.kind === "blank" && r.answer_tex !== undefined) {
+        const [before = "", after = ""] = checkedItem.template.split("___");
+        line = filledBlank(before, after, a.answer, r.answer_tex);
+      }
+      const committed = [...entries.slice(0, pos), { text: line, state: r.state, answer: a.answer, ...(a.item !== undefined && { item: a.item }), ...(ctx.phase !== "learn" && r.state === "ok" && checkedItem && r.why !== undefined && { why: r.why }) }];
       setEntries(committed);
+      setOpenWhy((current) => Object.fromEntries(Object.entries(current).filter(([index]) => Number(index) < pos)));
       ctx.saveBlock?.(block.id, { type: "steps", entries: committed, done: r.done, free, ...(r.done && r.takeaway !== undefined && { takeaway: r.takeaway }) });
       ctx.report("line_checked", { block_id: block.id, line: pos + 1, text: a.text, ok: r.ok, state: r.state, retried, input: a.input });
       if (r.state === "ok") {
@@ -121,6 +136,15 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
               <MathInline text={e.text} />
             </span>
             {(effective[i] === "review" || ctx.phase === "learn") && <span className={`${styles.badge} ${effective[i] === "review" ? styles.badgeReview : ""}`}>{effective[i] === "review" ? <IconAlertCircle size={20} stroke={2} aria-hidden="true" /> : <IconCheck size={20} stroke={2} aria-hidden="true" />}{effective[i] === "review" ? copy.stateReview : copy.stateOk}</span>}
+            {ctx.phase !== "learn" && e.state === "ok" && effective[i] === "ok" && e.item !== undefined && e.why && (
+              <div className={styles.why}>
+                <button type="button" className={styles.whyToggle} aria-expanded={!!openWhy[i]} aria-controls={`${whyId}-${i}`} onClick={() => {
+                  if (!openWhy[i]) track("line_why_opened", { block_id: block.id, line: i + 1 }, ctx.sessionId);
+                  setOpenWhy((current) => ({ ...current, [i]: !current[i] }));
+                }}>{copy.lineWhy}</button>
+                <div id={`${whyId}-${i}`} className={styles.whyReason} hidden={!openWhy[i]}><MdInline text={e.why} /></div>
+              </div>
+            )}
           </li>
         ))}
         {failed !== null && (

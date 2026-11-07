@@ -1,3 +1,5 @@
+import type { QueuedAttempt } from "./queued";
+
 export type Phase = "learn" | "solve" | "practice";
 
 export type QuizAnswer = "choice" | "number" | "exact" | "expr" | "open";
@@ -53,7 +55,7 @@ export type StudentWork = {
   taskDone?: string[];
 };
 
-export type Workspace = { id: string; doc: WorkspaceDoc; parent_workspace_id?: string | null; state?: StudentWork | null; restored?: boolean };
+export type Workspace = { id: string; doc: WorkspaceDoc; parent_workspace_id?: string | null; state?: StudentWork | null; restored?: boolean; queued?: QueuedAttempt };
 
 export type CheckResponse = {
   ok: boolean;
@@ -68,6 +70,9 @@ export type CheckResponse = {
 export type LineState = "ok" | "review" | "pending" | "error";
 
 export type BlockCtx = {
+  preview?: { pending: boolean };
+  queued?: QueuedAttempt;
+  clearQueued?: () => void;
   workspaceId: string;
   state?: StudentWork | null;
   saveBlock?: (blockId: string, state: SavedBlockState) => void;

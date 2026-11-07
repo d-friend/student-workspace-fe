@@ -36,7 +36,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const free = ctx.phase === "learn" ? learnFree : (ctx.help?.free ?? initial?.free ?? false);
   const previousFree = useRef(free);
   const finished = done || !!ctx.finished; // the master can complete a block the code could not (prose lines)
-  const anchorRef = usePetAnchorRef(!finished && !ctx.hidden);
+  const anchorRef = usePetAnchorRef(!ctx.preview && !finished && !ctx.hidden);
   const inline = ctx.phase === "solve" || ctx.phase === "practice";
   const inputId = useId();
   const promptId = useId();
@@ -45,6 +45,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const refocus = useRef(false); // focus the input once the next render has put it in place
   const dirty = useRef(false); // this position had a review or error
   const hintBase = useRef(0); // ctx.hintCount at the last ok line
+  const replayed = useRef(false);
 
   const ov = ctx.overrides[block.id] ?? {};
   const effective = entries.map((e, i) => ov[i + 1] ?? e.state);
@@ -100,6 +101,14 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
       refocus.current = true;
     }
   }
+
+  useEffect(() => {
+    const queued = ctx.queued;
+    if (replayed.current || !queued || queued.blockId !== block.id || initial || entries.length || pos !== 0) return;
+    replayed.current = true;
+    ctx.clearQueued?.();
+    void run(queued);
+  });
 
   return (
     <section className={`${styles.card} ${ctx.phase !== "learn" ? styles.solveSteps : ""}`}>
@@ -159,7 +168,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
                 {copy.blankLabel(pos + 1)}
               </label>
               {displayPre && displayPre !== "$$" && <span><MathInline text={displayPre} /></span>}
-              <input ref={input} id={inputId} className={`${styles.input} ${styles.gap}`} value={text} onChange={(e) => setText(e.target.value)} autoComplete="off" />
+              <input ref={input} id={inputId} className={`${styles.input} ${styles.gap}`} value={text} disabled={busy} onChange={(e) => setText(e.target.value)} autoComplete="off" />
               {displayPost && displayPost !== "$$" && <span><MathInline text={displayPost} /></span>}
               <button type="submit" className={styles.primary} disabled={busy}>
                 {copy.check}
@@ -183,6 +192,8 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
               </button>
             </form>
           )}
+          {ctx.preview && busy && <p className={styles.small}>{copy.checkQueued}</p>}
+          {ctx.preview?.pending && <p className={styles.small}>{copy.composingNext}</p>}
           {inline && <div data-pet-spoken-slot className={styles.patchSpoken} />}
           {ctx.phase === "learn" && ctx.help && <HelpBar {...ctx.help} />}
           {ctx.phase === "learn" && item && (

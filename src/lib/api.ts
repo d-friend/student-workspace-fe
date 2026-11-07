@@ -165,7 +165,13 @@ export async function sendFeedback(message: string): Promise<void> {
 }
 
 // The static blocks written so far; every other block is a stub that only holds its place.
-export type PreviewBlock = Block | { type: "stub"; id: string };
+export type PreviewSteps = Omit<Extract<Block, { type: "steps" }>, "problem_id" | "input" | "roadmap"> & {
+  problem_id?: string | null;
+  input?: "math" | "text" | null;
+  roadmap?: string | null;
+  pending: boolean;
+};
+export type PreviewBlock = Exclude<Block, { type: "steps" }> | PreviewSteps | { type: "stub"; id: string };
 export type Preview = { phase: Phase; title: string | null; blocks: PreviewBlock[] };
 
 export type TurnEvent =

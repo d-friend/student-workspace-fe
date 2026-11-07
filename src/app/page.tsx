@@ -90,6 +90,8 @@ export default function Page() {
   // WorkspaceView wraps hintCount and onSolved per doc itself.
   const makeCtx = (w: Workspace): BlockCtx => ({
     workspaceId: w.id,
+    queued: w.queued,
+    clearQueued: () => ws.clearQueued(w.id),
     saveBlock: (blockId, state) => ws.saveBlock(w.id, blockId, state),
     phase: w.doc.phase,
     simulationPending: ws.simulationPending,
@@ -145,6 +147,7 @@ export default function Page() {
       <BuildingSkeleton
         variant={ws.buildingPhase === "learn" ? "learn" : "solve"}
         preview={ws.preview}
+        onQueue={ws.queueAnswer}
         problem={firstSent?.kind === "student" ? firstSent.text : undefined}
       />
     );

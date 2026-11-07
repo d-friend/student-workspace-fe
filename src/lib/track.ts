@@ -3,6 +3,7 @@ import { sendEvents, type EventPayload } from "./api";
 // Client event catalog, mirroring spec 6.3. Props are exactly these keys and no others: a key that
 // is not here is a compile error, and the backend rejects it anyway (extra="forbid").
 export type TrackEvents = {
+  share_clicked: { scope: "workspace" | "session"; workspace_count: number };
   tab_switched: { from_phase: "learn" | "solve" | "practice"; to_phase: "learn" | "solve" | "practice" };
   history_opened: { sessions: number };
   history_session_viewed: { tabs: number; age_days: number };

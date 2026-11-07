@@ -61,6 +61,7 @@ export type CheckResponse = {
   ok: boolean;
   state: "ok" | "review";
   done: boolean;
+  answer_tex?: string;
   line?: string;
   takeaway?: string;
   reached?: string | null;

@@ -167,10 +167,10 @@ test("currentSession maps ordered tabs and active workspace", async () => {
 });
 
 test("check posts snake_case and returns CheckResponse", async () => {
-  const fetchMock = vi.fn().mockResolvedValue(json(200, { ok: true, state: "ok", done: false }));
+  const fetchMock = vi.fn().mockResolvedValue(json(200, { ok: true, state: "ok", done: false, answer_tex: "\\frac{1}{2}" }));
   vi.stubGlobal("fetch", fetchMock);
   const res = await check("s1", { workspaceId: "w1", blockId: "b1", answer: "2x", previous: ["x"] });
-  expect(res).toEqual({ ok: true, state: "ok", done: false });
+  expect(res).toEqual({ ok: true, state: "ok", done: false, answer_tex: "\\frac{1}{2}" });
   const [url, init] = fetchMock.mock.calls[0];
   expect(url).toBe("/api/sessions/s1/check");
   expect(JSON.parse(init.body)).toEqual({ workspace_id: "w1", block_id: "b1", answer: "2x", previous: ["x"] });

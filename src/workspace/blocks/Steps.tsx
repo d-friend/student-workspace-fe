@@ -22,6 +22,12 @@ export function blankSides(pre: string, post: string): [string, string] {
   return dollars % 2 ? [pre + "$", "$" + post] : [pre, post];
 }
 
+export function filledBlank(pre: string, post: string, answer: string, answerTex?: string): string {
+  if (answerTex === undefined) return pre + answer + post;
+  if (blankSides(pre, post)[0] !== pre) return pre + answerTex + post;
+  return pre + (pre.endsWith("$") ? " " : "") + "$" + answerTex + "$" + (post.startsWith("$") ? " " : "") + post;
+}
+
 export function Steps({ block, ctx }: BlockProps<Steps>) {
   const copy = useCopy();
   const saved = ctx.state?.blocks?.[block.id];
@@ -79,7 +85,12 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
     try {
       const r = await ctx.check(block.id, a.answer, previous, ...(a.item === undefined ? [] : [a.item]));
       const retried = dirty.current || ctx.hintCount > hintBase.current;
-      const line = r.state === "ok" && a.input === "choice" ? (r.line ?? a.text) : a.text;
+      const checkedItem = a.item === undefined ? undefined : block.scaffold?.[a.item];
+      let line = r.state === "ok" && a.input === "choice" ? (r.line ?? a.text) : a.text;
+      if (ctx.phase !== "learn" && r.state === "ok" && a.input === "blank" && checkedItem?.kind === "blank" && r.answer_tex !== undefined) {
+        const [before = "", after = ""] = checkedItem.template.split("___");
+        line = filledBlank(before, after, a.answer, r.answer_tex);
+      }
       const committed = [...entries.slice(0, pos), { text: line, state: r.state, answer: a.answer, ...(a.item !== undefined && { item: a.item }) }];
       setEntries(committed);
       ctx.saveBlock?.(block.id, { type: "steps", entries: committed, done: r.done, free, ...(r.done && r.takeaway !== undefined && { takeaway: r.takeaway }) });

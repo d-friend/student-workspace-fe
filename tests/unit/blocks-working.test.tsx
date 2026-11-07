@@ -7,6 +7,7 @@ import type { Block, BlockCtx, CheckResponse, Phase, Workspace, WorkspaceDoc } f
 import { DoneBanner } from "@/workspace/DoneBanner";
 import { HelpBar } from "@/workspace/HelpBar";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
+import { filledBlank } from "@/workspace/blocks/Steps";
 
 afterEach(cleanup);
 
@@ -551,6 +552,43 @@ test("blank entries keep the filled template even when a line is returned", asyn
     entries: [expect.objectContaining({ text: expect.stringContaining("2") })], takeaway: "Remember this", done: true,
   })));
   expect(screen.queryByText("Ignored")).toBeNull();
+});
+
+test("filled blank joins math spans and preserves the raw fallback", () => {
+  expect(filledBlank("$y_0 = $", "$ units$", "1/ln2", "\\frac{1}{\\ln 2}")).toBe("$y_0 = $ $\\frac{1}{\\ln 2}$ $ units$");
+  expect(filledBlank("Answer: ", " units", "1/ln2", "\\frac{1}{\\ln 2}")).toBe("Answer: $\\frac{1}{\\ln 2}$ units");
+  expect(filledBlank("$y_0 = ", "$", "1/ln2", "\\frac{1}{\\ln 2}")).toBe("$y_0 = \\frac{1}{\\ln 2}$");
+  expect(filledBlank("$y_0 = $", "", " 1/ln2 ")).toBe("$y_0 = $ 1/ln2 ");
+});
+
+test("accepted blank saves formatted math and restores it", async () => {
+  const block: Block = { ...(steps as Extract<Block, { type: "steps" }>), scaffold: [{ kind: "blank", template: "$y_0 = $___" }] };
+  const saveBlock = vi.fn();
+  const c = ctxWith([{ ...fin, answer_tex: "\\frac{1}{\\ln 2}" }], { saveBlock });
+  const { container, unmount } = render(<>{renderBlock(block, c)}</>);
+  gap(1, "1/ln2");
+  submit();
+  await waitFor(() => expect(saveBlock).toHaveBeenCalled());
+  const saved = saveBlock.mock.calls[0][1];
+  expect(saved.entries[0]).toMatchObject({ text: "$y_0 = $ $\\frac{1}{\\ln 2}$", answer: "1/ln2" });
+  expect(container.querySelectorAll(".katex")).toHaveLength(2);
+  unmount();
+  const restored = render(<>{renderBlock(block, ctxWith([], { state: { blocks: { s1: saved } } }))}</>);
+  expect(restored.container.querySelectorAll(".katex")).toHaveLength(2);
+});
+
+test.each(["review", "learn", "free"] as const)("%s keeps student text raw even with answer_tex", async (mode) => {
+  const block: Block = { ...(steps as Extract<Block, { type: "steps" }>), scaffold: [{ kind: "blank", template: "Answer: ___" }] };
+  const saveBlock = vi.fn();
+  const c = ctxWith([{ ...ok, state: mode === "review" ? "review" : "ok", answer_tex: "\\frac{1}{2}" }], {
+    saveBlock, phase: mode === "learn" ? "learn" : "solve",
+    ...(mode === "free" ? { help: { level: 0, onHint: vi.fn(), ideaPending: false, free: true } } : {}),
+  });
+  render(<>{renderBlock(block, c)}</>);
+  type("1/2");
+  submit();
+  await waitFor(() => expect(saveBlock).toHaveBeenCalled());
+  expect(saveBlock.mock.calls[0][1].entries[0].text).toBe(mode === "free" ? "1/2" : "Answer: 1/2");
 });
 
 test("takeaway and topic appear after completion and after restoration", async () => {

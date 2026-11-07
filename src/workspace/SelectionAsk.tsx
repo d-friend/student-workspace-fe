@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { copy } from "@/lib/copy";
+import { useCopy } from "./WorkspaceCopy";
 import styles from "./SelectionAsk.module.css";
 
 export type SelectionQuote = { text: string; where: string; block_id: string; item?: number };
 type Candidate = { quote: SelectionQuote; left: number; bottom: number };
 
 export function SelectionAsk({ scroller, activeId, onAsk }: { scroller: RefObject<HTMLDivElement | null>; activeId: string; onAsk?: (quote: SelectionQuote) => void }) {
+  const copy = useCopy();
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const button = useRef<HTMLButtonElement>(null);
   const [position, setPosition] = useState({ left: 0, top: 0 });

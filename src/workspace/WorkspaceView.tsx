@@ -1,6 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePetAnchorRef, usePetScrollerRef } from "@/components/pet/PetAnchor";
-import { copy } from "@/lib/copy";
+import { copy, copyFor } from "@/lib/copy";
+import { WorkspaceCopy, useCopy } from "./WorkspaceCopy";
+import { workspaceLocale } from "./workspaceLocale";
 import { ShareButton } from "@/components/work/ShareButton";
 import { SelectionAsk, type SelectionQuote } from "./SelectionAsk";
 import { BlockBoundary } from "./BlockBoundary";
@@ -39,6 +41,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
   broken: boolean;
   onRebuild?: (id: string) => void;
 }) {
+  const copy = useCopy();
   const [presses, setPresses] = useState(0);
   const [freeBlocks, setFreeBlocks] = useState<Record<string, boolean>>({});
   const [savedBlocks, setSavedBlocks] = useState<Record<string, SavedBlockState>>({});
@@ -191,7 +194,14 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
   );
 }
 
+function LocalizedDoc(props: Parameters<typeof Doc>[0]) {
+  const lang = useMemo(() => workspaceLocale(props.w.doc), [props.w.doc]);
+  return <WorkspaceCopy.Provider value={copyFor(lang)}><Doc {...props} /></WorkspaceCopy.Provider>;
+}
+
 export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild, onSelectionAsk }: Props) {
+  const activeDoc = tabs.find((tab) => tab.id === activeId)?.doc;
+  const activeCopy = useMemo(() => activeDoc ? copyFor(workspaceLocale(activeDoc)) : copy, [activeDoc]);
   // Hidden docs share this scroller; keep an independent offset for each workspace.
   const scroller = useRef<HTMLDivElement>(null);
   const tops = useRef<Record<string, number>>({});
@@ -208,11 +218,11 @@ export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {}
         petScroller?.(el);
       }}
       className={styles.scroll} data-flat={tabs.find((tab) => tab.id === activeId)?.phase !== "learn" || undefined} onScroll={(e) => (tops.current[shown.current] = e.currentTarget.scrollTop)}>
-      <SelectionAsk scroller={scroller} activeId={activeId} onAsk={onSelectionAsk} />
+      <WorkspaceCopy.Provider value={activeCopy}><SelectionAsk scroller={scroller} activeId={activeId} onAsk={onSelectionAsk} /></WorkspaceCopy.Provider>
       <div className={styles.view} data-pet-column>
         <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} />
         {tabs.map((w) => (
-          <Doc key={w.id} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} />
+          <LocalizedDoc key={w.id} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} />
         ))}
       </div>
     </div>

@@ -1,9 +1,10 @@
 import { IconBulb } from "@tabler/icons-react";
 import { useEffect, useId, useRef } from "react";
-import { copy } from "@/lib/copy";
+import { useCopy } from "./WorkspaceCopy";
 import styles from "./blocks/working.module.css";
 
 export function ActionBar({ level, onHint, onIdea, ideaPending = false, onOtherWay, sticky = false }: { level: number; onHint: () => void; onIdea?: () => void; ideaPending?: boolean; onOtherWay?: () => void; sticky?: boolean }) {
+  const copy = useCopy();
   const levelId = useId();
   const ideaRequested = useRef(false);
   useEffect(() => {

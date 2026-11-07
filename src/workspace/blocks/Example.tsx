@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { copy } from "@/lib/copy";
+import { useCopy } from "../WorkspaceCopy";
 import { Md, MdInline } from "../md";
 import type { Block, BlockProps } from "../types";
 import styles from "./blocks.module.css";
 
 export function Example({ block }: BlockProps<Extract<Block, { type: "example" }>>) {
+  const copy = useCopy();
   const [shown, setShown] = useState(1);
   const more = shown < block.steps.length;
   return (

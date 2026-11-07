@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { copy } from "@/lib/copy";
+import { useCopy } from "../WorkspaceCopy";
 import type { Block, BlockProps } from "../types";
 import styles from "./Board.module.css";
 
@@ -44,6 +44,7 @@ function checkTerms(block: GraphBlock) {
 const cssVar = (el: Element, name: string) => getComputedStyle(el).getPropertyValue(name).trim();
 
 export function Graph({ block }: BlockProps<GraphBlock>) {
+  const copy = useCopy();
   const box = useRef<HTMLDivElement>(null);
   const board = useRef<Board | null>(null);
   const [error, setError] = useState<Error | null>(null);

@@ -2,7 +2,7 @@ import { IconAngle, IconBoxAlignRight, IconCircle, IconEqual, IconLine, IconLine
 import type { ComponentType, KeyboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { copy } from "@/lib/copy";
+import { useCopy } from "../WorkspaceCopy";
 import type { Block, BlockProps, GeometryTool } from "../types";
 import styles from "./Board.module.css";
 
@@ -70,6 +70,7 @@ function nextName(used: Set<string>) {
 }
 
 export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
+  const copy = useCopy();
   const isStatic = block.tools.length === 0;
   const frame = isStatic ? staticFrame(block.points) : null;
   const box = useRef<HTMLDivElement>(null);

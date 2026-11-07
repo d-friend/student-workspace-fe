@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { WorkspaceFrame } from "@/components/work/WorkspaceFrame";
-import { copy } from "@/lib/copy";
+import { useCopy } from "../WorkspaceCopy";
 import { customFrames, frameDoc } from "@/lib/frame";
 import type { Block, BlockProps } from "../types";
 import styles from "./blocks.module.css";
@@ -9,6 +9,7 @@ type CustomBlock = Extract<Block, { type: "custom" }>;
 
 // AI-written HTML in the sandboxed bridge iframe; its events reach the workspace queue via customFrames.
 export function Custom({ block, ctx }: BlockProps<CustomBlock>) {
+  const copy = useCopy();
   const ref = useRef<HTMLIFrameElement>(null);
   // Empty on the server, so render never reads location.
   const origin = useSyncExternalStore(() => () => {}, () => location.origin, () => "");

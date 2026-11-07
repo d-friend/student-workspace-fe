@@ -102,7 +102,7 @@ test("boundary isolates a throwing block", () => {
   const bad = { type: "text", id: "bad", get md(): string { throw new Error("boom"); } } as unknown as WorkspaceDoc["blocks"][number];
   const doc: WorkspaceDoc = {
     ...fixtures["text.json"],
-    blocks: [{ type: "heading", id: "h1", text: "Trước", level: 2 }, bad, { type: "heading", id: "h2", text: "Sau", level: 2 }],
+    blocks: [{ type: "heading", id: "h1", text: "Trước", level: 2 }, { type: "text", id: "t0", md: "Mở đầu" }, bad, { type: "heading", id: "h2", text: "Sau", level: 2 }],
   };
   const ctx = mk();
   render(view({ learn: ws(doc) }, "learn", vi.fn(), ctx));
@@ -155,7 +155,7 @@ test("a quiz in a solve doc never reports learn_completed", () => {
   const doc: WorkspaceDoc = {
     ...fixtures["quiz.json"],
     phase: "solve",
-    blocks: [{ type: "problem", id: "p1", md: "x" }, openQuiz("q1")],
+    blocks: [{ type: "problem", id: "p1", md: "Tính x" }, openQuiz("q1")],
   };
   const ctx = mk();
   const { container } = render(view({ solve: ws(doc) }, "solve", vi.fn(), ctx));

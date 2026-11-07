@@ -7,7 +7,7 @@ import type { BlockCtx, StudentWork, Workspace } from "@/workspace/types";
 
 afterEach(cleanup);
 const workspace: Workspace = { id: "w", doc: { version: 1, phase: "solve", title: "Two parts", sources: [], blocks: [
-  { type: "problem", id: "p", md: "Acceleration AND force partner" },
+  { type: "problem", id: "p", md: "Gia tốc và lực" },
   { type: "steps", id: "part1", problem_id: "p", input: "math" },
   { type: "steps", id: "part2", problem_id: "p", input: "text" },
 ] } };

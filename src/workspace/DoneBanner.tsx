@@ -1,8 +1,9 @@
 import { IconCheck } from "@tabler/icons-react";
-import { copy } from "@/lib/copy";
+import { useCopy } from "./WorkspaceCopy";
 import styles from "./blocks/working.module.css";
 
 export function DoneBanner({ hints, takeaway, roadmap }: { hints: number; takeaway?: string; roadmap?: string }) {
+  const copy = useCopy();
   const topic = roadmap && Object.hasOwn(copy.roadmapTitle, roadmap) ? copy.roadmapTitle[roadmap] : undefined;
   return (
     <div className={styles.done} role="status">

@@ -1,7 +1,7 @@
 import { IconAlertCircle, IconCheck } from "@tabler/icons-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { usePetAnchorRef } from "@/components/pet/PetAnchor";
-import { copy } from "@/lib/copy";
+import { useCopy } from "../WorkspaceCopy";
 import { HelpBar } from "../HelpBar";
 import { MathInline } from "../md";
 import type { Block, BlockProps } from "../types";
@@ -11,7 +11,19 @@ type Steps = Extract<Block, { type: "steps" }>;
 type Entry = { text: string; state: "ok" | "review"; answer?: string; item?: number };
 type Attempt = { answer: string; text: string; input: "choice" | "blank" | "free"; item?: number };
 
+export function blankSides(pre: string, post: string): [string, string] {
+  let dollars = 0;
+  for (let i = 0; i < pre.length; i++) {
+    if (pre[i] !== "$") continue;
+    let slashes = 0;
+    for (let j = i - 1; j >= 0 && pre[j] === "\\"; j--) slashes++;
+    if (slashes % 2 === 0) dollars++;
+  }
+  return dollars % 2 ? [pre + "$", "$" + post] : [pre, post];
+}
+
 export function Steps({ block, ctx }: BlockProps<Steps>) {
+  const copy = useCopy();
   const saved = ctx.state?.blocks?.[block.id];
   const initial = saved?.type === "steps" ? saved : null;
   const [entries, setEntries] = useState<Entry[]>(initial?.entries ?? []);
@@ -40,7 +52,8 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   while (pos < entries.length && effective[pos] === "ok") pos++;
   // Past the last item without done (the master judged it ok, or an override moved on) the student types freely.
   const item = block.scaffold && !free && pos < block.scaffold.length ? block.scaffold[pos] : null;
-  const [pre, post = ""] = item?.kind === "blank" ? item.template.split("___") : [];
+  const [pre = "", post = ""] = item?.kind === "blank" ? item.template.split("___") : [];
+  const [displayPre, displayPost] = blankSides(pre, post);
 
   useEffect(() => {
     if (free && !previousFree.current) {
@@ -145,9 +158,9 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
               <label htmlFor={inputId} className={styles.srOnly}>
                 {copy.blankLabel(pos + 1)}
               </label>
-              {pre}
+              {displayPre && displayPre !== "$$" && <span><MathInline text={displayPre} /></span>}
               <input ref={input} id={inputId} className={`${styles.input} ${styles.gap}`} value={text} onChange={(e) => setText(e.target.value)} autoComplete="off" />
-              {post}
+              {displayPost && displayPost !== "$$" && <span><MathInline text={displayPost} /></span>}
               <button type="submit" className={styles.primary} disabled={busy}>
                 {copy.check}
               </button>

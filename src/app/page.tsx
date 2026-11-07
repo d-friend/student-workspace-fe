@@ -127,6 +127,7 @@ export default function Page() {
     stage = (
       <div className={styles.viewWrap}>
         <WorkspaceView
+          sessionId={ws.sessionId}
           tabs={ws.tabs}
           activeId={ws.activeId}
           onActive={ws.setActive}

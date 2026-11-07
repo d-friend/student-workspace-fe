@@ -66,6 +66,7 @@ export type WorkspaceState = {
   input: string;
   photo: string | null;
   html: string | null; // legacy iframe workspace, only when there are no structured workspaces
+  sessionId: string | null;
   tabs: (Workspace & { phase: Phase })[];
   brokenTabs: Record<string, true>;
   activeId: string | null;
@@ -233,6 +234,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       input,
       photo,
       html,
+      sessionId,
       tabs,
       brokenTabs: Object.fromEntries([...brokenEvents.keys()].map((id) => [id, true as const])),
       activeId,

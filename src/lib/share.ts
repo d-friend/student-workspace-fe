@@ -3,8 +3,12 @@ type ShareTarget = {
   clipboard?: { writeText: (text: string) => Promise<void> };
 };
 
-export async function shareWorkspace(origin: string, workspaceId: string, title: string, target: ShareTarget) {
-  const url = `${origin}/s/${encodeURIComponent(workspaceId)}`;
+export function shareUrl(origin: string, path: string) {
+  return `${origin}${path}`;
+}
+
+export async function shareWorkspace(origin: string, path: string, title: string, target: ShareTarget) {
+  const url = shareUrl(origin, path);
   if (target.share) {
     try {
       await target.share({ url, title });

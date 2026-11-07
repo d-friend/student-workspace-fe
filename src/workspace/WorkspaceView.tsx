@@ -18,6 +18,7 @@ import { canReturnToProblem } from "./navigation";
 import styles from "./WorkspaceView.module.css";
 
 type Props = {
+  sessionId?: string | null;
   tabs: (Workspace & { phase: Phase })[];
   activeId: string;
   onActive: (id: string) => void;
@@ -29,8 +30,11 @@ type Props = {
   onSelectionAsk?: (quote: SelectionQuote) => void;
 };
 
-function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onRebuild }: {
+function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onRebuild, sessionId, workspaceCount, sessionUnready }: {
   w: Workspace;
+  sessionId?: string | null;
+  workspaceCount: number;
+  sessionUnready: boolean;
   p: Phase;
   hidden: boolean;
   tabbed: boolean; // a PhaseSwitch exists, so this is a tab panel
@@ -120,7 +124,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
       {broken && <div className={styles.notice}><span>{copy.pageBroken}</span> <button type="button" className={styles.back} onClick={() => onRebuild?.(w.id)}>{copy.pageRebuild}</button></div>}
       <header className={styles.header}>
         <h1 className={styles.title}><MdInline text={w.doc.title} /></h1>
-        <ShareButton workspaceId={w.id} title={w.doc.title} disabled={w.doc.blocks.some((block) => block.type === "custom" && block.html == null)} />
+        <ShareButton sessionId={sessionId} workspaceCount={workspaceCount} sessionUnready={sessionUnready} workspaceId={w.id} title={w.doc.title} disabled={w.doc.blocks.some((block) => block.type === "custom" && block.html == null)} />
       </header>
       {w.doc.blocks.map((b) => {
         const steps = b.type === "problem" ? w.doc.blocks.find((item) => item.type === "steps" && item.problem_id === b.id) : undefined;
@@ -199,7 +203,7 @@ function LocalizedDoc(props: Parameters<typeof Doc>[0]) {
   return <WorkspaceCopy.Provider value={copyFor(lang)}><Doc {...props} /></WorkspaceCopy.Provider>;
 }
 
-export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild, onSelectionAsk }: Props) {
+export function WorkspaceView({ sessionId, tabs, activeId, onActive, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild, onSelectionAsk }: Props) {
   const activeDoc = tabs.find((tab) => tab.id === activeId)?.doc;
   const activeCopy = useMemo(() => activeDoc ? copyFor(workspaceLocale(activeDoc)) : copy, [activeDoc]);
   // Hidden docs share this scroller; keep an independent offset for each workspace.
@@ -222,7 +226,7 @@ export function WorkspaceView({ tabs, activeId, onActive, makeCtx, taskDone = {}
       <div className={styles.view} data-pet-column>
         <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} />
         {tabs.map((w) => (
-          <LocalizedDoc key={w.id} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} />
+          <LocalizedDoc key={w.id} sessionId={sessionId} workspaceCount={tabs.length} sessionUnready={tabs.some((tab) => tab.doc.blocks.some((block) => block.type === "custom" && block.html == null))} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} />
         ))}
       </div>
     </div>

@@ -95,7 +95,7 @@ export default function Page() {
     simulationPending: ws.simulationPending,
     simulationVersions: ws.simulationVersions,
     simulationFailures: ws.simulationFailures,
-    report: ws.report,
+    report: (type, data) => ws.report(type, data, true, w.id),
     check: (blockId, answer, previous, item) => ws.check(w.id, blockId, answer, previous, item),
     overrides: ws.overrides[w.id] ?? {},
     hintCount: 0,
@@ -109,7 +109,7 @@ export default function Page() {
     onChange: ws.setInput,
     onSend: () => {
       if (ws.sendDisabled || (!ws.input.trim() && !photoSrc)) return;
-      if (quote) ws.report("selection_asked", quote);
+      if (quote) ws.report("selection_asked", quote, true, ws.activeId ?? undefined);
       setQuote(null);
       void ws.submit();
     },

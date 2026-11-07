@@ -174,6 +174,9 @@ describe("workspace turn", () => {
     post({ type: "answer_submitted", byStudent: true, gesture: 5 }, win);
     await vi.advanceTimersByTimeAsync(800);
     expect(t.api.turn).toHaveBeenCalled();
+    expect(JSON.parse(String(lastContent(t.api)).slice("[workspace] ".length))).toEqual([
+      expect.objectContaining({ type: "answer_submitted", workspace_id: "none" }),
+    ]);
     customFrames.delete(win);
   });
 
@@ -1141,16 +1144,26 @@ describe("structured workspace", () => {
     expect(t.track).not.toHaveBeenCalledWith("turn_failed", expect.anything(), expect.anything());
   });
 
+  it("includes the workspace id in a block report", async () => {
+    const t = await boot(stream([shown("w1"), "ok"]));
+    await typed(t);
+    t.api.turn.mockClear();
+    t.ws.actions.report("render_error", { block_id: "b1", message: "broken" }, true, "w1");
+    await vi.advanceTimersByTimeAsync(800);
+    expect(sentEvents(t.api)).toEqual([expect.objectContaining({ type: "render_error", workspace_id: "w1" })]);
+  });
+
   it("task_completed via master is sent at once, not as a student gesture", async () => {
     const t = await boot(stream([shown("w1"), "ok"]));
     await typed(t);
     t.api.turn.mockClear();
-    t.ws.actions.report("task_completed", { similar: false, helped: false, max_hint: 0, via: "master" });
+    t.ws.actions.report("task_completed", { similar: false, helped: false, max_hint: 0, via: "master" }, true, "w1");
     await vi.advanceTimersByTimeAsync(0);
     expect(t.api.turn).toHaveBeenCalledTimes(1);
     expect(sentEvents(t.api).map((e: { type: string; byStudent: boolean; gesture?: number }) => [e.type, e.byStudent, e.gesture])).toEqual([
       ["task_completed", false, undefined],
     ]);
+    expect(sentEvents(t.api)[0]).toMatchObject({ workspace_id: "w1" });
   });
 
   it("a completion right before Bài mới still reaches the server", async () => {
@@ -1197,7 +1210,7 @@ describe("structured workspace", () => {
     t.ws.actions.setActive("L1");
     expect(t.state().phase).toBe("learn");
     await vi.advanceTimersByTimeAsync(800);
-    expect(sentEvents(t.api)).toEqual([expect.objectContaining({ type: "phase_viewed", data: { phase: "learn", workspace_id: "L1" }, byStudent: true })]);
+    expect(sentEvents(t.api)).toEqual([expect.objectContaining({ type: "phase_viewed", data: { phase: "learn", workspace_id: "L1" }, byStudent: true, workspace_id: "L1" })]);
   });
 
   it("check calls the api with the session and the workspace that holds the block", async () => {
@@ -1595,7 +1608,7 @@ describe("structured workspace", () => {
       t.ws.actions.rebuildTab("L1"); // a second press has nothing to send
       await vi.advanceTimersByTimeAsync(800);
       expect(t.api.turn).toHaveBeenCalledTimes(1);
-      expect(sentEvents(t.api)).toContainEqual(expect.objectContaining({ type: "workspace_error", byStudent: true, gesture: expect.any(Number) }));
+      expect(sentEvents(t.api)).toContainEqual(expect.objectContaining({ type: "workspace_error", byStudent: true, gesture: expect.any(Number), workspace_id: "L1" }));
       customFrames.delete(win);
     });
 

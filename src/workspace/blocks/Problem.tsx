@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { copy } from "@/lib/copy";
+import { useCopy } from "../WorkspaceCopy";
 import { Md, MdInline } from "../md";
 import type { Block, BlockProps } from "../types";
 import styles from "./working.module.css";
@@ -7,6 +7,7 @@ import styles from "./working.module.css";
 type Problem = Extract<Block, { type: "problem" }>;
 
 export function Problem({ block, ctx, collapsible = false }: BlockProps<Problem> & { collapsible?: boolean }) {
+  const copy = useCopy();
   const [expanded, setExpanded] = useState(false);
   if (collapsible) {
     return (

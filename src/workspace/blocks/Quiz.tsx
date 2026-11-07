@@ -1,6 +1,6 @@
 import { IconAlertTriangle, IconCheck } from "@tabler/icons-react";
 import { useId, useRef, useState } from "react";
-import { copy } from "@/lib/copy";
+import { useCopy } from "../WorkspaceCopy";
 import { Md } from "../md";
 import type { Block, BlockProps } from "../types";
 import styles from "./blocks.module.css";
@@ -8,6 +8,7 @@ import styles from "./blocks.module.css";
 type Quiz = Extract<Block, { type: "quiz" }>;
 
 export function Quiz({ block, ctx }: BlockProps<Quiz>) {
+  const copy = useCopy();
   const saved = ctx.state?.blocks?.[block.id];
   const initial = saved?.type === "quiz" ? saved : null;
   const [tries, setTries] = useState(initial?.tries ?? 0);

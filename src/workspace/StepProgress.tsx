@@ -1,4 +1,4 @@
-import { copy } from "@/lib/copy";
+import { useCopy } from "./WorkspaceCopy";
 import type { Block, StudentWork } from "./types";
 import styles from "./WorkspaceView.module.css";
 
@@ -13,6 +13,7 @@ export function acceptedSteps(block: StepsBlock, state?: StudentWork | null, ove
 }
 
 export function StepProgress({ block, state, overrides = {} }: { block: StepsBlock; state?: StudentWork | null; overrides?: Record<number, "ok" | "review"> }) {
+  const copy = useCopy();
   const total = block.scaffold?.length ?? 0;
   if (!total) return null;
   const accepted = acceptedSteps(block, state, overrides);

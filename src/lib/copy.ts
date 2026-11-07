@@ -403,6 +403,8 @@ const en: typeof vi = {
 
 export type Locale = "vi" | "en";
 
+export const copyFor = (locale: Locale): typeof vi => locale === "en" ? en : vi;
+
 let locale: Locale = "vi";
 export const getLocale = () => locale;
 export const setLocale = (l: Locale) => {

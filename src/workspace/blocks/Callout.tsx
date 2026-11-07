@@ -1,18 +1,15 @@
 import { IconAlertTriangle, IconBookmark, IconBulb } from "@tabler/icons-react";
-import { copy } from "@/lib/copy";
+import { useCopy } from "../WorkspaceCopy";
 import { Md } from "../md";
 import type { Block, BlockProps } from "../types";
 import styles from "./blocks.module.css";
 
-// Getters: copy follows the browser language, which is only known after the module loads.
-const TONES = {
-  idea: { Icon: IconBulb, get label() { return copy.calloutIdea; } },
-  remember: { Icon: IconBookmark, get label() { return copy.calloutRemember; } },
-  warning: { Icon: IconAlertTriangle, get label() { return copy.calloutWarning; } },
-};
+const TONES = { idea: IconBulb, remember: IconBookmark, warning: IconAlertTriangle };
 
 export function Callout({ block }: BlockProps<Extract<Block, { type: "callout" }>>) {
-  const { Icon, label } = TONES[block.tone];
+  const copy = useCopy();
+  const Icon = TONES[block.tone];
+  const label = { idea: copy.calloutIdea, remember: copy.calloutRemember, warning: copy.calloutWarning }[block.tone];
   return (
     <aside className={`${styles.card} ${block.tone === "idea" ? styles.idea : ""}`}>
       <p className={styles.label}>

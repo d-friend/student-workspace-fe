@@ -43,6 +43,8 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const [learnFree, setLearnFree] = useState(initial?.free ?? false);
   const free = ctx.phase === "learn" ? learnFree : (ctx.help?.free ?? initial?.free ?? false);
   const previousFree = useRef(free);
+  const locked = !!ctx.askPending && ctx.phase !== "learn";
+  const previousLocked = useRef(locked);
   const finished = done || !!ctx.finished; // the master can complete a block the code could not (prose lines)
   const anchorRef = usePetAnchorRef(!ctx.preview && !finished && !ctx.hidden);
   const inline = ctx.phase === "solve" || ctx.phase === "practice";
@@ -74,13 +76,18 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   }, [free]);
 
   useEffect(() => {
+    if (previousLocked.current && !locked && !ctx.hidden) refocus.current = true;
+    previousLocked.current = locked;
+  }, [locked, ctx.hidden]);
+
+  useEffect(() => {
     if (!refocus.current) return;
     refocus.current = false;
     (input.current ?? group.current?.querySelector("button"))?.focus(); // the disabled buttons dropped focus
   });
 
   async function run(a: Attempt) {
-    if (busy || finished || !a.answer.trim()) return;
+    if (busy || locked || finished || !a.answer.trim()) return;
     setBusy(true);
     setFailed(null);
     // shortcut: previous scaffold lines may not parse as SymPy, so code-side checkpoint progress can lag; the master covers it.
@@ -119,7 +126,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
 
   useEffect(() => {
     const queued = ctx.queued;
-    if (replayed.current || !queued || queued.blockId !== block.id || initial || entries.length || pos !== 0) return;
+    if (locked || replayed.current || !queued || queued.blockId !== block.id || initial || entries.length || pos !== 0) return;
     replayed.current = true;
     ctx.clearQueued?.();
     void run(queued);
@@ -173,7 +180,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
               </p>}
               <div ref={group} role="group" aria-labelledby={promptId} className={styles.options}>
                 {item.options.map((o, i) => (
-                  <button key={i} type="button" className={`${styles.btn} ${styles.option}`} disabled={busy} onClick={(event) => { const selection = window.getSelection(); if (selection && !selection.isCollapsed && selection.anchorNode && event.currentTarget.contains(selection.anchorNode)) return; void run({ answer: String(i), text: o, input: "choice", item: pos }); }}>
+                  <button key={i} type="button" className={`${styles.btn} ${styles.option}`} disabled={busy || locked} onClick={(event) => { const selection = window.getSelection(); if (selection && !selection.isCollapsed && selection.anchorNode && event.currentTarget.contains(selection.anchorNode)) return; void run({ answer: String(i), text: o, input: "choice", item: pos }); }}>
                     <span className={styles.optionLabel} aria-hidden="true">{String.fromCharCode(65 + i)}</span>
                     <span data-sel="option" className={styles.optionText}><MathInline text={o} /></span>
                   </button>
@@ -192,9 +199,9 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
                 {copy.blankLabel(pos + 1)}
               </label>
               {displayPre && displayPre !== "$$" && <span><MathInline text={displayPre} /></span>}
-              <input ref={input} id={inputId} className={`${styles.input} ${styles.gap}`} value={text} disabled={busy} onChange={(e) => setText(e.target.value)} autoComplete="off" />
+              <input ref={input} id={inputId} className={`${styles.input} ${styles.gap}`} value={text} disabled={busy || locked} onChange={(e) => setText(e.target.value)} autoComplete="off" />
               {displayPost && displayPost !== "$$" && <span><MathInline text={displayPost} /></span>}
-              <button type="submit" className={styles.primary} disabled={busy}>
+              <button type="submit" className={styles.primary} disabled={busy || locked}>
                 {copy.check}
               </button>
             </form>
@@ -210,8 +217,8 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
                 {copy.lineLabel(pos + 1)}
               </label>
               {block.help && <p className={`${styles.small} ${styles.help}`}>{block.help}</p>}
-              <input ref={input} id={inputId} className={styles.input} value={text} onChange={(e) => setText(e.target.value)} autoComplete="off" />
-              <button type="submit" className={styles.primary} disabled={busy}>
+              <input ref={input} id={inputId} className={styles.input} value={text} disabled={locked} onChange={(e) => setText(e.target.value)} autoComplete="off" />
+              <button type="submit" className={styles.primary} disabled={busy || locked}>
                 {copy.check}
               </button>
             </form>

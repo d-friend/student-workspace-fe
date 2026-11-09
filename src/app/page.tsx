@@ -92,6 +92,7 @@ export default function Page() {
     workspaceId: w.id,
     queued: w.queued,
     clearQueued: () => ws.clearQueued(w.id),
+    askPending: ws.askPending,
     saveBlock: (blockId, state) => ws.saveBlock(w.id, blockId, state),
     phase: w.doc.phase,
     simulationPending: ws.simulationPending,

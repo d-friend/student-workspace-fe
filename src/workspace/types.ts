@@ -76,6 +76,7 @@ export type BlockCtx = {
   preview?: { pending: boolean };
   queued?: QueuedAttempt;
   clearQueued?: () => void;
+  askPending?: boolean; // The latest agent question awaits a student reply.
   workspaceId: string;
   state?: StudentWork | null;
   saveBlock?: (blockId: string, state: SavedBlockState) => void;

@@ -702,3 +702,45 @@ test("drag-selecting an option does not answer", () => {
   expect(c.check).not.toHaveBeenCalled();
   selection.mockRestore();
 });
+
+test("a pending PATCH question locks the active step's controls until it is answered", async () => {
+  const choice: Block = { ...(steps as Extract<Block, { type: "steps" }>), scaffold: [{ kind: "choice", prompt: "Chọn", options: ["Một", "Hai"] }] };
+  const c = ctxWith([ok], { askPending: true });
+  const { rerender } = render(<>{renderBlock(choice, c)}</>);
+  const options = () => screen.getByRole("group", { name: "Chọn" }).querySelectorAll("button");
+  expect(Array.from(options()).every((b) => b.disabled)).toBe(true);
+  fireEvent.click(options()[0]!);
+  expect(c.check).not.toHaveBeenCalled();
+  rerender(<>{renderBlock(choice, { ...c, askPending: false })}</>);
+  expect(Array.from(options()).every((b) => !b.disabled)).toBe(true);
+  fireEvent.click(options()[0]!);
+  await waitFor(() => expect(c.check).toHaveBeenCalledTimes(1));
+});
+
+test("a pending PATCH question locks the blank input and its Check, then focuses it on unlock", () => {
+  const c = ctxWith([], { askPending: true });
+  const { rerender } = showS(c);
+  expect((screen.getByLabelText(copy.blankLabel(1)) as HTMLInputElement).disabled).toBe(true);
+  expect((screen.getByRole("button", { name: copy.check }) as HTMLButtonElement).disabled).toBe(true);
+  rerender(<>{renderBlock(scaffolded, { ...c, askPending: false })}</>);
+  const input = screen.getByLabelText(copy.blankLabel(1)) as HTMLInputElement;
+  expect(input.disabled).toBe(false);
+  expect(document.activeElement).toBe(input);
+});
+
+test("a pending PATCH question locks the free line, and nothing locks in learn", () => {
+  const { unmount } = show(ctxWith([], { askPending: true }));
+  expect((screen.getByRole("textbox") as HTMLInputElement).disabled).toBe(true);
+  expect((screen.getByRole("button", { name: copy.check }) as HTMLButtonElement).disabled).toBe(true);
+  unmount();
+  show(ctxWith([], { askPending: true, phase: "learn" }));
+  expect((screen.getByRole("textbox") as HTMLInputElement).disabled).toBe(false);
+});
+
+test("a queued answer waits out a pending PATCH question, then replays", async () => {
+  const c = ctxWith([ok], { askPending: true, queued: { blockId: "s1", answer: "5", text: "5", input: "free" } as never });
+  const { rerender } = show(c);
+  expect(c.check).not.toHaveBeenCalled();
+  rerender(<>{renderBlock(steps, { ...c, askPending: false })}</>);
+  await waitFor(() => expect(c.check).toHaveBeenCalledTimes(1));
+});

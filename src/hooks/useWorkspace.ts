@@ -88,6 +88,7 @@ export type WorkspaceState = {
   restateChips: boolean;
   offerChips: boolean;
   optChips: string[] | null;
+  askPending: boolean;
   optChipKind: "why" | "offer" | "answer";
   optChipSeed: number;
   hasMessages: boolean;
@@ -255,6 +256,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       restateChips: !busy && !!agent?.restate && restateClosedId !== agent.id,
       offerChips: !busy && !!agent?.offer && !agent.opts && offerClosedId !== agent.id, // offer + opts is the next-topic offer: its chips are the opts
       optChips: !busy && agent?.opts && optsClosedId !== agent.id ? agent.opts : null,
+      askPending: !!agent && agent.ask !== null && optsClosedId !== agent.id,
       optChipKind: agent?.ask === "why" ? "why" : agent?.offer ? "offer" : "answer",
       optChipSeed: agent?.id ?? 0,
       hasMessages: messages.length > 0,

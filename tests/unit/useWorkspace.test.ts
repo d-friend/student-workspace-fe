@@ -882,6 +882,82 @@ describe("answer options", () => {
     await t.ws.actions.submit();
     expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "agent", ask: "why", opts: null });
   });
+
+  describe("askPending", () => {
+    it("is true while the latest agent bubble asks, with or without opts, even when busy", async () => {
+      const t = await boot(reply("[how] Bạn làm sao?"));
+      expect(t.state().askPending).toBe(false);
+      t.ws.actions.setInput("x");
+      await t.ws.actions.submit();
+      expect(t.state().askPending).toBe(true); // no opts: the student answers by typing
+      expect(t.state().optChips).toBeNull();
+    });
+
+    it("clears when the student answers with a chip", async () => {
+      const t = await boot(reply("[why] [opts: Có | Không] Vì sao?"));
+      t.ws.actions.setInput("x");
+      await t.ws.actions.submit();
+      expect(t.state().askPending).toBe(true);
+      t.api.turn.mockImplementationOnce(reply("Ok."));
+      await t.ws.actions.answerOpt("Có");
+      expect(t.state().askPending).toBe(false);
+    });
+
+    it("clears when the student types a reply, before the reply finishes streaming", async () => {
+      const t = await boot(reply("[how] Bạn làm sao?"));
+      t.ws.actions.setInput("x");
+      await t.ws.actions.submit();
+      let during: boolean | null = null;
+      t.api.turn.mockImplementationOnce(async (_s, _m, onDelta) => {
+        during = t.state().askPending;
+        onDelta("Ok.");
+        return DONE;
+      });
+      t.ws.actions.setInput("vì x");
+      await t.ws.actions.submit();
+      expect(during).toBe(false);
+      expect(t.state().askPending).toBe(false);
+    });
+
+    it("is true again when the next reply asks anew", async () => {
+      const t = await boot(reply("[how] Một?"));
+      t.ws.actions.setInput("x");
+      await t.ws.actions.submit();
+      t.api.turn.mockImplementationOnce(reply("[why] Hai?"));
+      t.ws.actions.setInput("y");
+      await t.ws.actions.submit();
+      expect(t.state().askPending).toBe(true);
+    });
+
+    it("is restored when the saved session ends on an unanswered ask", async () => {
+      const t = await boot(undefined, {
+        sessionId: "srv1",
+        messages: [
+          { role: "user", content: "x" },
+          { role: "assistant", content: "[how] Bạn làm sao?" },
+        ],
+        html: null,
+        tabs: [],
+        activeId: null,
+      });
+      expect(t.state().askPending).toBe(true);
+    });
+
+    it("is not restored when something happened after the ask", async () => {
+      const t = await boot(undefined, {
+        sessionId: "srv1",
+        messages: [
+          { role: "user", content: "x" },
+          { role: "assistant", content: "[how] Bạn làm sao?" },
+          { role: "user", content: "vì x" },
+        ],
+        html: null,
+        tabs: [],
+        activeId: null,
+      });
+      expect(t.state().askPending).toBe(false);
+    });
+  });
 });
 
 describe("tracking", () => {

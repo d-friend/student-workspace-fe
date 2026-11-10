@@ -134,12 +134,16 @@ export type GuestDetail = {
 
 export type FeedbackRow = { id: number; guest_id: string; created_at: string; message: string; internal: boolean };
 export type SheetRow = { id: string; title: string; items: number; path: string; created_at: string };
+export type SheetCostTotal = { calls: number; input_tokens: number; output_tokens: number; usd: number | null; unpriced: boolean };
+export type SheetCostRow = SheetCostTotal & { guest_id: string };
 export type SheetReport = {
   sheet: { id: string; title: string; items: number };
   funnel: { opened: number; answered: number; completed_one: number; completed_all: number; returned_later_day: number; started_own: number };
   items: { position: number; label: string; opened: number; completed: number; hint_0: number; hint_1: number; hint_2: number; hint_3: number; other_way: number }[];
   steps: { position: number; line: number; tried: number; wrong_first: number }[];
   students: { guest_id: string; name: string | null; opened: number; completed: number; max_hints: Record<string, number>; wrong_first: [number, number][] }[];
+  cost?: SheetCostRow[];
+  cost_total?: SheetCostTotal;
 };
 
 const TOKEN_KEY = "df_admin_token";

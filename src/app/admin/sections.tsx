@@ -141,7 +141,7 @@ function SheetReportView({ token, id }: { token: string; id: string }) {
 
   if (state.error) return <Failure />;
   if (!state.data) return <p>Loading…</p>;
-  const { sheet, funnel, items, steps, students } = state.data;
+  const { sheet, funnel, items, steps, students, cost, cost_total } = state.data;
   const label = (position: number) => items.find((item) => item.position === position)?.label ?? `Problem ${position}`;
   const stages = [
     ["Opened the sheet", funnel.opened],
@@ -170,6 +170,14 @@ function SheetReportView({ token, id }: { token: string; id: string }) {
       <thead><tr><th>Name</th><th>Opened</th><th>Finished</th><th>Highest hint</th><th>Wrong first try</th></tr></thead>
       <tbody>{students.map((student) => <tr key={student.guest_id}><td>{student.name ?? "(no name)"}</td><td>{student.opened}</td><td>{student.completed}</td><td>{Object.entries(student.max_hints).sort(([a], [b]) => Number(a) - Number(b)).map(([position, hint]) => `${label(Number(position))}: ${hint}`).join(", ") || "—"}</td><td>{student.wrong_first.map(([position, line]) => `${label(position)} step ${line}`).join(", ") || "—"}</td></tr>)}</tbody>
     </table></div>
+    {cost && cost_total && <div className={styles.tableWrap}><table><caption>Cost per student</caption>
+      <thead><tr><th>Guest</th><th>Model calls</th><th>Input tokens</th><th>Output tokens</th><th>Cost (USD)</th></tr></thead>
+      <tbody>
+        {cost.map((row) => <tr key={row.guest_id}><td>{row.guest_id.slice(0, 8)}</td><td>{row.calls.toLocaleString("en-US")}</td><td>{row.input_tokens.toLocaleString("en-US")}</td><td>{row.output_tokens.toLocaleString("en-US")}</td><td>{row.usd === null ? "—" : `$${row.usd.toFixed(4)}`}</td></tr>)}
+        <tr><td>Total</td><td>{cost_total.calls.toLocaleString("en-US")}</td><td>{cost_total.input_tokens.toLocaleString("en-US")}</td><td>{cost_total.output_tokens.toLocaleString("en-US")}</td><td>{cost_total.usd === null ? "—" : `$${cost_total.usd.toFixed(4)}`}</td></tr>
+        <tr><td>Average per student</td><td>{cost.length ? Math.round(cost_total.calls / cost.length).toLocaleString("en-US") : "—"}</td><td>{cost.length ? Math.round(cost_total.input_tokens / cost.length).toLocaleString("en-US") : "—"}</td><td>{cost.length ? Math.round(cost_total.output_tokens / cost.length).toLocaleString("en-US") : "—"}</td><td>{cost.length && cost_total.usd !== null ? `$${(cost_total.usd / cost.length).toFixed(4)}` : "—"}</td></tr>
+      </tbody>
+    </table></div>}
   </>;
 }
 

@@ -1,8 +1,8 @@
 // Every string in the UI (plan-frontend "Copy"), in Vietnamese and English. No em-dashes, no emoji.
 const vi = {
   sheetNameLabel: "Tên của bạn",
-  // Wording not final: Eric decides it with the privacy page.
-  sheetNameNote: "Giáo viên của bạn sẽ thấy tên này.",
+  // Proposed wording, for Eric to approve: it must match the privacy page (class summary, not per-student names).
+  sheetNameNote: "Bạn có thể dùng biệt danh. Giáo viên chỉ nhận bản tổng hợp của cả lớp.",
   sheetStart: "Bắt đầu",
   sheetOpening: "Đang mở bài…",
   sheetMissingTitle: "Không tìm thấy đề cương",
@@ -230,8 +230,8 @@ const vi = {
 
 const en: typeof vi = {
   sheetNameLabel: "Your name",
-  // Wording not final: Eric decides it with the privacy page.
-  sheetNameNote: "Your teacher will see this name.",
+  // Proposed wording, for Eric to approve: it must match the privacy page (class summary, not per-student names).
+  sheetNameNote: "A nickname is fine. Your teacher only gets a summary of the whole class.",
   sheetStart: "Start",
   sheetOpening: "Opening problem…",
   sheetMissingTitle: "Exam sheet not found",

@@ -133,3 +133,45 @@ test("another sheet's report replaces the open one, and pressing Report again cl
   expect(buttons[0].getAttribute("aria-pressed")).toBe("false");
   expect(buttons[1].getAttribute("aria-pressed")).toBe("true");
 });
+
+const withCost: SheetReport = {
+  ...report,
+  cost: [
+    { guest_id: "g-an-aaaaaaaa", calls: 14, input_tokens: 52_000, output_tokens: 6_100, usd: 0.1234, unpriced: false },
+    { guest_id: "g-none-bbbbbbb", calls: 0, input_tokens: 0, output_tokens: 0, usd: 0, unpriced: false },
+  ],
+  cost_total: { calls: 14, input_tokens: 52_000, output_tokens: 6_100, usd: 0.1234, unpriced: false },
+};
+
+test("the cost table shows model calls, tokens and cost per guest, with a total and the average per student, and no names", async () => {
+  serve(withCost);
+  await open();
+  const view = within(await table("Cost per student"));
+  expect(view.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Guest", "Model calls", "Input tokens", "Output tokens", "Cost (USD)"]);
+  const rows = view.getAllByRole("row").slice(1).map(cells);
+  expect(rows).toEqual([
+    ["g-an-aaa", "14", "52,000", "6,100", "$0.1234"],
+    ["g-none-b", "0", "0", "0", "$0.0000"],
+    ["Total", "14", "52,000", "6,100", "$0.1234"],
+    ["Average per student", "7", "26,000", "3,050", "$0.0617"],
+  ]);
+  expect(view.queryByText("An")).toBeNull();
+});
+
+test("a cost that cannot be priced shows a dash, and so do the total and the average", async () => {
+  serve({
+    ...withCost,
+    cost: [{ guest_id: "g-an-aaaaaaaa", calls: 2, input_tokens: 100, output_tokens: 50, usd: null, unpriced: true }, withCost.cost![1]],
+    cost_total: { calls: 2, input_tokens: 100, output_tokens: 50, usd: null, unpriced: true },
+  });
+  await open();
+  const rows = within(await table("Cost per student")).getAllByRole("row").slice(1).map(cells);
+  expect(rows.map((row) => row[4])).toEqual(["—", "$0.0000", "—", "—"]);
+});
+
+test("the cost table is left out when the report carries no cost", async () => {
+  serve();
+  await open();
+  await table("Per student");
+  expect(screen.queryByRole("table", { name: "Cost per student" })).toBeNull();
+});

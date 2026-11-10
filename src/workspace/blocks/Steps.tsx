@@ -38,6 +38,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const last = initial?.entries.at(-1);
   const [text, setText] = useState(last?.state === "review" ? (last.answer ?? last.text) : "");
   const [failed, setFailed] = useState<Attempt | null>(null);
+  const [wrongNote, setWrongNote] = useState<{ message: string; pos: number; item: NonNullable<Steps["scaffold"]>[number] } | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(initial?.done ?? false);
   const [learnFree, setLearnFree] = useState(initial?.free ?? false);
@@ -67,6 +68,8 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const [pre = "", post = ""] = item?.kind === "blank" ? item.template.split("___") : [];
   const [displayPre, displayPost] = blankSides(pre, post);
 
+  useEffect(() => () => setWrongNote(null), [pos, item]);
+
   useEffect(() => {
     if (free && !previousFree.current) {
       setText("");
@@ -87,6 +90,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   });
 
   async function run(a: Attempt) {
+    setWrongNote(null);
     if (busy || locked || finished || !a.answer.trim()) return;
     setBusy(true);
     setFailed(null);
@@ -96,6 +100,8 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
       const r = await ctx.check(block.id, a.answer, previous, ...(a.item === undefined ? [] : [a.item]));
       const retried = dirty.current || ctx.hintCount > hintBase.current;
       const checkedItem = a.item === undefined ? undefined : block.scaffold?.[a.item];
+      const explained = ctx.phase !== "learn" && a.input === "choice" && r.state === "review" && typeof r.message === "string" && !!r.message.trim() && checkedItem?.kind === "choice";
+      if (explained) setWrongNote({ message: r.message!, pos: a.item!, item: checkedItem });
       let line = r.state === "ok" && a.input === "choice" ? (r.line ?? a.text) : a.text;
       if (ctx.phase !== "learn" && r.state === "ok" && a.input === "blank" && checkedItem?.kind === "blank" && r.answer_tex !== undefined) {
         const [before = "", after = ""] = checkedItem.template.split("___");
@@ -105,7 +111,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
       setEntries(committed);
       setOpenWhy((current) => Object.fromEntries(Object.entries(current).filter(([index]) => Number(index) < pos)));
       ctx.saveBlock?.(block.id, { type: "steps", entries: committed, done: r.done, free, ...(r.done && r.takeaway !== undefined && { takeaway: r.takeaway }) });
-      ctx.report("line_checked", { block_id: block.id, line: pos + 1, text: a.text, ok: r.ok, state: r.state, retried, input: a.input });
+      ctx.report("line_checked", { block_id: block.id, line: pos + 1, text: a.text, ok: r.ok, state: r.state, retried, input: a.input, ...(explained && { explained: true }) });
       if (r.state === "ok") {
         dirty.current = false;
         hintBase.current = ctx.hintCount;
@@ -186,6 +192,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
                   </button>
                 ))}
               </div>
+              {wrongNote?.pos === pos && wrongNote.item === item && <p role="status" className={`${styles.small} ${styles.wrongNote}`}>{wrongNote.message}</p>}
             </>
           ) : item ? (
             <form

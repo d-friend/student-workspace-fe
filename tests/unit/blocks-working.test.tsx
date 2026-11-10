@@ -379,6 +379,40 @@ test("choice retried after a wrong pick", async () => {
   expect(lineCalls(c).at(-1)![1]).toMatchObject({ retried: true, input: "choice" });
 });
 
+test("a wrong choice shows the server's reason at once and says it was explained", async () => {
+  const c = ctxWith([ok, { ...bad, message: "Bạn chia ngược." }, { ...bad, message: "Bạn nhân." }, ok]);
+  showS(c);
+  gap(1, "a");
+  submit();
+  fireEvent.click(await screen.findByRole("button", { name: "4" }));
+  const note = await screen.findByRole("status", { name: "" });
+  expect(note.textContent).toBe("Bạn chia ngược.");
+  expect(lineCalls(c).at(-1)![1]).toMatchObject({ ok: false, retried: false, input: "choice", explained: true });
+
+  fireEvent.click(screen.getByRole("button", { name: "10" })); // a second wrong pick replaces the note
+  await waitFor(() => expect(screen.queryByText("Bạn chia ngược.")).toBeNull());
+  expect((await screen.findByText("Bạn nhân.")).getAttribute("role")).toBe("status");
+  expect(lineCalls(c).at(-1)![1]).toMatchObject({ retried: true, explained: true });
+
+  fireEvent.click(screen.getByRole("button", { name: "10" })); // accepted: the note goes
+  await waitFor(() => expect(screen.queryByText("Bạn nhân.")).toBeNull());
+  expect(lineCalls(c).at(-1)![1]).not.toHaveProperty("explained");
+});
+
+test("a wrong choice without a reason shows no note and sends no explained flag", async () => {
+  const c = ctxWith([ok, bad, { ...bad, message: "   " }]);
+  showS(c);
+  gap(1, "a");
+  submit();
+  fireEvent.click(await screen.findByRole("button", { name: "4" }));
+  await screen.findByText(copy.stateReview);
+  expect(lineCalls(c).at(-1)![1]).not.toHaveProperty("explained");
+  fireEvent.click(screen.getByRole("button", { name: "10" }));
+  await waitFor(() => expect(lineCalls(c)).toHaveLength(3));
+  expect(lineCalls(c).at(-1)![1]).not.toHaveProperty("explained");
+  expect(document.querySelectorAll('p[role="status"]').length).toBe(0);
+});
+
 test("override advances the scaffold", async () => {
   const c = ctxWith([bad]);
   const { rerender } = showS(c);

@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import * as realApi from "@/lib/api";
-import { ApiError, TurnError, type Message, type Preview, type StartedVia, type TurnEvent } from "@/lib/api";
+import { ApiError, TurnError, type Message, type Preview, type SheetRef, type StartedVia, type TurnEvent } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import {
   customFrames,
@@ -67,6 +67,7 @@ export type WorkspaceState = {
   photo: string | null;
   html: string | null; // legacy iframe workspace, only when there are no structured workspaces
   sessionId: string | null;
+  sheet: SheetRef | null;
   tabs: (Workspace & { phase: Phase })[];
   brokenTabs: Record<string, true>;
   activeId: string | null;
@@ -167,6 +168,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let preview: Preview | null = null;
   let buildFailed = false;
   let sessionId: string | null = null;
+  let sheet: SheetRef | null = null;
   let epoch = 0; // Identifies the session view; abandoned turns must not write into its successor.
   // True once the server has confirmed the session (created, restored or used by a turn); events go out
   // without a session id until then.
@@ -236,6 +238,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       photo,
       html,
       sessionId,
+      sheet,
       tabs,
       brokenTabs: Object.fromEntries([...brokenEvents.keys()].map((id) => [id, true as const])),
       activeId,
@@ -542,6 +545,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
         const created = await api.createSession(via ?? (shot ? "photo" : "typed"));
         if (epoch !== mine) return;
         sessionId = created.sessionId;
+        sheet = null;
         sessionConfirmed = true;
       }
       let raw = "";
@@ -604,6 +608,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       );
       if (info.sessionGone) {
         sessionId = null;
+        sheet = null;
         sessionConfirmed = false;
         try {
           const created = await api.createSession("typed");
@@ -702,12 +707,14 @@ export function createWorkspace(deps: WorkspaceDeps) {
     enqueue(event);
   };
 
+  function flushEvents() {
+    flushSaves();
+    clearTimer();
+    flush(true);
+  }
+
   const onVisibility = () => {
-    if (document.visibilityState === "hidden") {
-      flushSaves();
-      clearTimer();
-      flush(true);
-    }
+    if (document.visibilityState === "hidden") flushEvents();
     track("visibility_changed", { visible: document.visibilityState === "visible" }, sid());
   };
 
@@ -744,6 +751,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     brokenEvents.clear();
     messages = saved.messages;
     sessionId = saved.sessionId;
+    sheet = saved.sheet ?? null;
     sessionConfirmed = true;
     const structured = saved.tabs.length > 0;
     tabs = saved.tabs.map((w) => ({ ...w, restored: true }));
@@ -848,6 +856,8 @@ export function createWorkspace(deps: WorkspaceDeps) {
   }
 
   const actions = {
+    flushEvents,
+
     queueAnswer(answer: QueuedAnswer) {
       const steps = preview?.blocks.find((b) => b.id === answer.blockId);
       if (steps?.type !== "steps" || !matchQueued(answer, steps)) return;
@@ -1054,6 +1064,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       queuedAnswer = null;
       buildFailed = false;
       sessionId = null;
+      sheet = null;
       sessionConfirmed = false;
       restateClosedId = null;
       offerClosedId = null;

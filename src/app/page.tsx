@@ -8,6 +8,7 @@ import { useSidebar } from "@/components/sidebar/useSidebar";
 import { PetAnchorProvider } from "@/components/pet/PetAnchor";
 import { PetLayer } from "@/components/pet/PetLayer";
 import { BuildingSkeleton } from "@/components/work/BuildingSkeleton";
+import { SheetSwitcher } from "@/components/work/SheetSwitcher";
 import { WorkspaceFrame } from "@/components/work/WorkspaceFrame";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useUnfold } from "@/hooks/useUnfold";
@@ -127,6 +128,7 @@ export default function Page() {
   if (ws.activeId !== null) {
     stage = (
       <div className={styles.viewWrap}>
+        {ws.sheet && <SheetSwitcher sheet={ws.sheet} busy={ws.busy} beforeSwitch={ws.flushEvents} onSwitched={() => window.location.reload()} />}
         <WorkspaceView
           sessionId={ws.sessionId}
           tabs={ws.tabs}

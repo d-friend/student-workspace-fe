@@ -30,6 +30,7 @@ type Current = {
   html: string | null;
   tabs: (Workspace & { phase: Phase })[];
   activeId: string | null;
+  sheet?: { id: string; title: string; position: number; count: number } | null;
 };
 
 // `current` is what GET /api/sessions/current returns: a session, null (204), an Error (network failure),
@@ -277,6 +278,22 @@ describe("workspace turn", () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(t.api.turn).toHaveBeenCalledTimes(2);
       expect(lastCall(t.api)[4]).not.toBe(true);
+    });
+
+    it("flushEvents sends the waiting events at once as a keepalive request, like going hidden", async () => {
+      const t = await withWorkspace();
+      t.api.turn.mockClear();
+      t.ws.actions.flushEvents();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(t.api.turn).not.toHaveBeenCalled();
+      click(10, "line_checked");
+      t.ws.actions.flushEvents();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(t.api.turn).toHaveBeenCalledTimes(1);
+      expect(String(lastContent(t.api))).toContain("line_checked");
+      expect(lastCall(t.api)[4]).toBe(true);
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(t.api.turn).toHaveBeenCalledTimes(1);
     });
 
     it("while a turn is running the events wait for it, as before", async () => {
@@ -637,6 +654,19 @@ describe("restore from the server", () => {
     expect(s.hasMessages).toBe(true);
     expect(t.track).toHaveBeenCalledWith("session_restored", { messages: 4, has_workspace: true });
     expect(s.restateChips).toBe(false);
+  });
+
+  it("a restored sheet session exposes its sheet, and any other session has none", async () => {
+    const sheet = { id: "sh1", title: "Ôn tập HK1", position: 2, count: 12 };
+    expect((await boot(undefined, { ...SERVER_SESSION, sheet })).state().sheet).toEqual(sheet);
+    expect((await boot(undefined, SERVER_SESSION)).state().sheet).toBeNull();
+    expect((await boot()).state().sheet).toBeNull();
+  });
+
+  it("Bài mới leaves the sheet", async () => {
+    const t = await boot(undefined, { ...SERVER_SESSION, sheet: { id: "sh1", title: "Ôn tập", position: 1, count: 3 } });
+    t.ws.actions.newProblem();
+    expect(t.state().sheet).toBeNull();
   });
 
   it("continues the restored session: the next turn uses its id and creates no session", async () => {

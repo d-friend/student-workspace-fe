@@ -113,6 +113,48 @@ export async function openSharedSession(sessionId: string): Promise<{ sessionId:
   return { sessionId: body.session_id };
 }
 
+export type SheetItem = {
+  position: number;
+  label: string;
+  firstLine: string;
+  state: "new" | "started" | "done";
+};
+
+export type SheetView = {
+  id: string;
+  title: string;
+  named: boolean;
+  count: number;
+  done: number;
+  items: SheetItem[];
+};
+
+export type SheetRef = { id: string; title: string; position: number; count: number };
+
+export async function getSheet(id: string): Promise<SheetView> {
+  const res = await get(`/api/sheets/${encodeURIComponent(id)}`);
+  if (!res.ok) throw await toApiError(res);
+  const body = await res.json();
+  return {
+    id: body.id, title: body.title, named: body.named, count: body.count, done: body.done,
+    items: body.items.map((item: Omit<SheetItem, "firstLine"> & { first_line: string }) => ({
+      position: item.position, label: item.label, firstLine: item.first_line, state: item.state,
+    })),
+  };
+}
+
+export async function nameSheet(id: string, name: string): Promise<void> {
+  const res = await post(`/api/sheets/${encodeURIComponent(id)}/name`, { name });
+  if (!res.ok) throw await toApiError(res);
+}
+
+export async function openSheetItem(id: string, position: number): Promise<{ sessionId: string }> {
+  const res = await post(`/api/sheets/${encodeURIComponent(id)}/items/${position}/open`, {});
+  if (!res.ok) throw await toApiError(res);
+  const body = await res.json();
+  return { sessionId: body.session_id };
+}
+
 // The guest's open session with its transcript, or null (204) when there is none.
 export async function currentSession(): Promise<{
   sessionId: string;
@@ -120,6 +162,7 @@ export async function currentSession(): Promise<{
   html: string | null;
   tabs: (Workspace & { phase: Phase })[];
   activeId: string | null;
+  sheet: SheetRef | null;
 } | null> {
   const res = await get("/api/sessions/current");
   if (res.status === 204) return null;
@@ -127,7 +170,7 @@ export async function currentSession(): Promise<{
   const body = await res.json();
   const tabs = (body.tabs ?? []).map((w: { workspace_id: string; phase: Phase; doc: WorkspaceDoc; parent_workspace_id?: string | null; state?: Workspace["state"] }) =>
     ({ id: w.workspace_id, phase: w.phase, doc: w.doc, parent_workspace_id: w.parent_workspace_id, state: w.state }));
-  return { sessionId: body.session_id, messages: body.messages, html: body.html ?? null, tabs, activeId: body.active_workspace_id ?? null };
+  return { sessionId: body.session_id, messages: body.messages, html: body.html ?? null, tabs, activeId: body.active_workspace_id ?? null, sheet: body.sheet ?? null };
 }
 
 // Whether a turn of this session is still running on the server.

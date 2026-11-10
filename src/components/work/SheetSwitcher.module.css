@@ -1,0 +1,92 @@
+.wrap {
+  position: relative;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 8px 16px;
+  color: var(--text);
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  font: 400 14px/1.4 var(--font-sans);
+}
+
+.bar {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.arrow, .toggle, .close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--control-border);
+  border-radius: 10px;
+  color: var(--text);
+  background: var(--panel);
+  font: 600 14px/1.4 var(--font-sans);
+  cursor: pointer;
+}
+
+.arrow { flex: 0 0 44px; padding: 0; }
+.toggle { min-width: 0; overflow-wrap: anywhere; }
+.arrow:hover, .toggle:hover, .close:hover, .item:hover { background: var(--bg); }
+.wrap button:disabled { opacity: 0.6; cursor: not-allowed; }
+.wrap button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+.panel {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  width: min(400px, calc(100% - 16px));
+  max-height: min(60dvh, 480px);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.header { display: flex; align-items: center; gap: 12px; }
+.header strong { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.close { flex: none; }
+.count, .feedback { margin: 8px 0; color: var(--muted); overflow-wrap: anywhere; }
+.feedback { text-align: center; }
+.list { list-style: none; margin: 0; padding: 0; }
+.list li + li { margin-top: 4px; }
+
+.item {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.item[aria-current="true"] { border-color: var(--control-border); background: var(--bg); }
+.label { font-weight: 600; overflow-wrap: anywhere; }
+.firstLine { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.state { color: var(--muted); font-size: 13px; }
+
+/* Keep the bar below the floating mobile menu and account controls. */
+@media (max-width: 799px) {
+  .wrap { padding-top: 60px; }
+}

@@ -161,7 +161,7 @@ it("a retyped line is judged on its own after the master withdrew an ok", async 
 
 
 it("renders a restored legacy HTML workspace without tabs", async () => {
-  vi.mocked(api.currentSession).mockResolvedValueOnce({ sessionId: "legacy", messages: [{ role: "assistant", content: "Hello" }], html: "<p>Legacy work</p>", tabs: [], activeId: null });
+  vi.mocked(api.currentSession).mockResolvedValueOnce({ sessionId: "legacy", messages: [{ role: "assistant", content: "Hello" }], html: "<p>Legacy work</p>", tabs: [], activeId: null, sheet: null });
   const { container } = render(createElement(Page));
   await waitFor(() => expect(container.querySelector("iframe")?.getAttribute("srcdoc")).toContain("Legacy work"));
   expect(screen.queryByRole("tablist")).toBeNull();

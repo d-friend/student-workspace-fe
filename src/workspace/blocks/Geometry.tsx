@@ -154,12 +154,14 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
           return el;
         };
         block.points.forEach((p) => makePoint(p.id, [p.x, p.y]));
+        let labelledSegments = 0;
         block.segments?.forEach((segment) => {
           const { a, c, label, arrow } = Array.isArray(segment)
             ? { a: segment[0], c: segment[1], label: undefined, arrow: undefined }
             : { a: segment.points[0], c: segment.points[1], label: segment.label, arrow: segment.arrow };
+          const below = label ? labelledSegments++ % 2 === 1 : false;
           lineEl("segment", a, c, {
-            ...(label ? { name: label, withLabel: true, label: { position: "middle", offset: [0, 10], anchorX: "middle", strokeColor: ink().text } } : {}),
+            ...(label ? { name: label, withLabel: true, label: { position: "middle", offset: [0, below ? -10 : 10], anchorX: "middle", ...(below ? { anchorY: "top" } : {}), strokeColor: ink().text } } : {}),
             ...(arrow ? { lastArrow: true } : {}),
           });
         });

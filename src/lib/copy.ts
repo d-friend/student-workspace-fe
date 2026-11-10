@@ -171,6 +171,7 @@ const vi = {
   phaseSolve: "Bài của bạn",
   phasePractice: "Luyện tập",
   stepProgress: (x: number, y: number) => `Bước ${x}/${y}`,
+  approach: "Hướng giải",
   roadmaps: {
     motion_current: ["Chọn ẩn", "Lập vận tốc", "Lập thời gian", "Lập phương trình", "Giải", "Kiểm tra nghiệm"],
     motion_meet: ["Chọn ẩn", "Lập quãng đường", "Lập thời gian", "Lập phương trình", "Giải", "Kiểm tra nghiệm"],
@@ -397,6 +398,7 @@ const en: typeof vi = {
   phaseSolve: "Your problem",
   phasePractice: "Practice",
   stepProgress: (x: number, y: number) => `Step ${x}/${y}`,
+  approach: "Approach",
   roadmaps: {
     motion_current: ["Choose a variable", "Express speeds", "Express times", "Form an equation", "Solve", "Check solutions"],
     motion_meet: ["Choose a variable", "Express distances", "Express times", "Form an equation", "Solve", "Check solutions"],

@@ -4,6 +4,7 @@ import { sendEvents, type EventPayload } from "./api";
 // is not here is a compile error, and the backend rejects it anyway (extra="forbid").
 export type TrackEvents = {
   line_why_opened: { block_id: string; line: number };
+  roadmap_opened: { block_id: string };
   share_clicked: { scope: "workspace" | "session"; workspace_count: number };
   tab_switched: { from_phase: "learn" | "solve" | "practice"; to_phase: "learn" | "solve" | "practice" };
   history_opened: { sessions: number };

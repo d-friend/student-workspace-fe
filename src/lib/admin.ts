@@ -133,6 +133,7 @@ export type GuestDetail = {
 };
 
 export type FeedbackRow = { id: number; guest_id: string; created_at: string; message: string; internal: boolean };
+export type SheetRow = { id: string; title: string; items: number; path: string; created_at: string };
 
 const TOKEN_KEY = "df_admin_token";
 
@@ -155,6 +156,16 @@ export async function adminPut(path: string, token: string, body: unknown): Prom
     body: JSON.stringify(body),
   });
   if (!res.ok) throw await errorFor(res);
+}
+
+export async function adminPost<T>(path: string, token: string, body: unknown): Promise<T> {
+  const res = await fetch(`/api/admin${path}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await errorFor(res);
+  return res.json();
 }
 
 export function readToken(): string | null {

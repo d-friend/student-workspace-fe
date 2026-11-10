@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { adminGet, adminPut, type Cost, type Features, type FeedbackRow, type GuestDetail, type GuestRow, type Health, type Latency, type Pct, type Thesis, type Users } from "@/lib/admin";
+import { useEffect, useState, type FormEvent } from "react";
+import { ApiError } from "@/lib/api";
+import { adminGet, adminPost, adminPut, type Cost, type Features, type FeedbackRow, type GuestDetail, type GuestRow, type Health, type Latency, type Pct, type SheetRow, type Thesis, type Users } from "@/lib/admin";
 import { LineChart, countsByDay, windowDays } from "./LineChart";
 import styles from "./admin.module.css";
 
@@ -124,6 +125,73 @@ export function ThesisSection({ token }: Props) {
   const cohorts = unit === "guest" ? data?.cohorts : data?.cohorts_by_person;
   const cell = (original: number, reinforcement: number) => data?.hint_table.find((item) => item.original_max_hint === original && item.reinforcement_max_hint === reinforcement)?.n ?? 0;
   return <Section title="Thesis"><div className={styles.days} aria-label="Cohort identity"><button type="button" aria-pressed={unit === "guest"} onClick={() => setUnit("guest")}>Guest</button><button type="button" aria-pressed={unit === "person"} onClick={() => setUnit("person")}>Person</button></div><p className={styles.note}>Whole pilot · {unit === "guest" ? "each guest separately" : "persons across linked guests"}.</p>{error ? <Failure /> : !data ? <p>Loading…</p> : <>{cohorts?.length ? <div className={styles.tableWrap}><table><thead><tr><th>First completion</th><th>Completers</th><th>D1</th><th>D7</th></tr></thead><tbody>{cohorts.map((row) => <tr key={row.first_completion_day}><td>{row.first_completion_day}</td><td>{row.completers}</td><td>{row.eligible_d1 ? `${row.returned_d1} / ${row.eligible_d1}` : "—"}</td><td>{row.eligible_d7 ? `${row.returned_d7} / ${row.eligible_d7}` : "—"}</td></tr>)}</tbody></table></div> : <Empty />}<div className={styles.funnel}>{([ ["Original done", data.funnel.sessions_original_done], ["Offered", data.funnel.sessions_offered], ["Accepted (offer or 'Bài tương tự' chip)", data.funnel.sessions_accepted], ["Reinforcement done", data.funnel.sessions_reinforcement_done] ] as const).map(([label, count]) => <div key={label}><span>{label}</span><strong>{count}</strong></div>)}</div><p className={styles.note}>{data.pairs.length} {data.pairs.length === 1 ? "pair" : "pairs"}{data.mean_drop === null ? "" : ` · mean drop ${data.mean_drop}`} — read with the table, not alone</p><div className={styles.tableWrap}><table><thead><tr><th>Original \ Reinforcement</th>{[0, 1, 2, 3].map((n) => <th key={n}>{n}</th>)}</tr></thead><tbody>{[0, 1, 2, 3].map((original) => <tr key={original}><th>{original}</th>{[0, 1, 2, 3].map((reinforcement) => <td key={reinforcement}>{cell(original, reinforcement)}</td>)}</tr>)}</tbody></table></div></>}</Section>;
+}
+
+export function SheetsSection({ token }: { token: string }) {
+  const [rows, setRows] = useState<SheetRow[] | null>(null);
+  const [listError, setListError] = useState(false);
+  const [title, setTitle] = useState("");
+  const [problems, setProblems] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [link, setLink] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [refresh, setRefresh] = useState(0);
+
+  useEffect(() => {
+    let current = true;
+    void adminGet<SheetRow[]>("/sheets", token).then(
+      (data) => { if (current) { setRows(data); setListError(false); } },
+      () => { if (current) setListError(true); },
+    );
+    return () => { current = false; };
+  }, [token, refresh]);
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmedTitle = title.trim();
+    const lines = problems.split(/\r?\n/).filter((line) => line.trim());
+    if (!trimmedTitle || !lines.length || saving) return;
+    setError(null);
+    const items: { label: string; workspace: string }[] = [];
+    for (const [index, line] of lines.entries()) {
+      const separator = line.indexOf("|");
+      const label = separator < 0 ? "" : line.slice(0, separator).trim();
+      const workspace = separator < 0 ? "" : line.slice(separator + 1).trim();
+      if (!label || !workspace) {
+        setError(`Line ${index + 1} needs "label | share link".`);
+        return;
+      }
+      items.push({ label, workspace });
+    }
+    setSaving(true);
+    try {
+      const sheet = await adminPost<SheetRow>("/sheets", token, { title: trimmedTitle, items });
+      setLink(window.location.origin + sheet.path);
+      setTitle("");
+      setProblems("");
+      setRefresh((value) => value + 1);
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : "Could not create the sheet.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return <Section title="Exam sheets">
+    <form className={styles.tokenForm} onSubmit={submit}>
+      <label htmlFor="sheet-title">Sheet title</label>
+      <input id="sheet-title" value={title} onChange={(event) => setTitle(event.target.value)} />
+      <label htmlFor="sheet-problems">Problems, one per line: label | share link or workspace id</label>
+      <textarea id="sheet-problems" value={problems} onChange={(event) => setProblems(event.target.value)} />
+      {error && <p className={styles.error} role="alert">{error}</p>}
+      {link && <p role="status">{link}</p>}
+      <button type="submit" disabled={saving}>Create sheet</button>
+    </form>
+    {listError ? <Failure /> : !rows ? <p>Loading…</p> : rows.length === 0 ? <Empty /> : <div className={styles.tableWrap}><table><thead><tr><th>Created</th><th>Title</th><th>Problems</th><th>Link</th></tr></thead><tbody>{rows.map((row) => {
+      const fullLink = window.location.origin + row.path;
+      return <tr key={row.id}><td>{when(row.created_at)}</td><td>{row.title}</td><td>{row.items}</td><td><a href={fullLink}>{fullLink}</a></td></tr>;
+    })}</tbody></table></div>}
+  </Section>;
 }
 
 export function GuestsSection({ token, onGuestOpen }: Omit<Props, "days">) {

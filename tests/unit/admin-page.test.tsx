@@ -20,6 +20,7 @@ vi.mock("@/app/admin/sections", () => ({
   ThesisSection: () => <div />,
   FeedbackSection: () => <div />,
   GuestsSection: () => <div />,
+  SheetsSection: () => <div />,
   GuestTimeline: () => <div />,
 }));
 

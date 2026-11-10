@@ -116,7 +116,8 @@
 .tokenForm button:focus-visible,
 .idButton:focus-visible,
 .plot svg:focus-visible,
-.tokenForm input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.tokenForm input:focus-visible,
+.tokenForm textarea:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* ---- Sign-in ---- */
 .tokenForm {
@@ -131,7 +132,8 @@
 
 .tokenForm label { font-weight: 600; font-size: 14px; }
 
-.tokenForm input {
+.tokenForm input,
+.tokenForm textarea {
   width: 100%;
   min-width: 0;
   min-height: 44px;

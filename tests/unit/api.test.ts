@@ -90,7 +90,7 @@ test("currentSession is null on 204 and maps session_id on 200", async () => {
 
   const messages = [{ role: "user", content: "hi" }];
   fetchMock.mockResolvedValueOnce(json(200, { session_id: "s1", messages, html: "<p>x</p>" }));
-  expect(await currentSession()).toEqual({ sessionId: "s1", messages, html: "<p>x</p>", tabs: [], activeId: null });
+  expect(await currentSession()).toEqual({ sessionId: "s1", messages, html: "<p>x</p>", tabs: [], activeId: null, sheet: null });
 });
 
 test("a 401 no_guest on currentSession creates the guest once and retries", async () => {
@@ -163,6 +163,7 @@ test("currentSession maps ordered tabs and active workspace", async () => {
     sessionId: "s1", messages: [], html: null,
     tabs: tabs.map((w) => ({ id: w.workspace_id, phase: w.phase, doc: w.doc })),
     activeId: "S2",
+    sheet: null,
   });
 });
 

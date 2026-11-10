@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError } from "@/lib/api";
-import { adminGet, adminPost, adminPut, type Cost, type Features, type FeedbackRow, type GuestDetail, type GuestRow, type Health, type Latency, type Pct, type SheetRow, type Thesis, type Users } from "@/lib/admin";
+import { adminGet, adminPost, adminPut, type Cost, type Features, type FeedbackRow, type GuestDetail, type GuestRow, type Health, type Latency, type Pct, type SheetReport, type SheetRow, type Thesis, type Users } from "@/lib/admin";
 import { LineChart, countsByDay, windowDays } from "./LineChart";
 import styles from "./admin.module.css";
 
@@ -127,6 +127,52 @@ export function ThesisSection({ token }: Props) {
   return <Section title="Thesis"><div className={styles.days} aria-label="Cohort identity"><button type="button" aria-pressed={unit === "guest"} onClick={() => setUnit("guest")}>Guest</button><button type="button" aria-pressed={unit === "person"} onClick={() => setUnit("person")}>Person</button></div><p className={styles.note}>Whole pilot · {unit === "guest" ? "each guest separately" : "persons across linked guests"}.</p>{error ? <Failure /> : !data ? <p>Loading…</p> : <>{cohorts?.length ? <div className={styles.tableWrap}><table><thead><tr><th>First completion</th><th>Completers</th><th>D1</th><th>D7</th></tr></thead><tbody>{cohorts.map((row) => <tr key={row.first_completion_day}><td>{row.first_completion_day}</td><td>{row.completers}</td><td>{row.eligible_d1 ? `${row.returned_d1} / ${row.eligible_d1}` : "—"}</td><td>{row.eligible_d7 ? `${row.returned_d7} / ${row.eligible_d7}` : "—"}</td></tr>)}</tbody></table></div> : <Empty />}<div className={styles.funnel}>{([ ["Original done", data.funnel.sessions_original_done], ["Offered", data.funnel.sessions_offered], ["Accepted (offer or 'Bài tương tự' chip)", data.funnel.sessions_accepted], ["Reinforcement done", data.funnel.sessions_reinforcement_done] ] as const).map(([label, count]) => <div key={label}><span>{label}</span><strong>{count}</strong></div>)}</div><p className={styles.note}>{data.pairs.length} {data.pairs.length === 1 ? "pair" : "pairs"}{data.mean_drop === null ? "" : ` · mean drop ${data.mean_drop}`} — read with the table, not alone</p><div className={styles.tableWrap}><table><thead><tr><th>Original \ Reinforcement</th>{[0, 1, 2, 3].map((n) => <th key={n}>{n}</th>)}</tr></thead><tbody>{[0, 1, 2, 3].map((original) => <tr key={original}><th>{original}</th>{[0, 1, 2, 3].map((reinforcement) => <td key={reinforcement}>{cell(original, reinforcement)}</td>)}</tr>)}</tbody></table></div></>}</Section>;
 }
 
+function SheetReportView({ token, id }: { token: string; id: string }) {
+  const [state, setState] = useState<Loadable<SheetReport>>({ data: null, error: false });
+  useEffect(() => {
+    let current = true;
+    queueMicrotask(() => current && setState({ data: null, error: false }));
+    void adminGet<SheetReport>(`/sheets/${id}/report`, token).then(
+      (data) => current && setState({ data, error: false }),
+      () => current && setState({ data: null, error: true }),
+    );
+    return () => { current = false; };
+  }, [id, token]);
+
+  if (state.error) return <Failure />;
+  if (!state.data) return <p>Loading…</p>;
+  const { sheet, funnel, items, steps, students } = state.data;
+  const label = (position: number) => items.find((item) => item.position === position)?.label ?? `Problem ${position}`;
+  const stages = [
+    ["Opened the sheet", funnel.opened],
+    ["Answered a step", funnel.answered],
+    ["Finished a problem", funnel.completed_one],
+    ["Finished all problems", funnel.completed_all],
+    ["Came back on a later day", funnel.returned_later_day],
+    ["Started a problem of their own", funnel.started_own],
+  ] as const;
+
+  return <>
+    <h3>Report: {sheet.title}</h3>
+    <div className={styles.tableWrap}><table><caption>Funnel</caption>
+      <thead><tr><th>Stage</th><th>Guests</th></tr></thead>
+      <tbody>{stages.map(([stage, count]) => <tr key={stage}><td>{stage}</td><td>{count}</td></tr>)}</tbody>
+    </table></div>
+    <div className={styles.tableWrap}><table><caption>Per problem</caption>
+      <thead><tr><th>Problem</th><th>Opened</th><th>Finished</th><th>Hint 0</th><th>Hint 1</th><th>Hint 2</th><th>Hint 3</th><th>Other way</th></tr></thead>
+      <tbody>{items.map((item) => <tr key={item.position}><td>{item.label}</td><td>{item.opened}</td><td>{item.completed}</td><td>{item.hint_0}</td><td>{item.hint_1}</td><td>{item.hint_2}</td><td>{item.hint_3}</td><td>{item.other_way}</td></tr>)}</tbody>
+    </table></div>
+    <div className={styles.tableWrap}><table><caption>Per step</caption>
+      <thead><tr><th>Problem</th><th>Step</th><th>Tried</th><th>Wrong first try</th></tr></thead>
+      <tbody>{steps.map((step) => <tr key={`${step.position}-${step.line}`}><td>{label(step.position)}</td><td>{step.line}</td><td>{step.tried}</td><td>{step.wrong_first}</td></tr>)}</tbody>
+    </table></div>
+    <div className={styles.tableWrap}><table><caption>Per student</caption>
+      <thead><tr><th>Name</th><th>Opened</th><th>Finished</th><th>Highest hint</th><th>Wrong first try</th></tr></thead>
+      <tbody>{students.map((student) => <tr key={student.guest_id}><td>{student.name ?? "(no name)"}</td><td>{student.opened}</td><td>{student.completed}</td><td>{Object.entries(student.max_hints).sort(([a], [b]) => Number(a) - Number(b)).map(([position, hint]) => `${label(Number(position))}: ${hint}`).join(", ") || "—"}</td><td>{student.wrong_first.map(([position, line]) => `${label(position)} step ${line}`).join(", ") || "—"}</td></tr>)}</tbody>
+    </table></div>
+  </>;
+}
+
 export function SheetsSection({ token }: { token: string }) {
   const [rows, setRows] = useState<SheetRow[] | null>(null);
   const [listError, setListError] = useState(false);
@@ -136,6 +182,7 @@ export function SheetsSection({ token }: { token: string }) {
   const [link, setLink] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [reportId, setReportId] = useState<string | null>(null);
 
   useEffect(() => {
     let current = true;
@@ -187,10 +234,11 @@ export function SheetsSection({ token }: { token: string }) {
       {link && <p role="status">{link}</p>}
       <button type="submit" disabled={saving}>Create sheet</button>
     </form>
-    {listError ? <Failure /> : !rows ? <p>Loading…</p> : rows.length === 0 ? <Empty /> : <div className={styles.tableWrap}><table><thead><tr><th>Created</th><th>Title</th><th>Problems</th><th>Link</th></tr></thead><tbody>{rows.map((row) => {
+    {listError ? <Failure /> : !rows ? <p>Loading…</p> : rows.length === 0 ? <Empty /> : <div className={styles.tableWrap}><table><thead><tr><th>Created</th><th>Title</th><th>Problems</th><th>Link</th><th>Report</th></tr></thead><tbody>{rows.map((row) => {
       const fullLink = window.location.origin + row.path;
-      return <tr key={row.id}><td>{when(row.created_at)}</td><td>{row.title}</td><td>{row.items}</td><td><a href={fullLink}>{fullLink}</a></td></tr>;
+      return <tr key={row.id}><td>{when(row.created_at)}</td><td>{row.title}</td><td>{row.items}</td><td><a href={fullLink}>{fullLink}</a></td><td><button type="button" className={styles.idButton} aria-label={`Report ${row.title}`} aria-pressed={reportId === row.id} onClick={() => setReportId((current) => current === row.id ? null : row.id)}>Report</button></td></tr>;
     })}</tbody></table></div>}
+    {reportId && <SheetReportView key={reportId} token={token} id={reportId} />}
   </Section>;
 }
 

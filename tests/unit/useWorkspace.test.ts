@@ -15,6 +15,7 @@ type Turn = (
   message: unknown,
   onDelta: (t: string) => void,
   onEvent?: (e: TurnEvent) => void,
+  keepalive?: boolean,
 ) => Promise<typeof DONE>;
 const reply =
   (text: string): Turn =>
@@ -223,6 +224,79 @@ describe("workspace turn", () => {
     click(6);
     await vi.advanceTimersByTimeAsync(800);
     expect(t.api.turn).toHaveBeenCalledTimes(2);
+  });
+
+  describe("when the page goes hidden", () => {
+    const hide = () => {
+      const state = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+      document.dispatchEvent(new Event("visibilitychange"));
+      state.mockRestore();
+    };
+
+    it("sends the waiting events at once, as a keepalive request, and the timer does not send them again", async () => {
+      const t = await withWorkspace();
+      t.api.turn.mockClear();
+      click(10, "line_checked");
+      await vi.advanceTimersByTimeAsync(100);
+      hide();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(t.api.turn).toHaveBeenCalledTimes(1);
+      expect(String(lastContent(t.api))).toContain("line_checked");
+      expect(lastCall(t.api)[4]).toBe(true);
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(t.api.turn).toHaveBeenCalledTimes(1);
+    });
+
+    it("a batch the timer sends is not a keepalive request", async () => {
+      const t = await withWorkspace();
+      t.api.turn.mockClear();
+      click(10);
+      await vi.advanceTimersByTimeAsync(800);
+      expect(lastCall(t.api)[4]).not.toBe(true);
+    });
+
+    it("sends nothing when no student event is waiting", async () => {
+      const t = await withWorkspace();
+      t.api.turn.mockClear();
+      hide();
+      post({ type: "tick", byStudent: false });
+      hide();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(t.api.turn).not.toHaveBeenCalled();
+    });
+
+    it("the next batch after a hidden flush still waits 800 ms", async () => {
+      const t = await withWorkspace();
+      t.api.turn.mockClear();
+      click(10);
+      hide();
+      await vi.advanceTimersByTimeAsync(0);
+      click(11);
+      await vi.advanceTimersByTimeAsync(799);
+      expect(t.api.turn).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(t.api.turn).toHaveBeenCalledTimes(2);
+      expect(lastCall(t.api)[4]).not.toBe(true);
+    });
+
+    it("while a turn is running the events wait for it, as before", async () => {
+      const gate = deferred();
+      const t = await withWorkspace();
+      t.api.turn.mockClear();
+      t.api.turn.mockImplementationOnce(async () => {
+        await gate.promise;
+        return DONE;
+      });
+      click(10);
+      await vi.advanceTimersByTimeAsync(800);
+      click(11);
+      hide();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(t.api.turn).toHaveBeenCalledTimes(1);
+      gate.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(t.api.turn).toHaveBeenCalledTimes(2);
+    });
   });
 
   it("queues one typed message behind a workspace turn and sends it when the turn ends", async () => {

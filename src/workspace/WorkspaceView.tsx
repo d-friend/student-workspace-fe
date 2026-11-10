@@ -139,10 +139,10 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
           {sticky && b.type === "problem" && steps?.type === "steps" ? (
             <div className={styles.stickyProblem}>
               <Problem block={b} ctx={ctx} collapsible />
-              <StepProgress block={steps} state={state} overrides={ctx.overrides[steps.id]} />
+              <StepProgress block={steps} state={state} overrides={ctx.overrides[steps.id]} sessionId={ctx.sessionId} />
             </div>
           ) : <>
-          {working && b.type === "steps" && !progressMoved && <StepProgress block={b} state={state} overrides={ctx.overrides[b.id]} />}
+          {working && b.type === "steps" && !progressMoved && <StepProgress block={b} state={state} overrides={ctx.overrides[b.id]} sessionId={ctx.sessionId} />}
           {renderBlock(b, b.type === "steps" ? {
             ...ctx,
             finished: completedIds.has(b.id),

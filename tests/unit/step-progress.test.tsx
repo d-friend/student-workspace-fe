@@ -1,10 +1,16 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, expect, test } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, expect, test, vi } from "vitest";
+import { track } from "@/lib/track";
 import { copy } from "@/lib/copy";
 import { StepProgress } from "@/workspace/StepProgress";
 import type { Block, StudentWork } from "@/workspace/types";
 
-afterEach(cleanup);
+vi.mock("@/lib/track", () => ({ track: vi.fn() }));
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
 
 const block: Extract<Block, { type: "steps" }> = {
   type: "steps", id: "s1", problem_id: "p1", input: "text", roadmap: "motion_current",
@@ -59,4 +65,29 @@ test.each([undefined, "unknown"])("roadmap %s displays only the item count", (ro
   expect(container.textContent).toBe(copy.stepProgress(1, 4));
   expect(container.querySelector('[aria-current="step"]')).toBeNull();
   copy.roadmaps.motion_current.forEach((name) => expect(screen.queryByText(name)).toBeNull());
+});
+
+test("the approach button names the current stage, lists every stage on tap, and tracks each opening", () => {
+  render(<StepProgress block={block} sessionId="session-1" />);
+  const button = screen.getByRole("button", { name: `${copy.approach}: ${copy.roadmaps.motion_current[0]}` });
+  expect(button.getAttribute("aria-expanded")).toBe("false");
+  copy.roadmaps.motion_current.forEach((name) => expect(screen.getAllByText(name)).toHaveLength(1)); // the list is closed
+
+  fireEvent.click(button);
+  expect(button.getAttribute("aria-expanded")).toBe("true");
+  const list = document.getElementById(button.getAttribute("aria-controls")!);
+  expect(list?.textContent).toBe(copy.roadmaps.motion_current.map((name, i) => `${i + 1}${name}`).join(""));
+  expect(list?.querySelectorAll('[aria-current="step"]')).toHaveLength(1);
+
+  fireEvent.click(button);
+  expect(button.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(button);
+  expect(track).toHaveBeenCalledTimes(2); // on opening only
+  expect(track).toHaveBeenLastCalledWith("roadmap_opened", { block_id: "s1" }, "session-1");
+});
+
+test("a finished problem shows the plain approach label", () => {
+  const state: StudentWork = { blocks: { s1: { type: "steps", entries: Array.from({ length: 4 }, () => ({ text: "A", state: "ok" as const })), done: true, free: false } } };
+  render(<StepProgress block={block} state={state} />);
+  expect(screen.getByRole("button", { name: copy.approach })).toBeTruthy();
 });

@@ -128,7 +128,7 @@ export default function Page() {
   if (ws.activeId !== null) {
     stage = (
       <div className={styles.viewWrap}>
-        {ws.sheet && <SheetSwitcher sheet={ws.sheet} busy={ws.busy} beforeSwitch={ws.flushEvents} onSwitched={() => window.location.reload()} />}
+        {ws.sheet && <SheetSwitcher sheet={ws.sheet} busy={ws.busy || ws.checking > 0} beforeSwitch={ws.flushEvents} onSwitched={() => window.location.reload()} />}
         <WorkspaceView
           sessionId={ws.sessionId}
           tabs={ws.tabs}

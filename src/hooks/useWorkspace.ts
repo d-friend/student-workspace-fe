@@ -369,6 +369,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     existingStudentId: number | null,
     shot: string | null,
     via?: StartedVia,
+    keepalive = false,
   ): Promise<void> {
     const mine = epoch;
     busy = true;
@@ -551,7 +552,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
         show(view, false);
         building = view.building || status !== null;
         publish();
-      }, onEvent);
+      }, onEvent, keepalive);
       if (epoch !== mine) return;
       sessionConfirmed = true;
       // A code-routed workspace turn ends with no reply at all; a typed turn always gets text or events.
@@ -644,7 +645,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     }
   }
 
-  function flush() {
+  function flush(keepalive = false) {
     if (busy) return;
     if (queued) {
       const q = queued;
@@ -654,7 +655,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       const events = pending;
       pending = [];
       claim(events);
-      void runTurn(false, eventMessage(events), null, null);
+      void runTurn(false, eventMessage(events), null, null, undefined, keepalive);
     }
   }
 
@@ -702,7 +703,11 @@ export function createWorkspace(deps: WorkspaceDeps) {
   };
 
   const onVisibility = () => {
-    if (document.visibilityState === "hidden") flushSaves();
+    if (document.visibilityState === "hidden") {
+      flushSaves();
+      clearTimer();
+      flush(true);
+    }
     track("visibility_changed", { visible: document.visibilityState === "visible" }, sid());
   };
 

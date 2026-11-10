@@ -198,9 +198,10 @@ export async function turn(
   message: Message,
   onDelta: (text: string) => void,
   onEvent?: (e: TurnEvent) => void,
+  keepalive = false,
 ): Promise<{ turnId: string; stopReason: string | null }> {
   // A request that never connects may still have reached the server, so it is as recoverable as a dropped stream.
-  const res = await post(`/api/sessions/${sessionId}/turns`, { message, lang: getLocale() }).catch((e) => {
+  const res = await post(`/api/sessions/${sessionId}/turns`, { message, lang: getLocale() }, keepalive).catch((e) => {
     throw new TurnError("stream_lost", e instanceof Error ? e.message : "request failed");
   });
   if (!res.ok) throw await toApiError(res);

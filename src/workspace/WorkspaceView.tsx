@@ -256,7 +256,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
         const saved = active && state.blocks[active.id];
         const free = active && (freeBlocks[active.id] || (saved?.type === "steps" && saved.free));
         const pos = active ? acceptedSteps(active, state, ctx.overrides[active.id]) : 0;
-        const onOtherWay = active && !free && pos < (active.scaffold?.length ?? 0) ? () => {
+        const onOtherWay = active && active.input !== "text" && !free && pos < (active.scaffold?.length ?? 0) ? () => {
           setFreeBlocks((previous) => ({ ...previous, [active.id]: true }));
           ctx.report("other_way_chosen", { block_id: active.id, line: pos + 1 });
         } : undefined;

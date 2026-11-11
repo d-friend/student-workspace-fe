@@ -212,13 +212,13 @@ test("idea button only in solve", () => {
   expect(screen.getByRole("button", { name: copy.hint })).toBeTruthy();
 });
 
-test("back to problem reports foundation_done for the master to switch", () => {
+test("back to problem switches tabs itself and reports foundation_done as local", () => {
   const c = ctxWith();
   const onPhase = vi.fn();
   render(view({ learn: { id: "l", doc: { ...doc("learn"), blocks: [] } }, solve: ws("solve") }, "learn", c, { onPhase }));
   fireEvent.click(screen.getByRole("button", { name: copy.backToProblem }));
-  expect(c.report).toHaveBeenCalledWith("foundation_done", {});
-  expect(onPhase).not.toHaveBeenCalled();
+  expect(onPhase).toHaveBeenCalledWith("solve");
+  expect(c.report).toHaveBeenCalledWith("foundation_done", { local: true });
 });
 
 test("steps stops accepting lines once the task is done", async () => {

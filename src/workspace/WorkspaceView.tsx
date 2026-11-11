@@ -14,7 +14,7 @@ import { MdInline } from "./md";
 import { ActionBar } from "./ActionBar";
 import { PhaseSwitch } from "./PhaseSwitch";
 import type { Block, BlockCtx, Phase, SavedBlockState, Workspace } from "./types";
-import { canReturnToProblem } from "./navigation";
+import { canReturnToProblem, returnTarget } from "./navigation";
 import styles from "./WorkspaceView.module.css";
 
 type Props = {
@@ -30,8 +30,10 @@ type Props = {
   onSelectionAsk?: (quote: SelectionQuote) => void;
 };
 
-function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onRebuild, sessionId, workspaceCount, sessionUnready }: {
+function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onRebuild, sessionId, workspaceCount, sessionUnready, tabs, onActive }: {
   w: Workspace;
+  tabs: (Workspace & { phase: Phase })[];
+  onActive: (id: string) => void;
   sessionId?: string | null;
   workspaceCount: number;
   sessionUnready: boolean;
@@ -178,7 +180,13 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
           type="button"
           className={styles.back}
           onClick={() => {
-            ctx.report("foundation_done", {});
+            const target = returnTarget(tabs, w);
+            if (target !== null) {
+              onActive(target);
+              ctx.report("foundation_done", { local: true });
+            } else {
+              ctx.report("foundation_done", {});
+            }
           }}
         >
           {copy.backToProblem}
@@ -227,7 +235,7 @@ export function WorkspaceView({ sessionId, tabs, activeId, onActive, makeCtx, ta
       <div className={styles.view} data-pet-column>
         <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} />
         {tabs.map((w) => (
-          <LocalizedDoc key={w.id} sessionId={sessionId} workspaceCount={tabs.length} sessionUnready={tabs.some((tab) => tab.doc.blocks.some((block) => block.type === "custom" && block.html == null))} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} />
+          <LocalizedDoc key={w.id} sessionId={sessionId} workspaceCount={tabs.length} sessionUnready={tabs.some((tab) => tab.doc.blocks.some((block) => block.type === "custom" && block.html == null))} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} tabs={tabs} onActive={onActive} />
         ))}
       </div>
     </div>

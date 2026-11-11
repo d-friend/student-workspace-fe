@@ -36,9 +36,11 @@ test("a parentless learn tab hides return-to-problem even beside a solve tab", (
   const { rerender } = render(<WorkspaceView tabs={tabs} activeId="copy" onActive={vi.fn()} makeCtx={() => ctx} />);
   expect(screen.queryByRole("button", { name: copy.backToProblem })).toBeNull();
   expect(screen.getByRole("button", { name: "Chia sẻ" })).toBeTruthy();
-  rerender(<WorkspaceView tabs={[{ ...tabs[0], parent_workspace_id: "solve" }, tabs[1]]} activeId="copy" onActive={vi.fn()} makeCtx={() => ctx} />);
+  const onActive = vi.fn();
+  rerender(<WorkspaceView tabs={[{ ...tabs[0], parent_workspace_id: "solve" }, tabs[1]]} activeId="copy" onActive={onActive} makeCtx={() => ctx} />);
   fireEvent.click(screen.getByRole("button", { name: copy.backToProblem }));
-  expect(ctx.report).toHaveBeenCalledWith("foundation_done", {});
+  expect(onActive).toHaveBeenCalledWith("solve");
+  expect(ctx.report).toHaveBeenCalledWith("foundation_done", { local: true });
 });
 
 const mk = (): BlockCtx => ({

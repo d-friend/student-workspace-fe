@@ -2,12 +2,19 @@
 .scroll {
   display: block;
   overflow-x: auto;
+  min-width: 0;
   max-width: 100%;
 }
+
+.scroll > span { display: block; min-width: 0; max-width: 100%; }
 
 /* KaTeX centers display math; the spec wants it left-aligned at the text indent. */
 .scroll :global(.katex-display) {
   text-align: left;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
 }
 
 .scroll :global(.katex-display > .katex) {

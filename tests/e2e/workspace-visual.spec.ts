@@ -13,7 +13,7 @@ const schemes = ["light", "dark"] as const;
 
 async function open(page: Page, name: string, query = "") {
   await page.goto(`/dev/fixtures?f=${name}${query}`);
-  await expect(page.locator("main h1")).toBeVisible();
+  await expect(page.locator("main h1").first()).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   if (name === "graph" || name === "geometry") await expect(page.locator('main [class*="board"] svg').first()).toBeVisible();
 }
@@ -43,6 +43,22 @@ for (const name of names) {
         await expect(page).toHaveScreenshot(`${name}-${w}-${scheme}.png`, { fullPage: true, maxDiffPixelRatio: 0.01 });
       });
     }
+  }
+}
+
+// The Chrome-style tab strip (the fixture page clones the doc into N tabs): the strip and the top of the sheet.
+for (const { w, h } of sizes) {
+  for (const scheme of schemes) {
+    test(`tab strip ${w} ${scheme}`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+      await page.addInitScript((t) => localStorage.setItem("df-theme", t), scheme);
+      await open(page, "learn-derivative", "&tabs=5");
+      await page.locator('[role="tab"]').nth(1).click();
+      await page.mouse.move(0, 0); // no hover state in the shot
+      await expect(page.locator('[role="tab"][aria-selected="true"]')).toHaveCount(1);
+      await expect(page).toHaveScreenshot(`tabs-${w}-${scheme}.png`, { clip: { x: 0, y: 0, width: w, height: 160 }, maxDiffPixelRatio: 0.01 });
+    });
   }
 }
 

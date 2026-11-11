@@ -20,6 +20,9 @@
   overflow-wrap: anywhere; /* a long URL or term wraps instead of widening the column */
 }
 
+/* Keep document sticky controls below the tab strip only when it exists. */
+.view:has(> [role="tablist"]) { --workspace-tabs-height: 40px; }
+
 /* Under 800px the menu, feedback and theme buttons float over the page's top 56px: start below them. */
 @media (max-width: 799px) {
   .scroll[data-flat] { background-image: none; }
@@ -45,6 +48,9 @@
     border-radius: 20px 20px 0 0;
     box-shadow: 0 1px 0 var(--border), 0 20px 50px color-mix(in srgb, var(--text) 10%, transparent);
   }
+
+  /* Leave room on the desk for the strip without moving a single-tab sheet. */
+  .view:has(> [role="tablist"]) { margin-top: 64px; }
 }
 
 .doc {
@@ -164,11 +170,11 @@
   outline-offset: 2px;
 }
 
-.progress { position: sticky; top: 0; z-index: 1; padding: 8px 0; background: var(--panel); font: 600 14px/1.4 var(--font-sans); color: var(--text); }
-.stickyProblem { position: sticky; top: 0; z-index: 2; background: var(--panel); }
+.progress { position: sticky; top: var(--workspace-tabs-height, 0px); z-index: 1; padding: 8px 0; background: var(--panel); font: 600 14px/1.4 var(--font-sans); color: var(--text); }
+.stickyProblem { position: sticky; top: var(--workspace-tabs-height, 0px); z-index: 2; background: var(--panel); }
 .stickyProblem .progress { position: static; }
 @media (max-width: 799px) {
-  .stickyProblem, .progress { top: 60px; }
+  .stickyProblem, .progress { top: calc(60px + var(--workspace-tabs-height, 0px)); }
 }
 .progressRow { display: flex; align-items: flex-start; gap: 8px; }
 .progressNodes { display: flex; flex: 1; align-items: flex-start; gap: 8px; min-width: 0; }

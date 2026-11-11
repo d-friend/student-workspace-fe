@@ -16,6 +16,7 @@ import solve_patrol_boat_figure from "./solve-patrol-boat-figure.json";
 import solve_patrol_boat_v4 from "./solve-patrol-boat-v4.json";
 import solve_patrol_boat from "./solve-patrol-boat.json";
 import solve_tangent from "./solve-tangent.json";
+import solve_proof from "./solve-proof.json";
 import steps from "./steps.json";
 import steps_scaffold from "./steps-scaffold.json";
 import text from "./text.json";
@@ -39,6 +40,7 @@ const raw: Record<string, unknown> = {
   "solve-patrol-boat-v4.json": solve_patrol_boat_v4,
   "solve-patrol-boat.json": solve_patrol_boat,
   "solve-tangent.json": solve_tangent,
+  "solve-proof.json": solve_proof,
   "steps-scaffold.json": steps_scaffold,
   "steps.json": steps,
   "text.json": text,

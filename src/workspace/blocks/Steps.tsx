@@ -48,7 +48,8 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(initial?.done ?? false);
   const [learnFree, setLearnFree] = useState(initial?.free ?? false);
-  const free = ctx.phase === "learn" ? learnFree : (ctx.help?.free ?? initial?.free ?? false);
+  const proof = ctx.phase !== "learn" && block.input === "text" && !!block.scaffold;
+  const free = !proof && (ctx.phase === "learn" ? learnFree : (ctx.help?.free ?? initial?.free ?? false));
   const previousFree = useRef(free);
   const locked = !!ctx.askPending && ctx.phase !== "learn";
   const previousLocked = useRef(locked);
@@ -67,7 +68,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
 
   const ov = ctx.overrides[block.id] ?? {};
   const effective = entries.map((e, i) => ov[i + 1] ?? e.state);
-  const pos = scaffoldPos(entries, ov);
+  const pos = proof && block.scaffold ? Math.min(scaffoldPos(entries, ov), block.scaffold.length - 1) : scaffoldPos(entries, ov);
   // Past the last item without done (the master judged it ok, or an override moved on) the student types freely.
   const item = block.scaffold && !free && pos < block.scaffold.length ? block.scaffold[pos] : null;
   const [pre = "", post = ""] = item?.kind === "blank" ? item.template.split("___") : [];

@@ -9,6 +9,7 @@ import { copy } from "@/lib/copy";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
 import { Quiz } from "@/workspace/blocks/Quiz";
 import { Steps } from "@/workspace/blocks/Steps";
+import { fixtures } from "@/workspace/fixtures";
 import type { Block, BlockCtx, StudentWork, WorkspaceDoc } from "@/workspace/types";
 
 const quiz: Extract<Block, { type: "quiz" }> = { type: "quiz", id: "q1", question_md: "Pick", answer: "choice", options: ["A", "B"], explanation_md: "Explanation" };
@@ -101,6 +102,26 @@ it("restores committed scaffold lines and saves the next answer with its verdict
   expect(context.saveBlock).not.toHaveBeenCalled();
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "C" })); });
   expect(context.saveBlock).toHaveBeenCalledWith("s1", { type: "steps", entries: [...stepsState.entries, { text: "C", state: "ok", answer: "0", item: 1 }], done: false, free: false });
+});
+
+it("completes a scaffolded proof without showing free input, even after an override", async () => {
+  const block = fixtures["solve-proof.json"].blocks[1] as Extract<Block, { type: "steps" }>;
+  const context = ctx();
+  vi.mocked(context.check).mockImplementation(async (_id, _answer, _previous, item) => ({
+    ok: true, state: "ok", done: item === 2, line: `Proof line ${item}`,
+  }));
+  const { rerender } = render(<Steps block={block} ctx={context} />);
+  expect(screen.queryByRole("textbox")).toBeNull();
+  for (const option of ["Cân tại A", "Tính chất tam giác cân", "Góc B bằng góc C"]) {
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: option })); });
+    expect(screen.queryByRole("textbox")).toBeNull();
+  }
+  expect(context.onSolved).toHaveBeenCalledWith("s1");
+  expect(screen.getByText("Proof line 2")).toBeTruthy();
+  const overridden = ctx({ blocks: { s1: { type: "steps", entries: [0, 1, 2].map(() => ({ text: "line", state: "ok" as const })), done: false, free: true } } });
+  rerender(<Steps key="override" block={block} ctx={overridden} />);
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(screen.getByRole("button", { name: "Góc B bằng góc C" })).toBeTruthy();
 });
 
 it("does not save draft step keystrokes", () => {

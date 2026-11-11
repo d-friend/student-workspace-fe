@@ -114,7 +114,7 @@ export function PetLayer({
   const wantFocus = useRef<boolean | null>(null); // a focus request waiting for the render that shows the right composer
   const [focusTick, setFocusTick] = useState(0);
 
-  const isSpoken = (b: Bubble): b is SpokenBubble => b.kind !== "student";
+  const isSpoken = (b: Bubble): b is SpokenBubble => b.kind === "agent" || b.kind === "error" || b.kind === "note";
   const latest = state.bubbles.findLast(isSpoken);
   // Everything D-Friend said in the latest exchange (an announce, then its reply), newest last. Older turns stay
   // in the drawer's log, not in the bubble.

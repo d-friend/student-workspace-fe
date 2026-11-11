@@ -177,14 +177,14 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
       <header className={styles.header}>
         <h1 className={styles.title}><MdInline text={w.doc.title} /></h1>
         <div className={styles.headerActions}>
-          {onReset && <button ref={resetButton} type="button" className={styles.headerButton} disabled={resetDisabled || pristine} aria-expanded={confirmReset} onClick={() => setConfirmReset(true)}><IconRefresh size={18} stroke={1.8} aria-hidden="true" /><span className={styles.resetLabel}>{copy.workspaceReset}</span></button>}
+          {onReset && <button ref={resetButton} type="button" className={styles.headerButton} data-busy={resetDisabled || undefined} disabled={resetDisabled || pristine} aria-expanded={confirmReset} onClick={() => setConfirmReset(true)}><IconRefresh size={18} stroke={1.8} aria-hidden="true" /><span className={styles.resetLabel}>{copy.workspaceReset}</span></button>}
           <ShareButton sessionId={sessionId} workspaceCount={workspaceCount} sessionUnready={sessionUnready} workspaceId={w.id} title={w.doc.title} disabled={w.doc.blocks.some((block) => block.type === "custom" && block.html == null)} />
         </div>
         {confirmReset && <div className={styles.resetConfirm} role="group" aria-label={copy.workspaceResetConfirm} onKeyDown={(event) => {
           if (event.key === "Escape") { event.preventDefault(); closeReset(); }
         }}>
           <span>{copy.workspaceResetConfirm}</span>
-          <button type="button" className={styles.headerButton} disabled={resetDisabled || pristine} onClick={() => onReset?.(w.id)}>{copy.workspaceReset}</button>
+          <button type="button" className={styles.headerButton} data-busy={resetDisabled || undefined} disabled={resetDisabled || pristine} onClick={() => onReset?.(w.id)}>{copy.workspaceReset}</button>
           <button ref={cancelReset} type="button" className={styles.headerButton} onClick={closeReset}>{copy.workspaceResetCancel}</button>
         </div>}
       </header>

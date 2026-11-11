@@ -2,6 +2,7 @@
   flex: 1 1 auto;
   min-width: 0;
   overflow: auto;
+  position: relative; /* contains the sr-only spans, which otherwise gave <main> a scroll range of the whole doc */
   /* Under 800px there is no desk: the page is the paper, on the design's square grid. */
   background-color: var(--panel);
   background-image: linear-gradient(color-mix(in srgb, var(--hairline) 70%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--hairline) 70%, transparent) 1px, transparent 1px);
@@ -82,7 +83,8 @@
   cursor: pointer;
 }
 .headerButton:hover { background: var(--bg); }
-.headerButton:disabled { opacity: 0.6; cursor: wait; }
+.headerButton:disabled { opacity: 0.6; cursor: not-allowed; }
+.headerButton:disabled[data-busy] { cursor: wait; }
 .headerButton:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .resetConfirm { display: flex; flex: 1 0 100%; flex-wrap: wrap; align-items: center; gap: 8px; font: 400 14px/1.4 var(--font-sans); }
 .resetConfirm span { flex: 1 1 100%; }

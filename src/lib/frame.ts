@@ -118,6 +118,18 @@ export function withPhoto(content: string, data: string | null): Message["conten
   return content ? [image, { type: "text", text: content } satisfies TextBlock] : [image];
 }
 
+// Read the same leading workspace batch that studentView hides from chat.
+export function workspaceEvents(content: Message["content"]): WorkspaceEvent[] {
+  const blocks: (ImageBlock | TextBlock)[] = typeof content === "string" ? [] : content;
+  const text = typeof content === "string" ? content : (blocks.find((b): b is TextBlock => b.type === "text")?.text ?? "");
+  if (!text.startsWith(PREFIX)) return [];
+  const end = text.indexOf("\n\n");
+  try {
+    const value: unknown = JSON.parse(text.slice(PREFIX.length, end === -1 ? undefined : end));
+    return Array.isArray(value) ? value.filter((event): event is WorkspaceEvent => event !== null && typeof event === "object" && typeof event.type === "string") : [];
+  } catch { return []; }
+}
+
 export function studentView(
   content: Message["content"],
 ): { text: string; photo: string | null } | null {

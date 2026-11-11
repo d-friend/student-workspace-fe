@@ -106,6 +106,13 @@ export async function openSharedWorkspace(workspaceId: string): Promise<{ sessio
   return { sessionId: body.session_id };
 }
 
+export async function openStarter(starter: "derivative" | "geometry"): Promise<{ sessionId: string }> {
+  const res = await post(`/api/starters/${starter}/open`, {});
+  if (!res.ok) throw await toApiError(res);
+  const body = await res.json();
+  return { sessionId: body.session_id };
+}
+
 export async function openSharedSession(sessionId: string): Promise<{ sessionId: string }> {
   const res = await post(`/api/shared/session/${encodeURIComponent(sessionId)}`, {});
   if (!res.ok) throw await toApiError(res);

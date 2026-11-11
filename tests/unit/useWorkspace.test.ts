@@ -47,11 +47,14 @@ function setup(turn: Turn = reply(HTML_REPLY), current: CurrentArg = null) {
     createSession: vi.fn(async () => ({ sessionId: `s${++session}` })),
     endSession: vi.fn().mockResolvedValue(undefined),
     setActiveWorkspace: vi.fn().mockResolvedValue(undefined),
+    openStarter: vi.fn().mockRejectedValue(new ApiError(404, "starter_not_built", "")),
+    resumeSession: vi.fn().mockResolvedValue(undefined),
     turn: vi.fn(turn),
     turnStatus: vi.fn().mockResolvedValue(false),
   };
   const track = vi.fn();
   const focus = vi.fn();
+  const reload = vi.fn();
   const readPhoto = vi.fn().mockResolvedValue({ data: "PHOTO", bytes: 9, width: 4, height: 3, processMs: 2 });
   let clock = 1000;
   const make = () => {
@@ -62,13 +65,13 @@ function setup(turn: Turn = reply(HTML_REPLY), current: CurrentArg = null) {
       now: () => (clock += 100),
       sleep: () => Promise.resolve(),
     });
-    ws.bind({ frameWindow: () => window, focusInput: focus });
+    ws.bind({ frameWindow: () => window, focusInput: focus, reload });
     const detach = ws.attach();
     ws.init();
     return { ws, detach };
   };
   const { ws, detach } = make();
-  return { ws, api, track, focus, readPhoto, make, detach, state: () => ws.getState() };
+  return { ws, api, track, focus, reload, readPhoto, make, detach, state: () => ws.getState() };
 }
 
 const post = (event: Record<string, unknown>, source: unknown = window) =>
@@ -440,6 +443,45 @@ describe("focusInput", () => {
 });
 
 describe("session lifecycle", () => {
+  it("opens a prebuilt starter without a turn", async () => {
+    const t = await boot();
+    t.api.openStarter.mockResolvedValueOnce({ sessionId: "s9" });
+    await t.ws.actions.startStarter("geometry");
+    expect(t.api.openStarter).toHaveBeenCalledWith("geometry");
+    expect(t.api.resumeSession).toHaveBeenCalledWith("s9");
+    expect(t.reload).toHaveBeenCalledOnce();
+    expect(t.api.turn).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the live build when the starter is not built", async () => {
+    const t = await boot();
+    await t.ws.actions.startStarter("geometry");
+    expect(t.api.turn).toHaveBeenCalledOnce();
+    expect(lastContent(t.api)).toBe(copy.starterPrompts.geometry);
+    expect(t.reload).not.toHaveBeenCalled();
+  });
+
+  it("falls back when resuming the opened starter fails", async () => {
+    const t = await boot();
+    t.api.openStarter.mockResolvedValueOnce({ sessionId: "s9" });
+    t.api.resumeSession.mockRejectedValueOnce(new Error("offline"));
+    await t.ws.actions.startStarter("geometry");
+    expect(t.api.turn).toHaveBeenCalledOnce();
+    expect(t.reload).not.toHaveBeenCalled();
+  });
+
+  it("ignores a second tap while the first is in flight", async () => {
+    const gate = deferred();
+    const t = await boot();
+    t.api.openStarter.mockImplementationOnce(async () => { await gate.promise; return { sessionId: "s9" }; });
+    const first = t.ws.actions.startStarter("geometry");
+    await t.ws.actions.startStarter("derivative");
+    expect(t.api.openStarter).toHaveBeenCalledOnce();
+    gate.resolve();
+    await first;
+    expect(t.reload).toHaveBeenCalledOnce();
+  });
+
   it("creates a session once, with started_via from photo, starter or typed", async () => {
     const t = await boot();
     await t.ws.actions.pickPhoto(new Blob(["x"]), "snap_button");

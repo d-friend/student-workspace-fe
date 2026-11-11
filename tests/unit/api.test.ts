@@ -1,10 +1,26 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { ApiError, check, createSession, currentSession, endSession, openSharedWorkspace, turn, turnStatus, TurnError, type TurnEvent } from "@/lib/api";
+import { ApiError, check, createSession, currentSession, endSession, openSharedWorkspace, openStarter, turn, turnStatus, TurnError, type TurnEvent } from "@/lib/api";
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
 
 afterEach(() => vi.unstubAllGlobals());
+
+test("opening a starter posts JSON, retries without a guest, and maps the session", async () => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(json(401, { error: { code: "no_guest" } }))
+    .mockResolvedValueOnce(json(200, { guest_id: "g1", created: true }))
+    .mockResolvedValueOnce(json(201, { session_id: "s9" }));
+  vi.stubGlobal("fetch", fetchMock);
+  expect(await openStarter("geometry")).toEqual({ sessionId: "s9" });
+  expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(["/api/starters/geometry/open", "/api/guest", "/api/starters/geometry/open"]);
+  expect(fetchMock.mock.calls[2][1]).toMatchObject({ method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+});
+
+test("an unbuilt starter throws its API error", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(404, { error: { code: "starter_not_built" } })));
+  await expect(openStarter("derivative")).rejects.toMatchObject({ status: 404, code: "starter_not_built" });
+});
 
 test("opening a shared workspace sends JSON and retries with a guest cookie", async () => {
   const fetchMock = vi.fn()

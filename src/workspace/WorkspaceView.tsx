@@ -9,6 +9,7 @@ import { BlockBoundary } from "./BlockBoundary";
 import { renderBlock } from "./blocks";
 import { acceptedSteps, StepProgress } from "./StepProgress";
 import { Problem } from "./blocks/Problem";
+import { scaffoldPos } from "./blocks/Steps";
 import { DoneBanner } from "./DoneBanner";
 import { MdInline } from "./md";
 import { ActionBar } from "./ActionBar";
@@ -49,8 +50,10 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
 }) {
   const copy = useCopy();
   const [presses, setPresses] = useState(0);
+  const [itemPresses, setItemPresses] = useState<Record<string, number>>({});
   const [freeBlocks, setFreeBlocks] = useState<Record<string, boolean>>({});
   const [savedBlocks, setSavedBlocks] = useState<Record<string, SavedBlockState>>({});
+  const [hintNote, setHintNote] = useState<BlockCtx["hintNote"]>(null);
   const state = { ...w.state, blocks: { ...w.state?.blocks, ...savedBlocks } };
   const stepsIds = w.doc.blocks.filter((b) => b.type === "steps").map((b) => b.id);
   const restoredIds = stepsIds.filter((id) => {
@@ -83,9 +86,35 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
     base.report("task_completed", { similar: p === "practice", helped: presses > 0, max_hint: level, ...(!solved.byStudent && { via: "master" }) });
   }, [allDone, solved.byStudent, base, p, presses, level]);
 
-  const onHint = (blockId = stepsId) => {
+  if (hintNote) {
+    const saved = state.blocks[hintNote.blockId];
+    if (scaffoldPos(saved?.type === "steps" ? saved.entries : [], base.overrides[hintNote.blockId] ?? {}) !== hintNote.item) setHintNote(null);
+  }
+  const position = (blockId: string) => {
+    const saved = state.blocks[blockId];
+    return scaffoldPos(saved?.type === "steps" ? saved.entries : [], base.overrides[blockId] ?? {});
+  };
+  const onHint = async (blockId = stepsId) => {
     setPresses(presses + 1);
-    base.report("help_requested", { block_id: blockId, level: Math.min(presses + 1, 3) });
+    const nextLevel = Math.min(presses + 1, 3);
+    const block = w.doc.blocks.find((b) => b.id === blockId && b.type === "steps");
+    const saved = state.blocks[blockId];
+    const free = freeBlocks[blockId] || (saved?.type === "steps" && saved.free);
+    const pos = position(blockId);
+    if (p !== "learn" && block?.type === "steps" && block.scaffold && !free && base.hint && pos < block.scaffold.length) {
+      const key = `${blockId}:${pos}`;
+      const itemLevel = Math.min((itemPresses[key] ?? 0) + 1, 3);
+      setItemPresses((previous) => ({ ...previous, [key]: (previous[key] ?? 0) + 1 }));
+      const text = await base.hint(blockId, pos, itemLevel);
+      if (text !== null) {
+        // If the student moves on while this is in flight, the render-time check above drops the note.
+        // The report can still go out if the student moves on during the fetch.
+        setHintNote({ blockId, item: pos, text });
+        base.report("help_requested", { block_id: blockId, level: itemLevel, shown: true, text });
+        return;
+      }
+    }
+    base.report("help_requested", { block_id: blockId, level: nextLevel });
   };
   const help = { level, onHint: () => onHint(), onIdea: p === "solve" ? () => base.report("foundation_requested", {}) : undefined, ideaPending: busy };
   const quizIds = w.doc.blocks.filter((b) => b.type === "quiz").map((b) => b.id);
@@ -105,6 +134,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
     ...base,
     sessionId,
     state,
+    hintNote,
     saveBlock: (id, saved) => {
       setSavedBlocks((previous) => ({ ...previous, [id]: saved }));
       base.saveBlock?.(id, saved);

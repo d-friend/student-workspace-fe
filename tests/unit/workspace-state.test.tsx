@@ -227,12 +227,14 @@ it("asks before resetting, and a new reset count remounts the doc fresh", async 
 it("disables reset while busy", () => {
   render(<WorkspaceView tabs={[{ id: "w1", phase: "solve", doc, state: { blocks: { s1: stepsState } } }]} activeId="w1" onActive={vi.fn()} onReset={vi.fn()} resetDisabled makeCtx={() => ctx()} />);
   expect((screen.getByRole("button", { name: copy.workspaceReset }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: copy.workspaceReset }).hasAttribute("data-busy")).toBe(true);
 });
 
 it("disables reset on an untouched workspace and enables it once there is work", () => {
   const button = () => screen.getByRole("button", { name: copy.workspaceReset }) as HTMLButtonElement;
   const view = render(<WorkspaceView tabs={[{ id: "w1", phase: "solve", doc }]} activeId="w1" onActive={vi.fn()} onReset={vi.fn()} makeCtx={() => ctx()} />);
   expect(button().disabled).toBe(true);
+  expect(button().hasAttribute("data-busy")).toBe(false);
   view.rerender(<WorkspaceView tabs={[{ id: "w1", phase: "solve", doc }]} activeId="w1" onActive={vi.fn()} onReset={vi.fn()} taskDone={{ w1: ["s1"] }} makeCtx={() => ctx()} />);
   expect(button().disabled).toBe(false);
 });

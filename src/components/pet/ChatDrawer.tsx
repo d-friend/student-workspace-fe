@@ -93,6 +93,7 @@ export function ChatDrawer({
         )}
         <ChatLog empty={bubbles.length === 0} tick={bubbles}>
           {bubbles.map((b) => {
+            if (b.kind === "reset") return <div key={b.id} className={styles.divider}>{copy.workspaceResetDivider(b.title)}</div>;
             if (b.kind === "student") {
               return (
                 <Bubble key={b.id} variant="student">

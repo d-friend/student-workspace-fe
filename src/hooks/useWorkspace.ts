@@ -13,6 +13,7 @@ import {
   studentView,
   userMessage,
   watching,
+  workspaceEvents,
   withPhoto,
   type WorkspaceEvent,
 } from "@/lib/frame";
@@ -48,7 +49,8 @@ export type Bubble =
       opts: string[] | null;
       ask: "how" | "why" | null;
     }
-  | { id: number; turn: number; kind: "error" | "note"; text: string };
+  | { id: number; turn: number; kind: "error" | "note"; text: string }
+  | { id: number; turn: number; kind: "reset"; text: string; title: string | null };
 
 type NewBubble = Bubble extends infer B ? (B extends Bubble ? Omit<B, "id" | "turn"> : never) : never;
 
@@ -321,6 +323,13 @@ export function createWorkspace(deps: WorkspaceDeps) {
     ask: view.ask,
   });
 
+  const addResetDividers = (events: WorkspaceEvent[]) => {
+    for (const event of events) {
+      if (event.type !== "workspace_reset") continue;
+      const tab = tabs.length > 1 ? tabs.find((item) => item.id === event.workspace_id) : undefined;
+      addBubble({ kind: "reset", text: "", title: tab?.doc.title ?? null });
+    }
+  };
   const lastAgentId = () => [...bubbles].reverse().find((b) => b.kind === "agent")?.id ?? null;
   const closeRestate = () => {
     restateClosedId = lastAgentId();
@@ -783,6 +792,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       } else {
         turnNo++;
         said = null;
+        addResetDividers(workspaceEvents(m.content));
         const view = studentView(m.content);
         if (view) addBubble({ kind: "student", text: view.text, photo: view.photo || null });
       }
@@ -1035,6 +1045,11 @@ export function createWorkspace(deps: WorkspaceDeps) {
       taskDone = { ...taskDone };
       delete taskDone[id];
       resets = { ...resets, [id]: (resets[id] ?? 0) + 1 };
+      addResetDividers([{ type: "workspace_reset", workspace_id: id }]);
+      // shortcut: resetting tab B also closes a question about tab A, as reload already does.
+      closeRestate();
+      offerClosedId = lastAgentId();
+      optsClosedId = lastAgentId();
       publish();
       sendState(id);
       actions.report("workspace_reset", {}, true, id);

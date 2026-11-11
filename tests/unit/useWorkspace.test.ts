@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { customFrames } from "@/lib/frame";
 import { ApiError, TurnError, type Preview, type TurnEvent } from "@/lib/api";
-import { copy } from "@/lib/copy";
+import { copy, copyFor } from "@/lib/copy";
 import { createWorkspace } from "@/hooks/useWorkspace";
 import { fixtures } from "@/workspace/fixtures";
 import type { Phase, Workspace } from "@/workspace/types";
@@ -1075,6 +1075,20 @@ describe("answer options", () => {
       expect(t.state().askPending).toBe(true);
     });
 
+    it("closes a pending ask on reset just as restoring its workspace batch does", async () => {
+      const tab = { id: "w1", phase: "solve" as const, doc: fixtures["solve-patrol-boat.json"] };
+      const ask = "[why] [opts: Có | Không] Vì sao?";
+      const current = { sessionId: "srv1", messages: [{ role: "assistant", content: ask }], html: null, tabs: [tab], activeId: "w1" };
+      const live = await boot(undefined, current);
+      expect(live.state().askPending).toBe(true);
+      live.ws.actions.resetWorkspace("w1");
+      expect(live.state().askPending).toBe(false);
+      expect(live.state().optChips).toBeNull();
+      const restored = await boot(undefined, { ...current, messages: [...current.messages, { role: "user", content: '[workspace] [{"type":"workspace_reset","workspace_id":"w1"}]' }] });
+      expect(restored.state().askPending).toBe(false);
+      expect(restored.state().optChips).toBeNull();
+    });
+
     it("is restored when the saved session ends on an unanswered ask", async () => {
       const t = await boot(undefined, {
         sessionId: "srv1",
@@ -1103,6 +1117,39 @@ describe("answer options", () => {
       });
       expect(t.state().askPending).toBe(false);
     });
+  });
+});
+
+describe("reset dividers", () => {
+  const doc = fixtures["solve-tangent.json"];
+  const tab = { id: "w1", phase: "solve" as const, doc };
+  const batch = (ids: string[]) => `[workspace] ${JSON.stringify(ids.map((workspace_id) => ({ type: "workspace_reset", workspace_id })))}`;
+  const saved = (tabs = [tab], ids = ["w1"]) => ({ sessionId: "s", messages: [{ role: "assistant", content: "Hello" }, { role: "user", content: batch(ids) }], html: null, tabs, activeId: "w1" });
+
+  it("localizes named and unnamed dividers", () => {
+    expect(copyFor("vi").workspaceResetDivider(null)).toBe("Đã làm lại");
+    expect(copyFor("vi").workspaceResetDivider("Bài 1")).toBe("Đã làm lại: Bài 1");
+    expect(copyFor("en").workspaceResetDivider(null)).toBe("Started over");
+    expect(copyFor("en").workspaceResetDivider("Problem 1")).toBe("Started over: Problem 1");
+  });
+
+  it("restores a divider and matches a live single-tab reset", async () => {
+    const restored = await boot(undefined, saved());
+    const live = await boot(undefined, { ...saved(), messages: [{ role: "assistant", content: "Hello" }] });
+    live.ws.actions.resetWorkspace("w1");
+    expect(restored.state().bubbles.map(({ kind }) => kind)).toEqual(["agent", "reset"]);
+    expect(restored.state().bubbles.at(-1)).toMatchObject({ kind: "reset", title: null });
+    expect(live.state().bubbles.at(-1)).toMatchObject({ kind: "reset", title: null });
+  });
+
+  it("names known tabs in multi-tab sessions and keeps every reset in order", async () => {
+    const other = { ...tab, id: "w2", doc: { ...doc, title: "Other" } };
+    const restored = await boot(undefined, saved([tab, other], ["w2", "w1", "missing", "w2"]));
+    expect(restored.state().bubbles.filter((b) => b.kind === "reset").map((b) => b.kind === "reset" && b.title)).toEqual(["Other", doc.title, null, "Other"]);
+    const live = await boot(undefined, { ...saved([tab, other]), messages: [] });
+    live.ws.actions.resetWorkspace("w2");
+    live.ws.actions.resetWorkspace("w1");
+    expect(live.state().bubbles.filter((b) => b.kind === "reset").map((b) => b.kind === "reset" && b.title)).toEqual(["Other", doc.title]);
   });
 });
 

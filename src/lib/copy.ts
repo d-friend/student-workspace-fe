@@ -1,6 +1,7 @@
 // Every string in the UI (plan-frontend "Copy"), in Vietnamese and English. No em-dashes, no emoji.
 const vi = {
   workspaceReset: "Làm lại",
+  workspaceResetDivider: (title: string | null) => title ? `Đã làm lại: ${title}` : "Đã làm lại",
   workspaceResetConfirm: "Xoá bài làm của bài này và làm lại từ đầu?",
   workspaceResetCancel: "Huỷ",
   sheetNameLabel: "Tên của bạn",
@@ -233,6 +234,7 @@ const vi = {
 
 const en: typeof vi = {
   workspaceReset: "Start over",
+  workspaceResetDivider: (title: string | null) => title ? `Started over: ${title}` : "Started over",
   workspaceResetConfirm: "Clear your work on this problem and start over?",
   workspaceResetCancel: "Cancel",
   sheetNameLabel: "Your name",

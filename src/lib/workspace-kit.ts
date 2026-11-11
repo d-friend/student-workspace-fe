@@ -18,6 +18,7 @@ const ICON_BOOK = icon(
 );
 
 export const KIT_CSS = `
+[data-dfriend-pan] { touch-action: pan-y pinch-zoom !important; }
 :root {
   --bg: #f3f5f7; --panel: #ffffff; --text: #15171c; --muted: #4a4f5c;
   --border: #d9dee6; --control-border: #7d8696; --hairline: #e3e6ec; --accent: #15171c; --accent-text: #ffffff; --brand: #b4461a; --pet: #f27a3d;

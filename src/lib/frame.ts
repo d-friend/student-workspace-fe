@@ -42,6 +42,36 @@ addEventListener("unhandledrejection", (e) => fail(String(e.reason?.message ?? e
 addEventListener("error", (e) => { if (e.target instanceof HTMLScriptElement) fail("script failed to load: " + (e.target.src || "inline")); }, true);
 const postHeight = () => parent.postMessage({ dfriendHeight: Math.ceil(document.documentElement.getBoundingClientRect().height) }, "*");
 new ResizeObserver(postHeight).observe(document.documentElement);
+// JSXGraph (and sims that set touch-action inline) trap touch scrolling on a board with nothing JSXGraph can drag.
+// The kit rule on [data-dfriend-pan] is !important, so a sim that sets the inline style later cannot undo it.
+// shortcut: a custom pointer drag on a board JSXGraph does not know about loses to the page scroll on phones; sims must
+// give every control a slider or button too (simulator prompt). Upgrade if sims need board drags on touch.
+try {
+  const updateBoardTouch = () => {
+    try {
+      const boards = window.JXG && window.JXG.boards;
+      if (!boards) return;
+      Object.values(boards).forEach((board) => {
+        try {
+          const container = board.containerObj;
+          if (!container) return;
+          const draggable = board.objectsList.some((el) => el !== board.infobox && el.isDraggable && !el.evalVisProp("fixed"));
+          container.toggleAttribute("data-dfriend-pan", !draggable);
+        } catch {}
+      });
+    } catch {}
+  };
+  let pending = false;
+  const schedule = () => {
+    try {
+      if (pending) return;
+      pending = true;
+      setTimeout(() => { pending = false; updateBoardTouch(); }, 50); // not rAF: it never fires in an off-screen iframe
+    } catch {}
+  };
+  new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
+  addEventListener("load", schedule);
+} catch {}
 // Silent failures throw nothing: check once after the stage has been visible long enough to draw.
 addEventListener("load", () => {
   const stage = document.querySelector(".sim-stage");

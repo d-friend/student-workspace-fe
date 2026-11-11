@@ -4,7 +4,8 @@ import { copy } from "../../src/lib/copy";
 import { fixtures } from "../../src/workspace/fixtures";
 
 // Needs the web server built with NEXT_PUBLIC_FIXTURES=1 (playwright.config.ts).
-const names = Object.keys(fixtures).map((k) => k.replace(/\.json$/, ""));
+// The mobile interaction fixture has its own behavioral spec, not visual baselines.
+const names = Object.keys(fixtures).filter((k) => k !== "mobile-sim.json").map((k) => k.replace(/\.json$/, ""));
 const sizes = [
   { w: 360, h: 740 },
   { w: 900, h: 800 },

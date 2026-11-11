@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "phase": "learn",
+  "title": "Mobile simulation",
+  "blocks": [
+    {
+      "type": "text",
+      "id": "long_math",
+      "md": "$$OH<R\\Rightarrow 2\\text{ điểm chung}\\qquad OH=R\\Rightarrow 1\\text{ điểm chung}\\qquad OH>R\\Rightarrow 0\\text{ điểm chung}$$"
+    },
+    {
+      "type": "text",
+      "id": "filler",
+      "md": "Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại."
+    },
+    {
+      "type": "text",
+      "id": "filler2",
+      "md": "Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại."
+    },
+    {
+      "type": "custom",
+      "id": "boards",
+      "html": "<script src=\"/vendor/jsxgraphcore.js\"></script>\n<div id=\"fixed-board\" style=\"width:100%;height:180px\"></div>\n<input type=\"range\" aria-label=\"HTML range\">\n<div id=\"drag-board\" style=\"width:100%;height:180px\"></div>\n<div id=\"slider-board\" style=\"width:100%;height:180px\"></div>\n<div id=\"custom-board\" style=\"width:100%;height:180px;touch-action:none\"></div>\n<button id=\"add-point\">Add point</button>\n<script>\nconst options = { boundingbox: [-5, 5, 5, -5], axis: false, showNavigation: false, showCopyright: false, pan: { enabled: false }, zoom: { wheel: false, pinch: false } };\nconst fixedBoard = JXG.JSXGraph.initBoard('fixed-board', options);\nfixedBoard.create('point', [0, 0], { fixed: true });\nconst dragBoard = JXG.JSXGraph.initBoard('drag-board', options);\ndragBoard.create('point', [0, 0]);\nconst sliderBoard = JXG.JSXGraph.initBoard('slider-board', options);\nsliderBoard.create('slider', [[-3, 0], [3, 0], [0, 1, 2]]);\nconst customBoard = JXG.JSXGraph.initBoard('custom-board', options);\ncustomBoard.create('point', [0, 0], { fixed: true });\ncustomBoard.containerObj.style.touchAction = 'none';\nwindow.customDrags = 0;\ncustomBoard.containerObj.addEventListener('pointermove', () => { window.customDrags++; });\ndocument.getElementById('add-point').addEventListener('click', () => fixedBoard.create('point', [1, 1]));\n</script>",
+      "height": 900,
+      "reason": "Mobile touch behavior."
+    },
+    {
+      "type": "text",
+      "id": "tail1",
+      "md": "Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại."
+    },
+    {
+      "type": "text",
+      "id": "tail2",
+      "md": "Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại. Đoạn văn dài để trang cuộn được trên điện thoại."
+    },
+    {
+      "type": "quiz",
+      "id": "mobile_quiz",
+      "question_md": "Đạo hàm của $x^2$ là gì?",
+      "answer": "choice",
+      "options": [
+        "$x$",
+        "$2x$",
+        "$x^2$"
+      ],
+      "explanation_md": "Theo quy tắc lũy thừa, $(x^2)' = 2x$."
+    }
+  ],
+  "sources": []
+}

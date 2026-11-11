@@ -9,6 +9,7 @@ import image from "./image.json";
 import learn_derivative from "./learn-derivative.json";
 import learn_history from "./learn-history.json";
 import math from "./math.json";
+import mobile_sim from "./mobile-sim.json";
 import problem from "./problem.json";
 import quiz from "./quiz.json";
 import solve_patrol_boat_figure from "./solve-patrol-boat-figure.json";
@@ -31,6 +32,7 @@ const raw: Record<string, unknown> = {
   "learn-derivative.json": learn_derivative,
   "learn-history.json": learn_history,
   "math.json": math,
+  "mobile-sim.json": mobile_sim,
   "problem.json": problem,
   "quiz.json": quiz,
   "solve-patrol-boat-figure.json": solve_patrol_boat_figure,

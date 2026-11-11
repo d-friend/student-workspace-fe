@@ -134,6 +134,9 @@ export default function Page() {
           tabs={ws.tabs}
           activeId={ws.activeId}
           onActive={ws.setActive}
+          onReset={ws.resetWorkspace}
+          resets={ws.resets}
+          resetDisabled={ws.busy || ws.checking > 0}
           makeCtx={makeCtx}
           taskDone={ws.taskDone}
           brokenTabs={ws.brokenTabs}

@@ -1,5 +1,8 @@
 // Every string in the UI (plan-frontend "Copy"), in Vietnamese and English. No em-dashes, no emoji.
 const vi = {
+  workspaceReset: "Làm lại",
+  workspaceResetConfirm: "Xoá bài làm của bài này và làm lại từ đầu?",
+  workspaceResetCancel: "Huỷ",
   sheetNameLabel: "Tên của bạn",
   // Proposed wording, for Eric to approve: it must match the privacy page (class summary, not per-student names).
   sheetNameNote: "Bạn có thể dùng biệt danh. Giáo viên chỉ nhận bản tổng hợp của cả lớp.",
@@ -229,6 +232,9 @@ const vi = {
 };
 
 const en: typeof vi = {
+  workspaceReset: "Start over",
+  workspaceResetConfirm: "Clear your work on this problem and start over?",
+  workspaceResetCancel: "Cancel",
   sheetNameLabel: "Your name",
   // Proposed wording, for Eric to approve: it must match the privacy page (class summary, not per-student names).
   sheetNameNote: "A nickname is fine. Your teacher only gets a summary of the whole class.",

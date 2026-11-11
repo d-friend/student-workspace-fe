@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { IconRefresh } from "@tabler/icons-react";
 import { usePetAnchorRef, usePetScrollerRef } from "@/components/pet/PetAnchor";
 import { copy, copyFor } from "@/lib/copy";
 import { WorkspaceCopy, useCopy } from "./WorkspaceCopy";
@@ -22,6 +23,9 @@ type Props = {
   tabs: (Workspace & { phase: Phase })[];
   activeId: string;
   onActive: (id: string) => void;
+  onReset?: (id: string) => void;
+  resets?: Record<string, number>;
+  resetDisabled?: boolean;
   makeCtx: (w: Workspace) => BlockCtx;
   taskDone?: Record<string, string[]>; // master completions (SSE task_done), by workspace id
   busy?: boolean;
@@ -30,10 +34,12 @@ type Props = {
   onSelectionAsk?: (quote: SelectionQuote) => void;
 };
 
-function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onRebuild, sessionId, workspaceCount, sessionUnready, tabs, onActive }: {
+function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onRebuild, sessionId, workspaceCount, sessionUnready, tabs, onActive, onReset, resetDisabled }: {
   w: Workspace;
   tabs: (Workspace & { phase: Phase })[];
   onActive: (id: string) => void;
+  onReset?: (id: string) => void;
+  resetDisabled: boolean;
   sessionId?: string | null;
   workspaceCount: number;
   sessionUnready: boolean;
@@ -48,6 +54,16 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
   onRebuild?: (id: string) => void;
 }) {
   const copy = useCopy();
+  const [confirmReset, setConfirmReset] = useState(false);
+  const resetButton = useRef<HTMLButtonElement>(null);
+  const cancelReset = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (confirmReset) cancelReset.current?.focus();
+  }, [confirmReset]);
+  const closeReset = () => {
+    setConfirmReset(false);
+    resetButton.current?.focus();
+  };
   const [presses, setPresses] = useState(0);
   const [freeBlocks, setFreeBlocks] = useState<Record<string, boolean>>({});
   const [savedBlocks, setSavedBlocks] = useState<Record<string, SavedBlockState>>({});
@@ -127,7 +143,17 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
       {broken && <div className={styles.notice}><span>{copy.pageBroken}</span> <button type="button" className={styles.back} onClick={() => onRebuild?.(w.id)}>{copy.pageRebuild}</button></div>}
       <header className={styles.header}>
         <h1 className={styles.title}><MdInline text={w.doc.title} /></h1>
-        <ShareButton sessionId={sessionId} workspaceCount={workspaceCount} sessionUnready={sessionUnready} workspaceId={w.id} title={w.doc.title} disabled={w.doc.blocks.some((block) => block.type === "custom" && block.html == null)} />
+        <div className={styles.headerActions}>
+          {onReset && <button ref={resetButton} type="button" className={styles.headerButton} disabled={resetDisabled} aria-expanded={confirmReset} onClick={() => setConfirmReset(true)}><IconRefresh size={18} stroke={1.8} aria-hidden="true" /><span className={styles.resetLabel}>{copy.workspaceReset}</span></button>}
+          <ShareButton sessionId={sessionId} workspaceCount={workspaceCount} sessionUnready={sessionUnready} workspaceId={w.id} title={w.doc.title} disabled={w.doc.blocks.some((block) => block.type === "custom" && block.html == null)} />
+        </div>
+        {confirmReset && <div className={styles.resetConfirm} role="group" aria-label={copy.workspaceResetConfirm} onKeyDown={(event) => {
+          if (event.key === "Escape") { event.preventDefault(); closeReset(); }
+        }}>
+          <span>{copy.workspaceResetConfirm}</span>
+          <button type="button" className={styles.headerButton} disabled={resetDisabled} onClick={() => onReset?.(w.id)}>{copy.workspaceReset}</button>
+          <button ref={cancelReset} type="button" className={styles.headerButton} onClick={closeReset}>{copy.workspaceResetCancel}</button>
+        </div>}
       </header>
       {w.doc.blocks.map((b) => {
         const steps = b.type === "problem" ? w.doc.blocks.find((item) => item.type === "steps" && item.problem_id === b.id) : undefined;
@@ -212,7 +238,7 @@ function LocalizedDoc(props: Parameters<typeof Doc>[0]) {
   return <WorkspaceCopy.Provider value={copyFor(lang)}><Doc {...props} /></WorkspaceCopy.Provider>;
 }
 
-export function WorkspaceView({ sessionId, tabs, activeId, onActive, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild, onSelectionAsk }: Props) {
+export function WorkspaceView({ sessionId, tabs, activeId, onActive, onReset, resets = {}, resetDisabled = false, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild, onSelectionAsk }: Props) {
   const activeDoc = tabs.find((tab) => tab.id === activeId)?.doc;
   const activeCopy = useMemo(() => activeDoc ? copyFor(workspaceLocale(activeDoc)) : copy, [activeDoc]);
   // Hidden docs share this scroller; keep an independent offset for each workspace.
@@ -235,7 +261,7 @@ export function WorkspaceView({ sessionId, tabs, activeId, onActive, makeCtx, ta
       <div className={styles.view} data-pet-column>
         <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} />
         {tabs.map((w) => (
-          <LocalizedDoc key={w.id} sessionId={sessionId} workspaceCount={tabs.length} sessionUnready={tabs.some((tab) => tab.doc.blocks.some((block) => block.type === "custom" && block.html == null))} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} tabs={tabs} onActive={onActive} />
+          <LocalizedDoc key={`${w.id}:${resets[w.id] ?? 0}`} sessionId={sessionId} workspaceCount={tabs.length} sessionUnready={tabs.some((tab) => tab.doc.blocks.some((block) => block.type === "custom" && block.html == null))} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} tabs={tabs} onActive={onActive} onReset={onReset} resetDisabled={resetDisabled} />
         ))}
       </div>
     </div>

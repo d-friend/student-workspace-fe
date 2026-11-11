@@ -951,12 +951,19 @@ export function createWorkspace(deps: WorkspaceDeps) {
       track("starter_clicked", { starter }, sid());
       starterInFlight = true;
       try {
-        if (!api.openStarter || !api.resumeSession) throw new Error("Starter API unavailable");
-        const { sessionId } = await api.openStarter(starter);
-        await api.resumeSession(sessionId);
+        let sessionId: string;
+        try {
+          if (!api.openStarter || !api.resumeSession) throw new Error("Starter API unavailable");
+          ({ sessionId } = await api.openStarter(starter));
+        } catch {
+          return await runTurn(true, copy.starterPrompts[starter], null, null, `starter_${starter}`);
+        }
+        try {
+          await api.resumeSession!(sessionId);
+        } catch {
+          // The opened starter is already the newest session and will be restored on reload.
+        }
         dom.reload();
-      } catch {
-        return await runTurn(true, copy.starterPrompts[starter], null, null, `starter_${starter}`);
       } finally {
         starterInFlight = false;
       }

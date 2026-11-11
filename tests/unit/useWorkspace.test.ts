@@ -461,13 +461,13 @@ describe("session lifecycle", () => {
     expect(t.reload).not.toHaveBeenCalled();
   });
 
-  it("falls back when resuming the opened starter fails", async () => {
+  it("reloads when resuming the opened starter fails", async () => {
     const t = await boot();
     t.api.openStarter.mockResolvedValueOnce({ sessionId: "s9" });
     t.api.resumeSession.mockRejectedValueOnce(new Error("offline"));
     await t.ws.actions.startStarter("geometry");
-    expect(t.api.turn).toHaveBeenCalledOnce();
-    expect(t.reload).not.toHaveBeenCalled();
+    expect(t.api.turn).not.toHaveBeenCalled();
+    expect(t.reload).toHaveBeenCalledOnce();
   });
 
   it("ignores a second tap while the first is in flight", async () => {

@@ -78,6 +78,9 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
   });
   const [solved, setSolved] = useState({ ids: restoredIds, byStudent: restoredIds.length === stepsIds.length });
   const masterDone = new Set([...(w.state?.taskDone ?? []), ...taskDone]);
+  // Nothing reset would clear: no saved answers, line verdicts or master completions.
+  const pristine = Object.keys(state.blocks).length === 0 && masterDone.size === 0 &&
+    Object.values(base.overrides).every((lines) => Object.keys(lines).length === 0);
   const completedIds = new Set([...solved.ids, ...masterDone]);
   const allDone = stepsIds.length > 0 && stepsIds.every((id) => completedIds.has(id));
   const reported = useRef(!!w.restored && allDone);
@@ -174,14 +177,14 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
       <header className={styles.header}>
         <h1 className={styles.title}><MdInline text={w.doc.title} /></h1>
         <div className={styles.headerActions}>
-          {onReset && <button ref={resetButton} type="button" className={styles.headerButton} disabled={resetDisabled} aria-expanded={confirmReset} onClick={() => setConfirmReset(true)}><IconRefresh size={18} stroke={1.8} aria-hidden="true" /><span className={styles.resetLabel}>{copy.workspaceReset}</span></button>}
+          {onReset && <button ref={resetButton} type="button" className={styles.headerButton} disabled={resetDisabled || pristine} aria-expanded={confirmReset} onClick={() => setConfirmReset(true)}><IconRefresh size={18} stroke={1.8} aria-hidden="true" /><span className={styles.resetLabel}>{copy.workspaceReset}</span></button>}
           <ShareButton sessionId={sessionId} workspaceCount={workspaceCount} sessionUnready={sessionUnready} workspaceId={w.id} title={w.doc.title} disabled={w.doc.blocks.some((block) => block.type === "custom" && block.html == null)} />
         </div>
         {confirmReset && <div className={styles.resetConfirm} role="group" aria-label={copy.workspaceResetConfirm} onKeyDown={(event) => {
           if (event.key === "Escape") { event.preventDefault(); closeReset(); }
         }}>
           <span>{copy.workspaceResetConfirm}</span>
-          <button type="button" className={styles.headerButton} disabled={resetDisabled} onClick={() => onReset?.(w.id)}>{copy.workspaceReset}</button>
+          <button type="button" className={styles.headerButton} disabled={resetDisabled || pristine} onClick={() => onReset?.(w.id)}>{copy.workspaceReset}</button>
           <button ref={cancelReset} type="button" className={styles.headerButton} onClick={closeReset}>{copy.workspaceResetCancel}</button>
         </div>}
       </header>

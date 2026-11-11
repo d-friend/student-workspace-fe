@@ -83,6 +83,8 @@ export type BlockCtx = {
   phase: Phase;
   report: (type: string, data?: unknown) => void;
   check: (blockId: string, answer: string, previous: string[], item?: number) => Promise<CheckResponse>; // item: scaffold index
+  hint?: (blockId: string, item: number, level: number) => Promise<string | null>;
+  hintNote?: { blockId: string; item: number; text: string } | null;
   overrides: Record<string, Record<number, "ok" | "review">>; // from SSE line_state, by block id
   hintCount: number; // "Gợi ý" presses in this doc
   onSolved: (blockId: string) => void; // a steps block reached its final checkpoint

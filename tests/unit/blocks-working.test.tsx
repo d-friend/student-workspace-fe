@@ -7,7 +7,7 @@ import type { Block, BlockCtx, CheckResponse, Phase, Workspace, WorkspaceDoc } f
 import { DoneBanner } from "@/workspace/DoneBanner";
 import { HelpBar } from "@/workspace/HelpBar";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
-import { filledBlank } from "@/workspace/blocks/Steps";
+import { filledBlank, scaffoldPos } from "@/workspace/blocks/Steps";
 import { track } from "@/lib/track";
 
 vi.mock("@/lib/track", () => ({ track: vi.fn() }));
@@ -251,6 +251,49 @@ const scaffolded: Block = {
 const showS = (c: BlockCtx) => render(<>{renderBlock(scaffolded, c)}</>);
 const gap = (n: number, v: string) => fireEvent.change(screen.getByLabelText(copy.blankLabel(n)), { target: { value: v } });
 const lineCalls = (c: BlockCtx) => (c.report as ReturnType<typeof vi.fn>).mock.calls.filter((a) => a[0] === "line_checked");
+
+test("scaffold position counts leading effective accepted entries", () => {
+  expect(scaffoldPos([], {})).toBe(0);
+  expect(scaffoldPos([{ state: "ok" }, { state: "review" }], {})).toBe(1);
+  expect(scaffoldPos([{ state: "review" }], { 1: "ok" })).toBe(1);
+});
+
+test("practice requests the effective scaffold position", async () => {
+  const c = ctxWith([], { phase: "practice", overrides: { s1: { 1: "ok" } }, hint: vi.fn().mockResolvedValue("Thử bước tiếp theo.") });
+  const workspace: Workspace = { id: "practice", doc: { ...doc("practice"), blocks: [scaffolded] }, state: { blocks: { s1: { type: "steps", entries: [{ text: "first", state: "review" }], done: false, free: false } } } };
+  render(view({ practice: workspace }, "practice", c));
+  fireEvent.click(screen.getByRole("button", { name: copy.hint }));
+  await waitFor(() => expect(c.hint).toHaveBeenCalledWith("s1", 1, 1));
+  expect(await screen.findByText("Thử bước tiếp theo.")).toBeTruthy();
+});
+
+test.each(["stored", "missing"])("a %s hint counts once and reports the result", async (result) => {
+  const text = "Nhìn lại chiều dòng nước.";
+  const c = ctxWith([ok], { hint: vi.fn().mockResolvedValue(result === "stored" ? text : null) });
+  const workspace: Workspace = { id: "solve", doc: { ...doc("solve"), blocks: [scaffolded] }, state: { blocks: { s1: { type: "steps", entries: [{ text: "first", state: "ok" }], done: false, free: false } } } };
+  render(view({ solve: workspace }, "solve", c));
+  fireEvent.click(screen.getByRole("button", { name: copy.hint }));
+  expect(screen.getByText(copy.hintLevel(1))).toBeTruthy();
+  await waitFor(() => expect(c.hint).toHaveBeenCalledWith("s1", 1, 1));
+  await waitFor(() => expect(c.report).toHaveBeenCalledWith("help_requested", result === "stored" ? { block_id: "s1", level: 1, shown: true, text } : { block_id: "s1", level: 1 }));
+  if (result === "stored") {
+    expect(screen.getByText(text).getAttribute("role")).toBe("status");
+    fireEvent.click(screen.getByRole("button", { name: /10/ }));
+    await waitFor(() => expect(screen.queryByText(text)).toBeNull());
+  } else expect(screen.queryByText(text)).toBeNull();
+});
+
+test.each(["learn", "free", "no scaffold", "past end"])("does not request a stored hint in %s", async (condition) => {
+  const phase: Phase = condition === "learn" ? "learn" : "solve";
+  const c = ctxWith([], { phase, hint: vi.fn().mockResolvedValue("hint") });
+  const block = condition === "no scaffold" ? steps : scaffolded;
+  const entries = condition === "past end" ? [{ text: "a", state: "ok" as const }, { text: "b", state: "ok" as const }, { text: "c", state: "ok" as const }] : [];
+  const workspace: Workspace = { id: phase, doc: { ...doc(phase), blocks: [block] }, state: { blocks: { s1: { type: "steps", entries, done: false, free: condition === "free" } } } };
+  render(view({ [phase]: workspace }, phase, c));
+  fireEvent.click(screen.getByRole("button", { name: copy.hint }));
+  expect(c.hint).not.toHaveBeenCalled();
+  expect(c.report).toHaveBeenCalledWith("help_requested", { block_id: "s1", level: 1 });
+});
 
 test("accepted scaffold reasons persist, render math, and track each opening", async () => {
   vi.mocked(track).mockClear();

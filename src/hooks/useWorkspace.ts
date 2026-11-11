@@ -101,7 +101,7 @@ export type WorkspaceState = {
 };
 
 export type WorkspaceDeps = {
-  api: Pick<typeof realApi, "createGuest" | "currentSession" | "createSession" | "endSession" | "turn" | "turnStatus" | "check" | "setActiveWorkspace"> & Partial<Pick<typeof realApi, "putWorkspaceState" | "openStarter" | "resumeSession">>;
+  api: Pick<typeof realApi, "createGuest" | "currentSession" | "createSession" | "endSession" | "turn" | "turnStatus" | "check" | "setActiveWorkspace"> & Partial<Pick<typeof realApi, "putWorkspaceState" | "openStarter" | "resumeSession" | "hint">>;
   track: TrackFn;
   readPhoto: (file: Blob) => Promise<PhotoResult>;
   now?: () => number;
@@ -1020,6 +1020,11 @@ export function createWorkspace(deps: WorkspaceDeps) {
       if (sessionId !== null) api.setActiveWorkspace(sessionId, id).catch(() => {}); // best effort: the turn then sees the older tab
       if (from) track("tab_switched", { from_phase: from, to_phase: tab.phase }, sid());
       actions.report("phase_viewed", { phase: tab.phase, workspace_id: id }, true, id);
+    },
+
+    hint(workspaceId: string, blockId: string, item: number, level: number): Promise<string | null> {
+      if (!api.hint || sessionId === null || !tabs.some((tab) => tab.id === workspaceId)) return Promise.resolve(null);
+      return api.hint(sessionId, workspaceId, blockId, item, level);
     },
 
     check(workspaceId: string, blockId: string, answer: string, previous: string[], item?: number): Promise<CheckResponse> {

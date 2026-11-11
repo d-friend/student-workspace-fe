@@ -1,13 +1,16 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import SheetPage from "@/app/sheet/[id]/page";
-import { ApiError, getSheet, nameSheet, openSheetItem, resumeSession, type SheetView } from "@/lib/api";
+import { ApiError, getMe, saveProfile, skipProfile, getSheet, nameSheet, openSheetItem, resumeSession, type SheetView } from "@/lib/api";
 import { copy } from "@/lib/copy";
 
 const params = vi.hoisted(() => ({ id: "" }));
 vi.mock("next/navigation", () => ({ useParams: () => params }));
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/api")>(),
+  getMe: vi.fn(),
+  saveProfile: vi.fn(),
+  skipProfile: vi.fn(),
   getSheet: vi.fn(),
   nameSheet: vi.fn(),
   openSheetItem: vi.fn(),
@@ -22,6 +25,9 @@ const sheet = (named: boolean, states: ("new" | "started" | "done")[]): SheetVie
 let nextId = 0;
 beforeEach(() => {
   params.id = `sheet-${nextId++}`;
+  vi.mocked(getMe).mockResolvedValue({ signed_in: false, profile_needed: false });
+  vi.mocked(saveProfile).mockResolvedValue();
+  vi.mocked(skipProfile).mockResolvedValue();
   vi.mocked(nameSheet).mockResolvedValue();
   vi.mocked(openSheetItem).mockResolvedValue({ sessionId: "session-1" });
   // Never settles: the page would navigate away after it, which jsdom cannot do.
@@ -129,4 +135,34 @@ test("any other failure to open shows the generic retry", async () => {
   render(<SheetPage />);
   expect((await screen.findByRole("alert")).textContent).toBe(copy.sheetRetryHint);
   expect(screen.getByRole("button", { name: copy.sheetRetry })).toBeTruthy();
+});
+
+
+test("a sheet does not open until the profile is saved", async () => {
+  vi.mocked(getMe).mockResolvedValue({ signed_in: false, profile_needed: true });
+  vi.mocked(getSheet).mockResolvedValue(sheet(true, ["new"]));
+  render(<SheetPage />);
+  fireEvent.change(await screen.findByLabelText(copy.profileNickname), { target: { value: "An" } });
+  expect(getSheet).not.toHaveBeenCalled();
+  expect(openSheetItem).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText(copy.profileProvince), { target: { value: "Hà Nội" } });
+  fireEvent.change(screen.getByLabelText(copy.profileGrade), { target: { value: "8" } });
+  fireEvent.change(screen.getByLabelText(copy.profileSchool), { target: { value: "Trường A" } });
+  fireEvent.click(screen.getByRole("button", { name: copy.profileStart }));
+  await waitFor(() => expect(openSheetItem).toHaveBeenCalledWith(params.id, 1));
+});
+
+
+test("skipping the profile lets a sheet open and resume", async () => {
+  vi.mocked(getMe).mockResolvedValue({ signed_in: false, profile_needed: true });
+  let resolveSkip!: () => void;
+  vi.mocked(skipProfile).mockReturnValue(new Promise<void>((resolve) => { resolveSkip = resolve; }));
+  vi.mocked(getSheet).mockResolvedValue(sheet(true, ["new"]));
+  render(<SheetPage />);
+  fireEvent.click(await screen.findByRole("button", { name: copy.profileSkip }));
+  expect(getSheet).not.toHaveBeenCalled();
+  expect(openSheetItem).not.toHaveBeenCalled();
+  resolveSkip();
+  await waitFor(() => expect(resumeSession).toHaveBeenCalledWith("session-1"));
+  expect(openSheetItem).toHaveBeenCalledExactlyOnceWith(params.id, 1);
 });

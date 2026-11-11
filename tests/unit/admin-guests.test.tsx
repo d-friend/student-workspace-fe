@@ -9,7 +9,7 @@ const mockedAdminGet = vi.mocked(adminGet);
 const mockedAdminPut = vi.mocked(adminPut);
 
 const guests: GuestRow[] = [
-  { id: "internal-abcdefgh", user_id: "user-abcdefgh", email: "eric@example.com", created_at: "2026-10-18T00:00:00Z", last_seen_at: "2026-10-19T00:00:00Z", internal: true, sessions: 2, turns: 4, completions: 1, usd: 0.25 },
+  { nickname: "An", province: "Hà Nội", grade: 8, school: "Trường A", profile_at: "2026-10-18T00:00:00Z", id: "internal-abcdefgh", user_id: "user-abcdefgh", email: "eric@example.com", created_at: "2026-10-18T00:00:00Z", last_seen_at: "2026-10-19T00:00:00Z", internal: true, sessions: 2, turns: 4, completions: 1, usd: 0.25 },
   { id: "student-abcdefgh", user_id: null, email: null, created_at: "2026-10-17T00:00:00Z", last_seen_at: "2026-10-18T00:00:00Z", internal: false, sessions: 1, turns: 2, completions: 0, usd: 0 },
 ];
 const detail: GuestDetail = {
@@ -29,6 +29,7 @@ test("lists guests with the internal flag checked for internal ones", async () =
   const checkbox = await screen.findByRole("checkbox", { name: "Mark internal for internal-abcdefgh" });
   expect(checkbox).toHaveProperty("checked", true);
   expect(screen.getByTitle("internal-abcdefgh")).toBeTruthy();
+  for (const value of ["An", "Hà Nội", "8", "Trường A"]) expect(screen.getByText(value)).toBeTruthy();
 });
 
 test("ticking internal calls PUT with {internal:true} and refetches", async () => {

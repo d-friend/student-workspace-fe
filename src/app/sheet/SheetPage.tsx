@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ProfileGate } from "@/components/ProfileGate";
 import { useParams } from "next/navigation";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { ApiError, getSheet, nameSheet, openSheetItem, resumeSession, type SheetView } from "@/lib/api";
@@ -10,7 +11,7 @@ import formStyles from "./SheetPage.module.css";
 
 export function SheetPage() {
   const { id } = useParams<{ id: string }>();
-  return <SheetEntry key={id} id={id} />;
+  return <ProfileGate hold><SheetEntry key={id} id={id} /></ProfileGate>;
 }
 
 function SheetEntry({ id }: { id: string }) {

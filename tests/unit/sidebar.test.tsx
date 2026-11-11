@@ -21,7 +21,7 @@ beforeEach(() => {
   vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: desktop, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
   fetchMock.mockImplementation(async (path: string) => {
     if (path === "/api/auth/methods") return json({ email: enabled, google: false });
-    if (path === "/api/me") return json({ signed_in: signedIn, name: "Minh", email: "m@example.com" });
+    if (path === "/api/me") return json({ signed_in: signedIn, name: "Minh", email: "m@example.com", profile_needed: false });
     if (path.includes("before=")) return json({ sessions: [row("second")], next_before: null });
     return json(first);
   });
@@ -255,7 +255,7 @@ it("keeps a session and shows an error when deletion fails", async () => {
   fetchMock.mockImplementation(async (path: string, init?: RequestInit) => {
     if (init?.method === "DELETE") return json({ error: { code: "session_busy" } }, 409);
     if (path === "/api/auth/methods") return json({ email: false, google: false });
-    if (path === "/api/me") return json({ signed_in: false });
+    if (path === "/api/me") return json({ signed_in: false, profile_needed: false });
     return json(first);
   });
   render(<Sidebar side={side} onNewProblem={vi.fn()} refreshKey="1" />);

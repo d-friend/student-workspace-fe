@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import { copy } from "../../src/lib/copy";
 
 async function openAccount(page: Page, signedIn = false) {

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 
 import { copy } from "../../src/lib/copy";
 import type { Block, WorkspaceDoc } from "../../src/workspace/types";

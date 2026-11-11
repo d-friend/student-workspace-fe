@@ -100,7 +100,7 @@ export type Thesis = {
   mean_drop: number | null;
   funnel: { sessions_original_done: number; sessions_offered: number; sessions_accepted: number; sessions_reinforcement_done: number };
 };
-export type GuestRow = { id: string; user_id: string | null; email: string | null; created_at: string; last_seen_at: string; internal: boolean; sessions: number; turns: number; completions: number; usd: number };
+export type GuestRow = { nickname?: string | null; province?: string | null; grade?: number | null; school?: string | null; profile_at?: string | null; id: string; user_id: string | null; email: string | null; created_at: string; last_seen_at: string; internal: boolean; sessions: number; turns: number; completions: number; usd: number };
 export type GuestDetail = {
   guest: GuestRow;
   sibling_guest_ids: string[];

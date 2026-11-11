@@ -1,6 +1,7 @@
 "use client";
 
 import { type ChangeEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ProfileGate } from "@/components/ProfileGate";
 import { Entry } from "@/components/Entry";
 import { Shell } from "@/components/Shell";
 import { Sidebar } from "@/components/sidebar/Sidebar";
@@ -25,6 +26,10 @@ const JPEG_PREFIX = "data:image/jpeg;base64,";
 type PhotoSource = "snap_button" | "composer_button" | "retake" | "paste" | "drop";
 
 export default function Page() {
+  return <ProfileGate><Home /></ProfileGate>;
+}
+
+function Home() {
   const ws = useWorkspace();
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);

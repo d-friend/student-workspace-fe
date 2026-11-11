@@ -29,7 +29,7 @@ beforeEach(() => {
   }));
   fetchMock.mockReset().mockImplementation(async (path: string) => {
     if (path === "/api/auth/methods") return json(methods);
-    if (path === "/api/me") return json(me);
+    if (path === "/api/me") return json({ ...me, profile_needed: false });
     if (path === "/api/auth/demo") return json({ signed_in: true, email: "demo@email.hello", name: "Demo" });
     if (path === "/api/auth/email/verify") return json({ signed_in: true, email: "student@example.com", name: null });
     return new Response(null, { status: 204 });

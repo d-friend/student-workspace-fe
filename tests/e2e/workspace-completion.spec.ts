@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { copy } from "../../src/lib/copy";
 import type { StudentWork, WorkspaceDoc } from "../../src/workspace/types";
 

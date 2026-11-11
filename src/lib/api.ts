@@ -28,6 +28,7 @@ export class ApiError extends Error {
     readonly code: string,
     message: string,
     readonly retryAfterS?: number,
+    readonly fields?: string[],
   ) {
     super(message);
     this.name = "ApiError";
@@ -51,7 +52,8 @@ async function toApiError(res: Response): Promise<ApiError> {
   const body = await res.json().catch(() => ({}));
   const error = body?.error ?? {};
   const retryAfter = error.retry_after_s ?? (Number(res.headers.get("retry-after")) || undefined);
-  return new ApiError(res.status, error.code ?? "unknown", error.message ?? res.statusText, retryAfter);
+  const fields = error.fields ?? error.extra?.fields;
+  return new ApiError(res.status, error.code ?? "unknown", error.message ?? res.statusText, retryAfter, Array.isArray(fields) ? fields.filter((field: unknown): field is string => typeof field === "string") : undefined);
 }
 
 async function isNoGuest(res: Response): Promise<boolean> {
@@ -307,7 +309,22 @@ export async function turn(
 }
 
 export type AuthMethods = { google: boolean; email: boolean; demo?: boolean };
-export type Me = { signed_in: false } | { signed_in: true; email: string; name: string | null };
+export type Me = { signed_in: false; profile_needed: boolean } | { signed_in: true; email: string; name: string | null; profile_needed: boolean };
+
+export type Profile = { nickname: string; province: string; grade: number; school: string };
+
+export async function saveProfile(profile: Profile): Promise<void> {
+  const res = await withGuest(() => fetch("/api/guest/profile", { method: "PUT", headers: JSON_HEADERS, body: JSON.stringify(profile) }));
+  if (!res.ok) {
+    const error = await toApiError(res);
+    throw new ApiError(error.status, error.code, "Profile could not be saved", error.retryAfterS, error.fields);
+  }
+}
+
+export async function skipProfile(): Promise<void> {
+  const res = await post("/api/guest/profile/skip", {});
+  if (!res.ok) throw await toApiError(res);
+}
 
 // Plain fetch, not get(): asking who is signed in must not create a guest.
 export async function authMethods(): Promise<AuthMethods> {

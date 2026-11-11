@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { bypassProfile, expect, test, type APIRequestContext, type Page } from "./fixtures";
 
 import { copy } from "../../src/lib/copy";
 
@@ -193,6 +193,7 @@ test("two linked guest cookies share the sessions API; UI logout rotates the gue
     // APIRequestContext.post also waits for the entire SSE body. Create this device's
     // conversation in a browser so it uses the same UI completion signal as send().
     const otherPage = await otherContext.newPage();
+    await bypassProfile(otherPage);
     await otherPage.goto("/");
     await expect(otherPage.getByRole("heading", { name: copy.entryTitle })).toBeVisible();
     await send(otherPage, "second-device-marker");
@@ -218,7 +219,7 @@ test("two linked guest cookies share the sessions API; UI logout rotates the gue
     await expect(page.getByRole("heading", { name: copy.entryTitle })).toBeVisible();
     await expect.poll(async () => (await context.cookies()).find(c => c.name === "df_guest")?.value).not.toBe(first);
     expect((await context.cookies()).find(c => c.name === "df_guest")?.value).toMatch(/^[0-9a-f-]{36}$/);
-    expect(await (await page.request.get("/api/me")).json()).toEqual({ signed_in: false });
+    expect(await (await page.request.get("/api/me")).json()).toMatchObject({ signed_in: false });
     expect(await list(page.request)).toEqual([]);
     await expect(page.getByText(copy.historyEmpty, { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: new RegExp(`^${SOLVE}`) })).toHaveCount(0);

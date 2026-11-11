@@ -13,7 +13,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   createSession: vi.fn().mockResolvedValue({ sessionId: "s" }),
   listSessions: vi.fn().mockResolvedValue({ sessions: [], next_before: null }),
   authMethods: vi.fn().mockResolvedValue({ google: false, email: false }),
-  getMe: vi.fn().mockResolvedValue({ signed_in: false }),
+  getMe: vi.fn().mockResolvedValue({ signed_in: false, profile_needed: false }),
   turn: vi.fn(),
 }));
 vi.mock("@/lib/track", () => ({ track: vi.fn() }));

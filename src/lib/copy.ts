@@ -1,5 +1,21 @@
 // Every string in the UI (plan-frontend "Copy"), in Vietnamese and English. No em-dashes, no emoji.
 const vi = {
+  profileTitle: "Giới thiệu về bạn",
+  profileNote: "Để thầy cô và D-Friend hiểu bạn hơn.",
+  profileNickname: "Tên hoặc biệt danh",
+  profileNicknameHint: "Biệt danh cũng được",
+  profileProvince: "Bạn ở tỉnh/thành phố nào?",
+  profileGrade: "Lớp",
+  profileGradePlaceholder: "Chọn lớp",
+  profileSchool: "Trường",
+  profileNicknameError: "Nhập tên từ 1 đến 40 ký tự.",
+  profileProvinceError: "Nhập tỉnh/thành phố từ 1 đến 60 ký tự.",
+  profileGradeError: "Chọn lớp từ 1 đến 12.",
+  profileSchoolError: "Nhập tên trường từ 1 đến 120 ký tự.",
+  profileFailed: "Chưa lưu được. Bạn thử lại nhé.",
+  profileStart: "Bắt đầu",
+  profileSkip: "Để sau",
+
   workspaceReset: "Làm lại",
   workspaceResetDivider: (title: string | null) => title ? `Đã làm lại: ${title}` : "Đã làm lại",
   workspaceResetConfirm: "Xoá bài làm của bài này và làm lại từ đầu?",
@@ -233,6 +249,22 @@ const vi = {
 };
 
 const en: typeof vi = {
+  profileTitle: "About you",
+  profileNote: "Help your teachers and D-Friend get to know you.",
+  profileNickname: "Name or nickname",
+  profileNicknameHint: "A nickname is fine",
+  profileProvince: "Which province or city do you live in?",
+  profileGrade: "Grade",
+  profileGradePlaceholder: "Choose a grade",
+  profileSchool: "School",
+  profileNicknameError: "Enter a name of 1 to 40 characters.",
+  profileProvinceError: "Enter a province or city of 1 to 60 characters.",
+  profileGradeError: "Choose a grade from 1 to 12.",
+  profileSchoolError: "Enter a school of 1 to 120 characters.",
+  profileFailed: "Could not save. Please try again.",
+  profileStart: "Start",
+  profileSkip: "Not now",
+
   workspaceReset: "Start over",
   workspaceResetDivider: (title: string | null) => title ? `Started over: ${title}` : "Started over",
   workspaceResetConfirm: "Clear your work on this problem and start over?",

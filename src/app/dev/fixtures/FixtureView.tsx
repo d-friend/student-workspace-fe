@@ -8,9 +8,16 @@ import styles from "../../page.module.css";
 
 const noop = () => {};
 
-export function FixtureView({ doc }: { doc: WorkspaceDoc }) {
+const phases = ["learn", "learn", "solve", "practice", "solve"] as const;
+
+// tabs > 1 clones the doc into that many tabs (max 5) so the tab strip can be screenshotted.
+export function FixtureView({ doc, tabs = 1 }: { doc: WorkspaceDoc; tabs?: number }) {
   const [activeId, setActive] = useState("fx");
-  const w = { id: "fx", doc };
+  const list = Array.from({ length: Math.min(Math.max(tabs, 1), 5) }, (_, i) => ({
+    id: i ? `fx${i}` : "fx",
+    doc: i ? { ...doc, title: `${doc.title} ${i + 1}`, phase: phases[i] } : doc,
+    phase: i ? phases[i] : doc.phase,
+  }));
   const makeCtx = (): BlockCtx => ({
     workspaceId: "fx",
     phase: doc.phase,
@@ -32,7 +39,7 @@ export function FixtureView({ doc }: { doc: WorkspaceDoc }) {
       layer={null}
       work={
         <div className={styles.viewWrap}>
-          <WorkspaceView tabs={[{ ...w, phase: doc.phase }]} activeId={activeId} onActive={setActive} makeCtx={makeCtx} />
+          <WorkspaceView tabs={list} activeId={activeId} onActive={setActive} makeCtx={makeCtx} />
         </div>
       }
     />

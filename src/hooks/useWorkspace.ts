@@ -101,7 +101,7 @@ export type WorkspaceState = {
 };
 
 export type WorkspaceDeps = {
-  api: Pick<typeof realApi, "createGuest" | "currentSession" | "createSession" | "endSession" | "turn" | "turnStatus" | "check" | "setActiveWorkspace"> & Partial<Pick<typeof realApi, "putWorkspaceState">>;
+  api: Pick<typeof realApi, "createGuest" | "currentSession" | "createSession" | "endSession" | "turn" | "turnStatus" | "check" | "setActiveWorkspace"> & Partial<Pick<typeof realApi, "putWorkspaceState" | "openStarter" | "resumeSession">>;
   track: TrackFn;
   readPhoto: (file: Blob) => Promise<PhotoResult>;
   now?: () => number;
@@ -133,7 +133,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   // Set by the hook once the iframe and the composer exist.
   // reveal: the student must see the composer (a failed send, a correction), so a closed drawer opens for it.
-  const dom = { frameWindow: (): Window | null => null, focusInput: ((): void => {}) as (reveal?: boolean) => void };
+  const dom = { frameWindow: (): Window | null => null, focusInput: ((): void => {}) as (reveal?: boolean) => void, reload: (): void => {} };
 
   let ready = false;
   let started = false;
@@ -143,6 +143,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let messages: Message[] = [];
   let bubbles: Bubble[] = [];
   let busy = false;
+  let starterInFlight = false;
   let typedTurn = false;
   let queued: Queued | null = null; // one typed message waiting for a workspace turn to end
   let pending: WorkspaceEvent[] = [];
@@ -945,10 +946,27 @@ export function createWorkspace(deps: WorkspaceDeps) {
       track("chat_opened", { unread }, sid());
     },
 
-    startStarter(starter: "derivative" | "geometry"): Promise<void> {
-      if (busy) return Promise.resolve();
+    async startStarter(starter: "derivative" | "geometry"): Promise<void> {
+      if (busy || starterInFlight) return;
       track("starter_clicked", { starter }, sid());
-      return runTurn(true, copy.starterPrompts[starter], null, null, `starter_${starter}`);
+      starterInFlight = true;
+      try {
+        let sessionId: string;
+        try {
+          if (!api.openStarter || !api.resumeSession) throw new Error("Starter API unavailable");
+          ({ sessionId } = await api.openStarter(starter));
+        } catch {
+          return await runTurn(true, copy.starterPrompts[starter], null, null, `starter_${starter}`);
+        }
+        try {
+          await api.resumeSession!(sessionId);
+        } catch {
+          // The opened starter is already the newest session and will be restored on reload.
+        }
+        dom.reload();
+      } finally {
+        starterInFlight = false;
+      }
     },
 
     confirmRestate() {
@@ -1075,9 +1093,10 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
   return {
     // Gives the controller the iframe's window (to filter messages) and a way to focus the composer.
-    bind(d: { frameWindow: () => Window | null; focusInput: (reveal?: boolean) => void }) {
+    bind(d: { frameWindow: () => Window | null; focusInput: (reveal?: boolean) => void; reload: () => void }) {
       dom.frameWindow = d.frameWindow;
       dom.focusInput = d.focusInput;
+      dom.reload = d.reload;
     },
     actions,
     attach,
@@ -1103,6 +1122,7 @@ export function useWorkspace(deps: Partial<WorkspaceDeps> = {}) {
     ws.bind({
       frameWindow: () => frameRef.current?.contentWindow ?? null,
       focusInput: (reveal) => inputRef.current?.focus(reveal),
+      reload: () => window.location.reload(),
     });
     const detach = ws.attach();
     ws.init();

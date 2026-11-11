@@ -50,6 +50,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
 }) {
   const copy = useCopy();
   const [presses, setPresses] = useState(0);
+  const [itemPresses, setItemPresses] = useState<Record<string, number>>({});
   const [freeBlocks, setFreeBlocks] = useState<Record<string, boolean>>({});
   const [savedBlocks, setSavedBlocks] = useState<Record<string, SavedBlockState>>({});
   const [hintNote, setHintNote] = useState<BlockCtx["hintNote"]>(null);
@@ -101,11 +102,15 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
     const free = freeBlocks[blockId] || (saved?.type === "steps" && saved.free);
     const pos = position(blockId);
     if (p !== "learn" && block?.type === "steps" && block.scaffold && !free && base.hint && pos < block.scaffold.length) {
-      const text = await base.hint(blockId, pos, nextLevel);
+      const key = `${blockId}:${pos}`;
+      const itemLevel = Math.min((itemPresses[key] ?? 0) + 1, 3);
+      setItemPresses((previous) => ({ ...previous, [key]: (previous[key] ?? 0) + 1 }));
+      const text = await base.hint(blockId, pos, itemLevel);
       if (text !== null) {
         // If the student moves on while this is in flight, the render-time check above drops the note.
+        // The report can still go out if the student moves on during the fetch.
         setHintNote({ blockId, item: pos, text });
-        base.report("help_requested", { block_id: blockId, level: nextLevel, shown: true, text });
+        base.report("help_requested", { block_id: blockId, level: itemLevel, shown: true, text });
         return;
       }
     }

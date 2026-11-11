@@ -283,6 +283,24 @@ test.each(["stored", "missing"])("a %s hint counts once and reports the result",
   } else expect(screen.queryByText(text)).toBeNull();
 });
 
+test("stored hint levels start over for each scaffold item", async () => {
+  const text = "Thử bước tiếp theo.";
+  const c = ctxWith([ok], { hint: vi.fn().mockResolvedValue(text) });
+  const workspace: Workspace = { id: "solve", doc: { ...doc("solve"), blocks: [scaffolded] } };
+  render(view({ solve: workspace }, "solve", c));
+  for (const level of [1, 2, 3]) {
+    fireEvent.click(screen.getByRole("button", { name: copy.hint }));
+    await waitFor(() => expect(c.hint).toHaveBeenCalledWith("s1", 0, level));
+    await waitFor(() => expect(c.report).toHaveBeenCalledWith("help_requested", { block_id: "s1", level, shown: true, text }));
+  }
+  gap(1, "a");
+  submit();
+  await screen.findByLabelText(copy.stateOk);
+  fireEvent.click(screen.getByRole("button", { name: copy.hint }));
+  await waitFor(() => expect(c.hint).toHaveBeenCalledWith("s1", 1, 1));
+  await waitFor(() => expect(c.report).toHaveBeenLastCalledWith("help_requested", { block_id: "s1", level: 1, shown: true, text }));
+});
+
 test.each(["learn", "free", "no scaffold", "past end"])("does not request a stored hint in %s", async (condition) => {
   const phase: Phase = condition === "learn" ? "learn" : "solve";
   const c = ctxWith([], { phase, hint: vi.fn().mockResolvedValue("hint") });

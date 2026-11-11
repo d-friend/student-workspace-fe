@@ -70,6 +70,19 @@ const post = (path: string, body: unknown, keepalive = false) =>
   withGuest(() => fetch(path, { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body), keepalive }));
 const get = (path: string) => withGuest(() => fetch(path));
 
+export async function hint(sessionId: string, workspaceId: string, blockId: string, item: number, level: number): Promise<string | null> {
+  try {
+    const res = await fetch(`/api/sessions/${sessionId}/hint`, {
+      method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ workspace_id: workspaceId, block_id: blockId, item, level }),
+    });
+    if (res.status !== 200) return null;
+    const body = await res.json();
+    return typeof body?.hint === "string" ? body.hint : null;
+  } catch {
+    return null;
+  }
+}
+
 // Parallel first-visit callers (app start, a 401 retry, the first event) share one request: each
 // extra POST without a cookie would mint another guest for the same visitor.
 let guestInFlight: Promise<{ guestId: string; created: boolean }> | null = null;

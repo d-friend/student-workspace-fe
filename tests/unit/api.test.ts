@@ -1,8 +1,22 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { ApiError, check, createSession, currentSession, endSession, openSharedWorkspace, openStarter, turn, turnStatus, TurnError, type TurnEvent } from "@/lib/api";
+import { ApiError, check, hint, createSession, currentSession, endSession, openSharedWorkspace, openStarter, turn, turnStatus, TurnError, type TurnEvent } from "@/lib/api";
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
+
+test("hint returns text only on 200 and never throws", async () => {
+  const fetchMock = vi.fn().mockResolvedValueOnce(json(200, { hint: "Nhìn lại dòng nước." }))
+    .mockResolvedValueOnce(json(404, { error: { code: "hint_not_found" } }))
+    .mockResolvedValueOnce(json(201, { hint: "ignored" }))
+    .mockRejectedValueOnce(new TypeError("offline"));
+  vi.stubGlobal("fetch", fetchMock);
+  expect(await hint("s1", "w1", "b1", 1, 2)).toBe("Nhìn lại dòng nước.");
+  expect(fetchMock.mock.calls[0][0]).toBe("/api/sessions/s1/hint");
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ workspace_id: "w1", block_id: "b1", item: 1, level: 2 });
+  expect(await hint("s1", "w1", "b1", 1, 2)).toBeNull();
+  expect(await hint("s1", "w1", "b1", 1, 2)).toBeNull();
+  expect(await hint("s1", "w1", "b1", 1, 2)).toBeNull();
+});
 
 afterEach(() => vi.unstubAllGlobals());
 

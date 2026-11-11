@@ -102,7 +102,7 @@ export type WorkspaceState = {
 };
 
 export type WorkspaceDeps = {
-  api: Pick<typeof realApi, "createGuest" | "currentSession" | "createSession" | "endSession" | "turn" | "turnStatus" | "check" | "setActiveWorkspace"> & Partial<Pick<typeof realApi, "putWorkspaceState" | "openStarter" | "resumeSession">>;
+  api: Pick<typeof realApi, "createGuest" | "currentSession" | "createSession" | "endSession" | "turn" | "turnStatus" | "check" | "setActiveWorkspace"> & Partial<Pick<typeof realApi, "putWorkspaceState" | "openStarter" | "resumeSession" | "hint">>;
   track: TrackFn;
   readPhoto: (file: Blob) => Promise<PhotoResult>;
   now?: () => number;
@@ -1038,6 +1038,11 @@ export function createWorkspace(deps: WorkspaceDeps) {
       publish();
       sendState(id);
       actions.report("workspace_reset", {}, true, id);
+    },
+
+    hint(workspaceId: string, blockId: string, item: number, level: number): Promise<string | null> {
+      if (!api.hint || sessionId === null || !tabs.some((tab) => tab.id === workspaceId)) return Promise.resolve(null);
+      return api.hint(sessionId, workspaceId, blockId, item, level);
     },
 
     check(workspaceId: string, blockId: string, answer: string, previous: string[], item?: number): Promise<CheckResponse> {

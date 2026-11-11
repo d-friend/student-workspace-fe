@@ -101,6 +101,7 @@ export default function Page() {
     simulationFailures: ws.simulationFailures,
     report: (type, data) => ws.report(type, data, true, w.id),
     check: (blockId, answer, previous, item) => ws.check(w.id, blockId, answer, previous, item),
+    hint: (blockId, item, level) => ws.hint(w.id, blockId, item, level),
     overrides: ws.overrides[w.id] ?? {},
     hintCount: 0,
     onSolved: () => {},

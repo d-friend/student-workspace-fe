@@ -12,6 +12,12 @@ type Steps = Extract<Block, { type: "steps" }>;
 type Entry = { text: string; state: "ok" | "review"; answer?: string; item?: number; why?: string };
 type Attempt = { answer: string; text: string; input: "choice" | "blank" | "free"; item?: number };
 
+export function scaffoldPos(entries: { state: "ok" | "review" }[], overrides: Record<number, "ok" | "review">): number {
+  let pos = 0;
+  while (pos < entries.length && (overrides[pos + 1] ?? entries[pos].state) === "ok") pos++;
+  return pos;
+}
+
 export function blankSides(pre: string, post: string): [string, string] {
   let dollars = 0;
   for (let i = 0; i < pre.length; i++) {
@@ -61,8 +67,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
 
   const ov = ctx.overrides[block.id] ?? {};
   const effective = entries.map((e, i) => ov[i + 1] ?? e.state);
-  let pos = 0;
-  while (pos < entries.length && effective[pos] === "ok") pos++;
+  const pos = scaffoldPos(entries, ov);
   // Past the last item without done (the master judged it ok, or an override moved on) the student types freely.
   const item = block.scaffold && !free && pos < block.scaffold.length ? block.scaffold[pos] : null;
   const [pre = "", post = ""] = item?.kind === "blank" ? item.template.split("___") : [];
@@ -233,6 +238,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
           {ctx.preview && busy && <p className={styles.small}>{copy.checkQueued}</p>}
           {ctx.preview?.pending && <p className={styles.small}>{copy.composingNext}</p>}
           {inline && <div data-pet-spoken-slot className={styles.patchSpoken} />}
+          {item && ctx.hintNote?.blockId === block.id && ctx.hintNote.item === pos && <p role="status" className={`${styles.small} ${styles.wrongNote}`}>{ctx.hintNote.text}</p>}
           {ctx.phase === "learn" && ctx.help && <HelpBar {...ctx.help} />}
           {ctx.phase === "learn" && item && (
             <button

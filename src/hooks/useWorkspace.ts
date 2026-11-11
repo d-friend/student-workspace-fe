@@ -71,6 +71,7 @@ export type WorkspaceState = {
   tabs: (Workspace & { phase: Phase })[];
   brokenTabs: Record<string, true>;
   activeId: string | null;
+  resets: Record<string, number>;
   simulationVersions: Record<string, number>;
   simulationFailures: Record<string, boolean>;
   simulationPending: Record<string, boolean>;
@@ -156,6 +157,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let tabs: WorkspaceState["tabs"] = [];
   const brokenEvents = new Map<string, WorkspaceEvent>();
   let activeId: string | null = null;
+  let resets: WorkspaceState["resets"] = {};
   let simulationVersions: WorkspaceState["simulationVersions"] = {};
   let simulationFailures: WorkspaceState["simulationFailures"] = {};
   let simulationPending: WorkspaceState["simulationPending"] = {};
@@ -243,6 +245,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       tabs,
       brokenTabs: Object.fromEntries([...brokenEvents.keys()].map((id) => [id, true as const])),
       activeId,
+      resets,
       simulationVersions,
       simulationFailures,
       simulationPending,
@@ -1020,6 +1023,21 @@ export function createWorkspace(deps: WorkspaceDeps) {
       if (sessionId !== null) api.setActiveWorkspace(sessionId, id).catch(() => {}); // best effort: the turn then sees the older tab
       if (from) track("tab_switched", { from_phase: from, to_phase: tab.phase }, sid());
       actions.report("phase_viewed", { phase: tab.phase, workspace_id: id }, true, id);
+    },
+
+    resetWorkspace(id: string) {
+      if (busy || checking > 0 || !tabs.some((tab) => tab.id === id)) return;
+      clearTimeout(saveTimers.get(id));
+      saveTimers.delete(id);
+      tabs = tabs.map((tab) => tab.id === id ? { ...tab, state: {} } : tab);
+      overrides = { ...overrides };
+      delete overrides[id];
+      taskDone = { ...taskDone };
+      delete taskDone[id];
+      resets = { ...resets, [id]: (resets[id] ?? 0) + 1 };
+      publish();
+      sendState(id);
+      actions.report("workspace_reset", {}, true, id);
     },
 
     hint(workspaceId: string, blockId: string, item: number, level: number): Promise<string | null> {

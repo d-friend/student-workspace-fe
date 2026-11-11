@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { act, cleanup, fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
 import { usePet } from "@/hooks/usePet";
@@ -165,4 +165,64 @@ it("a wrong scaffold choice drives PATCH to doubt; a correct retry celebrates", 
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Right" })); });
   expect(mood.result.current.mood).toBe("happy");
   expect(mood.result.current.celebrateKey).toBe(1);
+});
+
+it("reset clears the workspace, saves an empty state after queued work, and reports it", async () => {
+  vi.useFakeTimers();
+  const { ws, api } = controller(saved);
+  await vi.advanceTimersByTimeAsync(0);
+  ws.actions.saveBlock("w1", "q1", { ...quizState, tries: 2, done: true });
+  ws.actions.resetWorkspace("w1");
+  const state = ws.getState();
+  expect(state.tabs[0].state).toEqual({});
+  expect(state.overrides.w1).toBeUndefined();
+  expect(state.taskDone.w1).toBeUndefined();
+  expect(state.resets.w1).toBe(1);
+  await vi.advanceTimersByTimeAsync(0);
+  // The pending debounced save is dropped; the empty state is the only write.
+  expect(api.putWorkspaceState).toHaveBeenCalledExactlyOnceWith("w1", {});
+  ws.actions.flushEvents();
+  await vi.advanceTimersByTimeAsync(0);
+  const message = (api.turn.mock.calls.at(-1) as unknown as [string, { content: string }])[1];
+  expect(JSON.parse(message.content.slice("[workspace] ".length))).toEqual([expect.objectContaining({ type: "workspace_reset", workspace_id: "w1" })]);
+});
+
+it("reset does nothing while a check is in flight", async () => {
+  vi.useFakeTimers();
+  const { ws, api } = controller(saved);
+  await vi.advanceTimersByTimeAsync(0);
+  api.check.mockImplementationOnce(() => new Promise(() => {}));
+  void ws.actions.check("w1", "s1", "2", [], 0);
+  ws.actions.resetWorkspace("w1");
+  expect(ws.getState().tabs[0].state).toEqual(saved);
+  expect(ws.getState().resets.w1).toBeUndefined();
+});
+
+it("asks before resetting, and a new reset count remounts the doc fresh", async () => {
+  const context = ctx();
+  const onReset = vi.fn();
+  const tab = { id: "w1", phase: "solve" as const, doc, state: { blocks: { s1: stepsState } }, restored: true };
+  const view = render(<WorkspaceView tabs={[tab]} activeId="w1" onActive={vi.fn()} onReset={onReset} makeCtx={() => context} />);
+  const reset = screen.getByRole("button", { name: copy.workspaceReset });
+  fireEvent.click(reset);
+  const cancel = screen.getByRole("button", { name: copy.workspaceResetCancel });
+  await act(async () => {});
+  expect(document.activeElement).toBe(cancel);
+  fireEvent.keyDown(cancel, { key: "Escape" });
+  expect(screen.queryByRole("group", { name: copy.workspaceResetConfirm })).toBeNull();
+  expect(document.activeElement).toBe(reset);
+  expect(onReset).not.toHaveBeenCalled();
+  fireEvent.click(reset);
+  const group = screen.getByRole("group", { name: copy.workspaceResetConfirm });
+  fireEvent.click(within(group).getByRole("button", { name: copy.workspaceReset }));
+  expect(onReset).toHaveBeenCalledExactlyOnceWith("w1");
+  expect(screen.getByText("x = 2")).toBeTruthy();
+  view.rerender(<WorkspaceView tabs={[{ ...tab, state: {} }]} activeId="w1" onActive={vi.fn()} onReset={onReset} resets={{ w1: 1 }} makeCtx={() => context} />);
+  expect(screen.queryByText("x = 2")).toBeNull();
+  expect(screen.queryByRole("group", { name: copy.workspaceResetConfirm })).toBeNull();
+});
+
+it("disables reset while busy", () => {
+  render(<WorkspaceView tabs={[{ id: "w1", phase: "solve", doc }]} activeId="w1" onActive={vi.fn()} onReset={vi.fn()} resetDisabled makeCtx={() => ctx()} />);
+  expect((screen.getByRole("button", { name: copy.workspaceReset }) as HTMLButtonElement).disabled).toBe(true);
 });

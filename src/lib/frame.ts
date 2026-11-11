@@ -42,6 +42,7 @@ addEventListener("unhandledrejection", (e) => fail(String(e.reason?.message ?? e
 addEventListener("error", (e) => { if (e.target instanceof HTMLScriptElement) fail("script failed to load: " + (e.target.src || "inline")); }, true);
 const postHeight = () => parent.postMessage({ dfriendHeight: Math.ceil(document.documentElement.getBoundingClientRect().height) }, "*");
 new ResizeObserver(postHeight).observe(document.documentElement);
+// Hidden objects never count: a line or segment creates hidden, non-fixed helper points that report as draggable.
 // JSXGraph (and sims that set touch-action inline) trap touch scrolling on a board with nothing JSXGraph can drag.
 // The kit rule on [data-dfriend-pan] is !important, so a sim that sets the inline style later cannot undo it.
 // shortcut: a custom pointer drag on a board JSXGraph does not know about loses to the page scroll on phones; sims must
@@ -55,7 +56,7 @@ try {
         try {
           const container = board.containerObj;
           if (!container) return;
-          const draggable = board.objectsList.some((el) => el !== board.infobox && el.isDraggable && !el.evalVisProp("fixed"));
+          const draggable = board.objectsList.some((el) => el !== board.infobox && el.isDraggable && !el.evalVisProp("fixed") && el.evalVisProp("visible") !== false);
           container.toggleAttribute("data-dfriend-pan", !draggable);
         } catch {}
       });

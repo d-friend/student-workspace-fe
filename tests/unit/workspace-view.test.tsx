@@ -152,7 +152,7 @@ test("a history lesson without a simulation completes after both choice quizzes"
   await waitFor(() => expect(types()).toEqual(["quiz_answered"]));
   expect(ctx.check).toHaveBeenCalledWith("q1", "0", []);
 
-  fireEvent.click(screen.getByRole("radio", { name: "Tô Định" }));
+  fireEvent.click(screen.getByRole("radio", { name: "Chống ách cai trị của nhà Hán, do Thái thú Tô Định đại diện" }));
   await waitFor(() => expect(types()).toEqual(["quiz_answered", "quiz_answered", "learn_completed"]));
   expect(ctx.check).toHaveBeenCalledWith("q2", "0", []);
 });

@@ -5,6 +5,13 @@ const TYPES = ["heading", "text", "math", "image", "callout", "example", "quiz",
 const docs = Object.entries(fixtures);
 
 describe("workspace fixtures", () => {
+  it("the history lesson without a simulation has two quizzes and ends with one", () => {
+    const doc = fixtures["learn-history-no-sim.json"];
+    expect(doc.blocks.some((b) => b.type === "custom")).toBe(false);
+    expect(doc.blocks.filter((b) => b.type === "quiz")).toHaveLength(2);
+    expect(doc.blocks.at(-1)?.type).toBe("quiz");
+  });
+
   it("every fixture satisfies the schema rules", () => {
     for (const [name, d] of docs) {
       expect(d.version, name).toBe(1);

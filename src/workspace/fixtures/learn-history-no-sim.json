@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "phase": "learn",
+  "title": "Khởi nghĩa Hai Bà Trưng",
+  "blocks": [
+    {
+      "type": "heading",
+      "id": "h1",
+      "text": "Cuộc khởi nghĩa",
+      "level": 2
+    },
+    {
+      "type": "text",
+      "id": "t1",
+      "md": "Năm 40, Trưng Trắc và Trưng Nhị khởi nghĩa tại Mê Linh chống lại Tô Định."
+    },
+    {
+      "type": "quiz",
+      "id": "q1",
+      "question_md": "Em dự đoán cuộc khởi nghĩa có kết cục thế nào vào năm 43?",
+      "answer": "choice",
+      "options": [
+        "Hai Bà Trưng bị quân Mã Viện đánh bại",
+        "Hai Bà Trưng đánh bại quân Mã Viện",
+        "Hai Bà Trưng khởi nghĩa tại Mê Linh"
+      ],
+      "explanation_md": "Năm 43, Hai Bà Trưng bị quân Mã Viện đánh bại."
+    },
+    {
+      "type": "text",
+      "id": "t2",
+      "md": "Đến năm 43, Hai Bà Trưng bị quân Mã Viện đánh bại."
+    },
+    {
+      "type": "quiz",
+      "id": "q2",
+      "question_md": "Khi nhắc đến cuộc khởi nghĩa năm 40 tại Mê Linh, em sẽ ghép Trưng Trắc và Trưng Nhị với ai là người họ chống lại?",
+      "answer": "choice",
+      "options": [
+        "Tô Định",
+        "Mã Viện",
+        "Trưng Nhị"
+      ],
+      "explanation_md": "Năm 40, Trưng Trắc và Trưng Nhị khởi nghĩa tại Mê Linh chống lại Tô Định."
+    }
+  ],
+  "sources": [
+    {
+      "url": "https://vi.wikipedia.org/wiki/Khởi_nghĩa_Hai_Bà_Trưng",
+      "title": "Khởi nghĩa Hai Bà Trưng, Wikipedia tiếng Việt"
+    }
+  ]
+}

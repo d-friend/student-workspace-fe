@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { copy } from "@/lib/copy";
 import { fixtures } from "@/workspace/fixtures";
@@ -135,6 +135,27 @@ test("a single-phase doc is not a tab panel; with a PhaseSwitch each panel is la
 });
 
 const openQuiz = (id: string) => ({ type: "quiz", id, question_md: id, answer: "open", explanation_md: "e" }) as const;
+
+test("a history lesson without a simulation completes after both choice quizzes", async () => {
+  const doc = fixtures["learn-history-no-sim.json"];
+  const ctx = mk();
+  vi.mocked(ctx.check).mockResolvedValue({ ok: true, state: "ok", done: false });
+  const { container } = render(view({ learn: ws(doc) }, "learn", vi.fn(), ctx));
+  const types = () => vi.mocked(ctx.report).mock.calls.map((c) => c[0]);
+
+  expect(container.querySelector("h1")?.textContent).toBe(doc.title);
+  expect(container.textContent).not.toContain(copy.blockFailed);
+  expect(screen.queryByText(copy.simulationBuilding)).toBeNull();
+  expect(container.querySelector('[aria-busy="true"]')).toBeNull();
+
+  fireEvent.click(screen.getByRole("radio", { name: "Hai Bà Trưng bị quân Mã Viện đánh bại" }));
+  await waitFor(() => expect(types()).toEqual(["quiz_answered"]));
+  expect(ctx.check).toHaveBeenCalledWith("q1", "0", []);
+
+  fireEvent.click(screen.getByRole("radio", { name: "Tô Định" }));
+  await waitFor(() => expect(types()).toEqual(["quiz_answered", "quiz_answered", "learn_completed"]));
+  expect(ctx.check).toHaveBeenCalledWith("q2", "0", []);
+});
 
 test("a learn doc reports learn_completed once, after its last quiz is answered", () => {
   const doc: WorkspaceDoc = { ...fixtures["quiz.json"], phase: "learn", blocks: [openQuiz("q1"), openQuiz("q2")] };

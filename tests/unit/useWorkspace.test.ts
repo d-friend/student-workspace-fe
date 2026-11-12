@@ -1319,6 +1319,25 @@ describe("structured workspace", () => {
     expect(t.track).toHaveBeenCalledWith("workspace_shown", { ms_since_send: expect.any(Number), replaced: false }, "s1");
   });
 
+  it("only marks a learn simulation pending when its custom HTML is null", async () => {
+    const noSim = fixtures["learn-history-no-sim.json"];
+    const withSim = structuredClone(LEARN);
+    const slot = withSim.blocks.find((b) => b.type === "custom");
+    if (!slot || slot.type !== "custom") throw new Error("fixture needs a custom slot");
+    slot.html = null;
+    // The hook clears pending when the turn ends, so it is read mid-stream, after each workspace event.
+    const seen: Record<string, boolean>[] = [];
+    const t = await boot(stream([
+      shown("L-no-sim", noSim),
+      () => seen.push({ ...t.state().simulationPending }),
+      shown("L-sim", withSim),
+      () => seen.push({ ...t.state().simulationPending }),
+      "ok",
+    ]));
+    await typed(t);
+    expect(seen).toEqual([{}, { [`L-sim:${slot.id}`]: true }]);
+  });
+
   it("simulation patches the current block and preserves workspace quiz state", async () => {
     const doc = structuredClone(LEARN);
     const slot = doc.blocks.find((b) => b.type === "custom");

@@ -73,10 +73,44 @@ it("rail has an accessible new-problem icon, no list fetch", async () => {
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   expect(screen.queryByText("first")).toBeNull();
 });
-function Phone({ onOpen = vi.fn(), onNew = vi.fn() }) {
+function Phone({ onOpen = vi.fn(), onNew = vi.fn(), progress }: { onOpen?: (id: string) => void; onNew?: () => void; progress?: { active?: boolean } | null }) {
   const state = useSidebar();
-  return <Sidebar side={state} onNewProblem={onNew} onOpenSession={onOpen} refreshKey="1" />;
+  return <Sidebar side={state} onNewProblem={onNew} onOpenSession={onOpen} progress={progress} refreshKey="1" />;
 }
+
+it.each([undefined, null, {}, { active: true }])("progress navigation is opt-in and marks the active page (%j)", async (progress: { active?: boolean } | null | undefined) => {
+  render(<Sidebar side={side} onNewProblem={vi.fn()} refreshKey="1" progress={progress} />);
+  await screen.findByText("first");
+  const link = screen.queryByRole("link", { name: copy.progressNav });
+  if (!progress) expect(link).toBeNull();
+  else {
+    expect(link?.getAttribute("href")).toBe("/progress");
+    expect(link?.getAttribute("aria-current")).toBe(progress.active ? "page" : null);
+    expect(link?.previousElementSibling).toBe(screen.getByRole("button", { name: copy.newProblem }));
+  }
+});
+
+it("rail progress link has an accessible icon-only name", async () => {
+  render(<Sidebar side={{ ...side, mode: "rail" }} onNewProblem={vi.fn()} refreshKey="1" progress={{ active: true }} />);
+  const link = screen.getByRole("link", { name: copy.progressNav });
+  expect(link.textContent).toBe("");
+  expect(link.querySelector("svg")).toBeTruthy();
+  expect(link.getAttribute("aria-current")).toBe("page");
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+});
+
+it("phone progress link closes the drawer on tap", async () => {
+  desktop = false;
+  render(<Phone progress={{}} />);
+  const menu = screen.getByRole("button", { name: copy.historyOpen });
+  fireEvent.click(menu);
+  await screen.findByText("first");
+  const link = screen.getByRole("link", { name: copy.progressNav });
+  link.addEventListener("click", event => event.preventDefault(), { once: true });
+  fireEvent.click(link);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(menu);
+});
 it.each(["Escape", "scrim", "session", "new"])("phone closes via %s and restores focus", async (action) => {
   desktop = false;
   const onOpen = vi.fn(); const onNew = vi.fn();

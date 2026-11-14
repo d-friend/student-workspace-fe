@@ -966,7 +966,7 @@ describe("next-topic offer", () => {
 
     t.api.turn.mockImplementationOnce(reply("Ok."));
     await t.ws.actions.answerOpt("Học tiếp: Đạo hàm hàm hợp");
-    expect(t.track).toHaveBeenCalledWith("next_topic_accepted", {}, "s1");
+    expect(t.track).toHaveBeenCalledWith("next_topic_accepted", { place: "chat" }, "s1");
     expect(lastContent(t.api)).toBe("Học tiếp: Đạo hàm hàm hợp");
   });
 
@@ -976,8 +976,30 @@ describe("next-topic offer", () => {
     await t.ws.actions.submit();
     t.api.turn.mockImplementationOnce(reply("Ok."));
     await t.ws.actions.answerOpt("Bài tương tự");
-    expect(t.track).toHaveBeenCalledWith("similar_problem_accepted", {}, "s1");
-    expect(t.track).not.toHaveBeenCalledWith("next_topic_accepted", {}, "s1");
+    expect(t.track).toHaveBeenCalledWith("similar_problem_accepted", { place: "chat" }, "s1");
+    expect(t.track).not.toHaveBeenCalledWith("next_topic_accepted", { place: "chat" }, "s1");
+  });
+
+  it.each([
+    ["Học tiếp: Đạo hàm hàm hợp", "next_topic_accepted"],
+    ["Bài tương tự", "similar_problem_accepted"],
+  ] as const)("card acceptance of %s tracks its place and closes the live offer", async (label, event) => {
+    const t = await boot(reply(OFFER));
+    t.ws.actions.setInput("x");
+    await t.ws.actions.submit();
+    expect(t.state().optChipKind).toBe("offer");
+    expect(t.state().optChips).toContain(label);
+    const gate = deferred();
+    t.api.turn.mockImplementationOnce(async () => { await gate.promise; return DONE; });
+    const sent = t.ws.actions.answerOpt(label, "card");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.track).toHaveBeenCalledWith(event, { place: "card" }, "s1");
+    expect(t.state().busy).toBe(true);
+    expect(t.state().optChips).toBeNull();
+    gate.resolve();
+    await sent;
+    expect(t.state().optChips).toBeNull();
+    expect(lastContent(t.api)).toBe(label);
   });
 
   it("plain opts are not tracked as an offer", async () => {
@@ -987,7 +1009,7 @@ describe("next-topic offer", () => {
     t.api.turn.mockImplementationOnce(reply("Ok."));
     await t.ws.actions.answerOpt("Có");
     expect(t.track).not.toHaveBeenCalledWith("next_topic_offered", {}, "s1");
-    expect(t.track).not.toHaveBeenCalledWith("similar_problem_accepted", {}, "s1");
+    expect(t.track).not.toHaveBeenCalledWith("similar_problem_accepted", { place: "chat" }, "s1");
   });
 });
 

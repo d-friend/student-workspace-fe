@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import logoMark from "../../../assets/logo-mark.png";
-import { IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconMenu2, IconPlus, IconX } from "@tabler/icons-react";
+import { IconChartLine, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconMenu2, IconPlus, IconX } from "@tabler/icons-react";
 import { useDesktop } from "@/hooks/useDesktop";
 import { ApiError, deleteSession, listSessions, resumeSession, type SessionList as SessionPage } from "@/lib/api";
 import { copy } from "@/lib/copy";
@@ -16,11 +17,12 @@ import styles from "./Sidebar.module.css";
 // Once for this page load, even if the sidebar remounts.
 let historyLoaded = false;
 
-export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, busy = false }: {
+export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progress, busy = false }: {
   side: ReturnType<typeof useSidebar>;
   onNewProblem: () => void;
   refreshKey: string;
   onOpenSession?: (id: string) => void;
+  progress?: { active?: boolean } | null;
   busy?: boolean; // Keep deletion blocked while a turn is streaming.
 }) {
   const desktop = useDesktop();
@@ -105,7 +107,7 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, busy = 
   // Opening a past session resumes it, then a reload runs the app's normal restore. A failed resume leaves things as they were.
   const open = (id: string) => {
     const session = page.sessions.find(row => row.id === id);
-    if (!session || session.current) return;
+    if (!session || (session.current && !progress?.active)) return;
     const createdAt = Date.parse(session.created_at);
     // Measure age from creation, so resuming does not make an old session look new.
     const ageDays = Number.isFinite(createdAt) ? Math.max(0, Math.floor((Date.now() - createdAt) / 86_400_000)) : 0;
@@ -167,10 +169,13 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, busy = 
         <button type="button" className={styles.newProblem} aria-label={copy.newProblem} disabled={deleting} onClick={() => { onNewProblem(); if (!desktop) closeDrawer(); }}>
           <IconPlus size={16} aria-hidden="true" />{!rail && copy.newProblem}
         </button>
+        {progress && <Link href="/progress" className={styles.progress} aria-label={copy.progressNav} aria-current={progress.active ? "page" : undefined} onClick={() => { if (!desktop) closeDrawer(); }}>
+          <IconChartLine size={18} aria-hidden="true" />{!rail && copy.progressNav}
+        </Link>}
         {visible && <div className={styles.list} aria-busy={loading}>
           <SessionList sessions={page.sessions} disabled={deleting || loading} deleteDisabled={busy || deleting || loading} onDelete={id => void remove(id)} onChoose={id => {
-            // Choosing the session that is already current changes nothing: just close the drawer.
-            if (!page.sessions.find(row => row.id === id)?.current) open(id);
+            // On /progress even the current session needs a navigation back to its workspace.
+            if (progress?.active || !page.sessions.find(row => row.id === id)?.current) open(id);
             if (!desktop) closeDrawer();
           }} />
           {deleteError && <p className={styles.deleteError} role="alert">{copy[deleteError]}</p>}

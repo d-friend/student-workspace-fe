@@ -3,8 +3,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, expect, test, vi } from "vitest";
 import { copy } from "@/lib/copy";
 import { renderBlock } from "@/workspace/blocks";
-import type { Block, BlockCtx, CheckResponse, Phase, Workspace, WorkspaceDoc } from "@/workspace/types";
-import { DoneBanner } from "@/workspace/DoneBanner";
+import type { Block, BlockCtx, CheckResponse, Phase, SavedBlockState, Workspace, WorkspaceDoc } from "@/workspace/types";
+import { ProgressCard } from "@/workspace/ProgressCard";
 import { HelpBar } from "@/workspace/HelpBar";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
 import { filledBlank, scaffoldPos } from "@/workspace/blocks/Steps";
@@ -424,7 +424,7 @@ test("choice item sends the index and records the option", async () => {
   fireEvent.click(screen.getByRole("button", { name: "10" }));
   await screen.findByText("10");
   expect(c.check).toHaveBeenLastCalledWith("s1", "0", ["y′ = 3x^2-2"], 1);
-  expect(lineCalls(c).at(-1)![1]).toMatchObject({ input: "choice", line: 2, text: "10" });
+  expect(lineCalls(c).at(-1)![1]).toMatchObject({ input: "choice", line: 2, text: "10", pick: 0 });
 });
 
 test("choice retried after a wrong pick", async () => {
@@ -566,20 +566,20 @@ test("focus stays in the choice group after a wrong pick", async () => {
   expect(document.activeElement?.tagName).toBe("BUTTON");
 });
 
-test("done banner shows the label and the hints used", () => {
-  render(<DoneBanner hints={2} />);
+test("progress card shows the label and the hints used", () => {
+  render(<ProgressCard hints={2} />);
   expect(screen.getByRole("status")).toBeTruthy();
   expect(screen.getByText("Xong bài")).toBeTruthy();
   expect(screen.getByText(copy.doneHints(2))).toBeTruthy();
 });
 
-test("done banner omits the hint line when no hint was used", () => {
-  render(<DoneBanner hints={0} />);
+test("progress card omits the hint line when no hint was used", () => {
+  render(<ProgressCard hints={0} />);
   expect(screen.getByText("Xong bài")).toBeTruthy();
   expect(screen.queryByText(/Gợi ý đã dùng/)).toBeNull();
 });
 
-test("done banner counts the hints pressed", async () => {
+test("progress card counts the hints pressed", async () => {
   const c = ctxWith([fin]);
   render(view({ solve: ws("solve") }, "solve", c));
   fireEvent.click(screen.getByRole("button", { name: copy.hint }));
@@ -759,31 +759,31 @@ test("takeaway and topic appear after completion and after restoration", async (
   const { unmount } = render(view({ solve: workspace }, "solve", c));
   type("a");
   submit();
-  expect(await screen.findByText(copy.takeaway("Use the time relation"))).toBeTruthy();
+  expect(await screen.findByText("Use the time relation")).toBeTruthy();
   expect(screen.getByText(copy.roadmapTitle.motion_current)).toBeTruthy();
   unmount();
   workspace.state = { blocks: { [block.id]: { type: "steps", entries: [{ text: "a", state: "ok" }], done: true, free: false, takeaway: "Use the time relation" } } };
   render(view({ solve: workspace }, "solve", ctxWith()));
-  expect(screen.getByText(copy.takeaway("Use the time relation"))).toBeTruthy();
+  expect(screen.getByText("Use the time relation")).toBeTruthy();
   expect(screen.getByText(copy.roadmapTitle.motion_current)).toBeTruthy();
 });
 
-test("a banner without takeaway has no topic tag", () => {
-  render(<DoneBanner hints={0} roadmap="motion_current" />);
+test("a progress card without takeaway still shows the topic in its header", () => {
+  render(<ProgressCard hints={0} roadmap="motion_current" />);
   expect(screen.getByText(copy.doneLabel)).toBeTruthy();
-  expect(screen.queryByText(copy.roadmapTitle.motion_current)).toBeNull();
+  expect(screen.getByText(copy.roadmapTitle.motion_current)).toBeTruthy();
   expect(screen.queryByText(/Điều cần nhớ/)).toBeNull();
 });
 
 
-test("master completion has no takeaway or topic", () => {
+test("master completion keeps the topic without inventing a takeaway", () => {
   const workspace = ws("solve");
   const block = workspace.doc.blocks.find((b) => b.type === "steps");
   if (block?.type !== "steps") throw new Error("missing steps");
   block.roadmap = "motion_current";
   render(view({ solve: workspace }, "solve", ctxWith(), { taskDone: { solve: [block.id] } }));
   expect(screen.getByText(copy.doneLabel)).toBeTruthy();
-  expect(screen.queryByText(copy.roadmapTitle.motion_current)).toBeNull();
+  expect(screen.getByText(copy.roadmapTitle.motion_current)).toBeTruthy();
   expect(screen.queryByText(/Điều cần nhớ/)).toBeNull();
 });
 
@@ -838,4 +838,77 @@ test("a queued answer waits out a pending PATCH question, then replays", async (
   expect(c.check).not.toHaveBeenCalled();
   rerender(<>{renderBlock(steps, { ...c, askPending: false })}</>);
   await waitFor(() => expect(c.check).toHaveBeenCalledTimes(1));
+});
+
+test.each(["solve", "practice"] as const)("%s saves completed tries, hints and the first shown wrong reason only on acceptance", async (phase) => {
+  const choice: Block = { type: "steps", id: "s1", problem_id: "p1", input: "math", scaffold: [
+    { kind: "choice", prompt: "First", options: ["Wrong", "Right"] },
+    { kind: "choice", prompt: "Second", options: ["Wrong again", "Right again"] },
+  ] };
+  const saveBlock = vi.fn<(id: string, state: SavedBlockState) => void>();
+  const c = ctxWith([{ ...bad, message: "  First reason  " }, { ...bad, message: "Later reason" }, ok, ok], { phase, saveBlock });
+  const { rerender } = render(<>{renderBlock(choice, c)}</>);
+  fireEvent.click(screen.getByRole("button", { name: "Wrong" }));
+  await waitFor(() => expect(saveBlock).toHaveBeenCalledTimes(1));
+  expect(saveBlock.mock.calls[0][1]).toMatchObject({ entries: [{ state: "review" }] });
+  const review = saveBlock.mock.calls[0][1];
+  if (review.type !== "steps") throw new Error("Expected steps");
+  for (const key of ["tries", "hint", "wrong"]) expect(review.entries[0]).not.toHaveProperty(key);
+  fireEvent.click(screen.getByRole("button", { name: "Wrong" }));
+  await waitFor(() => expect(saveBlock).toHaveBeenCalledTimes(2));
+  c.hintCount = 2;
+  rerender(<>{renderBlock(choice, c)}</>);
+  fireEvent.click(screen.getByRole("button", { name: "Right" }));
+  await waitFor(() => expect(saveBlock).toHaveBeenCalledTimes(3));
+  expect(saveBlock.mock.calls[2][1]).toMatchObject({ entries: [{ item: 0, state: "ok", tries: 3, hint: 2, wrong: "First reason" }] });
+  expect(lineCalls(c).at(-1)![1]).toMatchObject({ input: "choice", pick: 1 });
+  c.hintCount = 3;
+  rerender(<>{renderBlock(choice, c)}</>);
+  fireEvent.click(screen.getByRole("button", { name: "Right again" }));
+  await waitFor(() => expect(saveBlock).toHaveBeenCalledTimes(4));
+  const saved = saveBlock.mock.calls[3][1];
+  if (saved.type !== "steps") throw new Error("Expected steps");
+  expect(saved.entries[1]).toMatchObject({ item: 1, tries: 1, hint: 1 });
+  expect(saved.entries[1]).not.toHaveProperty("wrong");
+});
+
+test("network failures do not count as checks and saved wrong reasons are trimmed and capped", async () => {
+  const message = `  ${"x".repeat(110)}  `;
+  const choice: Block = { type: "steps", id: "s1", problem_id: "p1", input: "math", scaffold: [{ kind: "choice", prompt: "Pick", options: ["Wrong", "Right"] }] };
+  const saveBlock = vi.fn();
+  const c = ctxWith([new Error("offline"), { ...bad, message }, fin], { saveBlock, hintCount: 7 });
+  render(<>{renderBlock(choice, c)}</>);
+  fireEvent.click(screen.getByRole("button", { name: "Wrong" }));
+  fireEvent.click(await screen.findByRole("button", { name: copy.retry }));
+  await waitFor(() => expect(saveBlock).toHaveBeenCalledTimes(1));
+  fireEvent.click(screen.getByRole("button", { name: "Right" }));
+  await waitFor(() => expect(saveBlock).toHaveBeenCalledTimes(2));
+  expect(saveBlock.mock.calls[1][1]).toMatchObject({ entries: [{ tries: 2, hint: 3, wrong: "x".repeat(100) }] });
+});
+
+test("tries cap at nine completed checks", async () => {
+  const choice: Block = { type: "steps", id: "s1", problem_id: "p1", input: "math", scaffold: [{ kind: "choice", prompt: "Pick", options: ["Wrong", "Right"] }] };
+  const saveBlock = vi.fn();
+  const c = ctxWith([...Array.from({ length: 10 }, () => bad), fin], { saveBlock });
+  render(<>{renderBlock(choice, c)}</>);
+  for (let i = 0; i < 10; i++) {
+    fireEvent.click(screen.getByRole("button", { name: "Wrong" }));
+    await waitFor(() => expect(saveBlock).toHaveBeenCalledTimes(i + 1));
+  }
+  fireEvent.click(screen.getByRole("button", { name: "Right" }));
+  await waitFor(() => expect(saveBlock).toHaveBeenCalledTimes(11));
+  expect(saveBlock.mock.calls[10][1]).toMatchObject({ entries: [{ tries: 9, hint: 0 }] });
+});
+
+test.each(["learn", "free", "no-scaffold"])("%s entries omit tries, hint and wrong", async (mode) => {
+  const block: Block = { type: "steps", id: "s1", problem_id: "p1", input: "math", ...(mode !== "no-scaffold" && { scaffold: [{ kind: "choice" as const, prompt: "Pick", options: ["Wrong", "Right"] }] }) };
+  const saveBlock = vi.fn<(id: string, state: SavedBlockState) => void>();
+  const c = ctxWith([fin], { saveBlock, hintCount: 2, ...(mode === "learn" ? { phase: "learn" as const } : mode === "free" ? { help: { level: 0, onHint: vi.fn(), ideaPending: false, free: true } } : {}) });
+  render(<>{renderBlock(block, c)}</>);
+  if (mode === "learn") fireEvent.click(screen.getByRole("button", { name: "Right" }));
+  else { type("2"); submit(); }
+  await waitFor(() => expect(saveBlock).toHaveBeenCalledTimes(1));
+  const saved = saveBlock.mock.calls[0][1];
+  if (saved.type !== "steps") throw new Error("Expected steps");
+  for (const key of ["tries", "hint", "wrong"]) expect(saved.entries[0]).not.toHaveProperty(key);
 });

@@ -1003,10 +1003,10 @@ export function createWorkspace(deps: WorkspaceDeps) {
       return accepted ? dispatch(copy.offerYesMessage, null) : Promise.resolve();
     },
 
-    answerOpt(text: string): Promise<void> {
+    answerOpt(text: string, place: "chat" | "card" = "chat"): Promise<void> {
       const last = bubbles.findLast((b) => b.kind === "agent");
       if (last?.kind === "agent" && last.offer && last.opts) {
-        track(last.opts[0] === text ? "next_topic_accepted" : "similar_problem_accepted", {}, sid());
+        track(last.opts[0] === text ? "next_topic_accepted" : "similar_problem_accepted", { place }, sid());
       }
       return dispatch(text, null);
     },

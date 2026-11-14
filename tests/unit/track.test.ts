@@ -34,6 +34,18 @@ describe("track", () => {
     ]);
   });
 
+  it("acceptance events keep optional place and legacy empty props", () => {
+    tracker.track("next_topic_accepted", {}, "s1");
+    tracker.track("similar_problem_accepted", { place: "chat" }, "s1");
+    tracker.track("next_topic_accepted", { place: "card" }, "s1");
+    tracker.flush();
+    expect(send.mock.calls[0][0].map((event: { type: string; props: unknown }) => ({ type: event.type, props: event.props }))).toEqual([
+      { type: "next_topic_accepted", props: {} },
+      { type: "similar_problem_accepted", props: { place: "chat" } },
+      { type: "next_topic_accepted", props: { place: "card" } },
+    ]);
+  });
+
   it("flushes at 20 queued events, without waiting", () => {
     for (let i = 0; i < 19; i++) tracker.track("photo_removed");
     expect(send).not.toHaveBeenCalled();

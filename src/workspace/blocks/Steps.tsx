@@ -9,7 +9,7 @@ import type { Block, BlockProps } from "../types";
 import styles from "./working.module.css";
 
 type Steps = Extract<Block, { type: "steps" }>;
-type Entry = { text: string; state: "ok" | "review"; answer?: string; item?: number; why?: string };
+type Entry = { text: string; state: "ok" | "review"; answer?: string; item?: number; why?: string; tries?: number; hint?: number; wrong?: string };
 type Attempt = { answer: string; text: string; input: "choice" | "blank" | "free"; item?: number };
 
 export function scaffoldPos(entries: { state: "ok" | "review" }[], overrides: Record<number, "ok" | "review">): number {
@@ -64,6 +64,9 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const refocus = useRef(false); // focus the input once the next render has put it in place
   const dirty = useRef(false); // this position had a review or error
   const hintBase = useRef(0); // ctx.hintCount at the last ok line
+  // shortcut: counters live in the tab and restart on reload mid-step, so a reload undercounts
+  const tries = useRef(0);
+  const firstWrong = useRef<string | undefined>(undefined);
   const replayed = useRef(false);
 
   const ov = ctx.overrides[block.id] ?? {};
@@ -75,6 +78,10 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const [displayPre, displayPost] = blankSides(pre, post);
 
   useEffect(() => () => setWrongNote(null), [pos, item]);
+  useEffect(() => {
+    tries.current = 0;
+    firstWrong.current = undefined;
+  }, [pos]);
 
   useEffect(() => {
     if (free && !previousFree.current) {
@@ -104,21 +111,36 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
     const previous = entries.slice(0, pos).map((e) => e.text);
     try {
       const r = await ctx.check(block.id, a.answer, previous, ...(a.item === undefined ? [] : [a.item]));
+      tries.current = Math.min(9, tries.current + 1);
       const retried = dirty.current || ctx.hintCount > hintBase.current;
       const checkedItem = a.item === undefined ? undefined : block.scaffold?.[a.item];
       const explained = ctx.phase !== "learn" && a.input === "choice" && r.state === "review" && typeof r.message === "string" && !!r.message.trim() && checkedItem?.kind === "choice";
-      if (explained) setWrongNote({ message: r.message!, pos: a.item!, item: checkedItem });
+      if (explained) {
+        setWrongNote({ message: r.message!, pos: a.item!, item: checkedItem });
+        firstWrong.current ??= r.message!.trim().slice(0, 100);
+      }
       let line = r.state === "ok" && a.input === "choice" ? (r.line ?? a.text) : a.text;
       if (ctx.phase !== "learn" && r.state === "ok" && a.input === "blank" && checkedItem?.kind === "blank" && r.answer_tex !== undefined) {
         const [before = "", after = ""] = checkedItem.template.split("___");
         line = filledBlank(before, after, a.answer, r.answer_tex);
       }
-      const committed = [...entries.slice(0, pos), { text: line, state: r.state, answer: a.answer, ...(a.item !== undefined && { item: a.item }), ...(ctx.phase !== "learn" && r.state === "ok" && checkedItem && r.why !== undefined && { why: r.why }) }];
+      const committed: Entry[] = [...entries.slice(0, pos), {
+        text: line, state: r.state, answer: a.answer,
+        ...(a.item !== undefined && { item: a.item }),
+        ...(ctx.phase !== "learn" && r.state === "ok" && a.item !== undefined && {
+          tries: tries.current,
+          hint: Math.min(3, Math.max(0, ctx.hintCount - hintBase.current)),
+          ...(firstWrong.current !== undefined && { wrong: firstWrong.current }),
+        }),
+        ...(ctx.phase !== "learn" && r.state === "ok" && checkedItem && r.why !== undefined && { why: r.why }),
+      }];
       setEntries(committed);
       setOpenWhy((current) => Object.fromEntries(Object.entries(current).filter(([index]) => Number(index) < pos)));
       ctx.saveBlock?.(block.id, { type: "steps", entries: committed, done: r.done, free, ...(r.done && r.takeaway !== undefined && { takeaway: r.takeaway }) });
-      ctx.report("line_checked", { block_id: block.id, line: pos + 1, text: a.text, ok: r.ok, state: r.state, retried, input: a.input, ...(explained && { explained: true }) });
+      ctx.report("line_checked", { block_id: block.id, line: pos + 1, text: a.text, ok: r.ok, state: r.state, retried, input: a.input, ...(a.input === "choice" && { pick: Number(a.answer) }), ...(explained && { explained: true }) });
       if (r.state === "ok") {
+        tries.current = 0;
+        firstWrong.current = undefined;
         dirty.current = false;
         hintBase.current = ctx.hintCount;
         setText("");

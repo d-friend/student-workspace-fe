@@ -11,7 +11,8 @@ import { renderBlock } from "./blocks";
 import { acceptedSteps, StepProgress } from "./StepProgress";
 import { Problem } from "./blocks/Problem";
 import { scaffoldPos } from "./blocks/Steps";
-import { DoneBanner } from "./DoneBanner";
+import { ProgressCard } from "./ProgressCard";
+import { stageResults } from "./stageResults";
 import { MdInline } from "./md";
 import { ActionBar } from "./ActionBar";
 import { PhaseSwitch } from "./PhaseSwitch";
@@ -30,12 +31,14 @@ type Props = {
   makeCtx: (w: Workspace) => BlockCtx;
   taskDone?: Record<string, string[]>; // master completions (SSE task_done), by workspace id
   busy?: boolean;
+  offer?: { opts: string[]; onPick: (text: string) => void } | null;
   brokenTabs?: Record<string, true>;
   onRebuild?: (id: string) => void;
   onSelectionAsk?: (quote: SelectionQuote) => void;
 };
 
-function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onRebuild, sessionId, workspaceCount, sessionUnready, tabs, onActive, onReset, resetDisabled }: {
+function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onRebuild, sessionId, workspaceCount, sessionUnready, tabs, onActive, onReset, resetDisabled, offer }: {
+  offer?: Props["offer"];
   w: Workspace;
   tabs: (Workspace & { phase: Phase })[];
   onActive: (id: string) => void;
@@ -95,8 +98,13 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
   const finishedSteps = w.doc.blocks.find((b): b is Extract<Block, { type: "steps" }> => {
     const saved = state.blocks[b.id];
     return b.type === "steps" && saved?.type === "steps" && saved.done && !!saved.takeaway;
-  });
+  }) ?? w.doc.blocks.find((b): b is Extract<Block, { type: "steps" }> => b.type === "steps");
   const finishedState = finishedSteps && state.blocks[finishedSteps.id];
+  const results = working && finishedSteps?.roadmap ? stageResults(
+    finishedSteps.scaffold?.map(item => item.stage) ?? [],
+    finishedState?.type === "steps" ? finishedState.entries.map((entry, i) => ({ ...entry, state: base.overrides[finishedSteps.id]?.[i + 1] ?? entry.state })) : [],
+    !!freeBlocks[finishedSteps.id] || (finishedState?.type === "steps" && finishedState.free),
+  ) : [];
   const stepsId = w.doc.blocks.find((b) => b.type === "steps")?.id ?? "";
 
   useEffect(() => {
@@ -213,7 +221,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
         </BlockBoundary>
         </div>
       ); })}
-      {allDone && <DoneBanner hints={presses} takeaway={finishedState?.type === "steps" ? finishedState.takeaway : undefined} roadmap={finishedSteps?.roadmap} />}
+      {allDone && <ProgressCard hints={presses} takeaway={finishedState?.type === "steps" ? finishedState.takeaway : undefined} roadmap={finishedSteps?.roadmap} rows={results} offer={working ? offer : null} />}
       {working && allDone && (
         <div ref={doneAnchorRef} data-pet-anchor data-pet-done data-pet-inline className={styles.donePet}>
           <div data-pet-slot />
@@ -271,7 +279,8 @@ function LocalizedDoc(props: Parameters<typeof Doc>[0]) {
   return <WorkspaceCopy.Provider value={copyFor(lang)}><Doc {...props} /></WorkspaceCopy.Provider>;
 }
 
-export function WorkspaceView({ sessionId, tabs, activeId, onActive, onReset, resets = {}, resetDisabled = false, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild, onSelectionAsk }: Props) {
+export function WorkspaceView({ sessionId, tabs, activeId, onActive, onReset, resets = {}, resetDisabled = false, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild, onSelectionAsk, offer }: Props) {
+  const lastWorkingId = tabs.findLast(tab => tab.phase !== "learn")?.id;
   const activeDoc = tabs.find((tab) => tab.id === activeId)?.doc;
   const activeCopy = useMemo(() => activeDoc ? copyFor(workspaceLocale(activeDoc)) : copy, [activeDoc]);
   // Hidden docs share this scroller; keep an independent offset for each workspace.
@@ -294,7 +303,7 @@ export function WorkspaceView({ sessionId, tabs, activeId, onActive, onReset, re
       <div className={styles.view} data-pet-column>
         <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} />
         {tabs.map((w) => (
-          <LocalizedDoc key={`${w.id}:${resets[w.id] ?? 0}`} sessionId={sessionId} workspaceCount={tabs.length} sessionUnready={tabs.some((tab) => tab.doc.blocks.some((block) => block.type === "custom" && block.html == null))} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} tabs={tabs} onActive={onActive} onReset={onReset} resetDisabled={resetDisabled} />
+          <LocalizedDoc key={`${w.id}:${resets[w.id] ?? 0}`} sessionId={sessionId} workspaceCount={tabs.length} sessionUnready={tabs.some((tab) => tab.doc.blocks.some((block) => block.type === "custom" && block.html == null))} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} tabs={tabs} onActive={onActive} onReset={onReset} resetDisabled={resetDisabled} offer={w.id === lastWorkingId ? offer : null} />
         ))}
       </div>
     </div>

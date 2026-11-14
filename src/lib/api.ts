@@ -373,6 +373,31 @@ export type SessionSummary = {
 
 export type SessionList = { sessions: SessionSummary[]; next_before: string | null };
 
+export type ProgressItem = {
+  workspace_id: string;
+  session_id: string;
+  phase: "learn" | "solve" | "practice";
+  title: string;
+  created_at: string;
+  tabs: number;
+  roadmap: string | null;
+  stages: (number | null)[] | null;
+  steps: {
+    entries: { item?: number; state: "ok" | "review"; tries?: number; hint?: number; wrong?: string }[];
+    done: boolean;
+    free: boolean;
+  } | null;
+  quizzes: { total: number; done: number; first_try: number } | null;
+  next: string[] | null;
+};
+
+export async function getProgress(limit = 30): Promise<{ items: ProgressItem[] }> {
+  const query = new URLSearchParams({ limit: String(limit) });
+  const res = await get(`/api/progress?${query}`);
+  if (!res.ok) throw await toApiError(res);
+  return res.json();
+}
+
 export async function listSessions(before?: string, limit = 20): Promise<SessionList> {
   const query = new URLSearchParams({ limit: String(limit) });
   if (before !== undefined) query.set("before", before);

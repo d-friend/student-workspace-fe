@@ -14,8 +14,11 @@ import { WorkspaceFrame } from "@/components/work/WorkspaceFrame";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useUnfold } from "@/hooks/useUnfold";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { useProgress } from "@/hooks/useProgress";
 import { copy } from "@/lib/copy";
 import { frameDoc } from "@/lib/frame";
+import { openProgressSession, progressCards } from "@/lib/progress";
+import { track } from "@/lib/track";
 import type { BlockCtx, Workspace } from "@/workspace/types";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
 import type { SelectionQuote } from "@/workspace/SelectionAsk";
@@ -31,6 +34,9 @@ export default function Page() {
 
 function Home() {
   const ws = useWorkspace();
+  const progress = useProgress();
+  const cards = useMemo(() => progressCards(progress.items), [progress.items]);
+  const progressTracked = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
   const entryInput = useRef<HTMLTextAreaElement>(null);
@@ -145,6 +151,7 @@ function Home() {
           resetDisabled={ws.busy || ws.checking > 0}
           makeCtx={makeCtx}
           taskDone={ws.taskDone}
+          offer={ws.optChipKind === "offer" && ws.optChips ? { opts: ws.optChips, onPick: (t) => void ws.answerOpt(t, "card") } : null}
           brokenTabs={ws.brokenTabs}
           onRebuild={ws.rebuildTab}
           busy={ws.busy}
@@ -175,6 +182,14 @@ function Home() {
   const sent = ws.bubbles.find((b) => b.kind === "student");
   const sentPhoto = sent?.kind === "student" && sent.photo ? JPEG_PREFIX + sent.photo : null;
   const unfoldRef = useRef<HTMLDivElement>(null);
+
+  // A restored workspace must not count the entry screen's initial, temporary render.
+  const latest = ws.ready && entry && !drawerOpen && !flying && !photoSrc ? cards[0] : undefined;
+  useEffect(() => {
+    if (!latest || progressTracked.current) return;
+    progressTracked.current = true;
+    track("progress_opened", { place: "entry", cards: cards.length });
+  }, [latest, cards.length]);
 
   // The fly card's start and end and the reveal's origin are measured, not taken from the design's one viewport.
   // Before paint: the entry is still laid out under the stage, and the skeleton has just mounted.
@@ -225,6 +240,7 @@ function Home() {
           inputRef={entryInput}
           onStarter={(s) => void ws.startStarter(s)}
           onRetry={ws.buildFailed ? () => void ws.rebuild() : undefined}
+          progress={latest ? { item: latest, onOpen: () => void openProgressSession(latest, "reload") } : null}
           leaving={flying}
           photoCheck={
             photoSrc
@@ -284,7 +300,7 @@ function Home() {
   return (
     <PetAnchorProvider>
       <Shell work={work} layer={layer} chatOpen={drawerOpen} inert={(drawerOpen || side.drawerOpen) && !desktop}
-        sidebar={<Sidebar side={side} busy={ws.busy} onNewProblem={ws.newProblem} refreshKey={`${ws.newProblemCount}|${ws.hasMessages}|${ws.phase}`} />}
+        sidebar={<Sidebar side={side} busy={ws.busy} onNewProblem={ws.newProblem} progress={cards.length > 0 ? {} : null} refreshKey={`${ws.newProblemCount}|${ws.hasMessages}|${ws.phase}`} />}
         side={desktop ? side.mode : undefined} />
       <input ref={fileInput} type="file" accept="image/*" hidden onChange={onFile} />
       <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={onFile} />

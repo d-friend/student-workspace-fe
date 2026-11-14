@@ -137,3 +137,63 @@ test.each(["solve", "practice"] as const)("a restored finished %s anchor release
   rerender(view("finished"));
   expect(screen.getByTestId("anchor").textContent).toBe("done");
 });
+
+const progressWorkspace = (id: string, phase: "solve" | "practice" | "learn" = "solve", done = true): Workspace & { phase: typeof phase } => ({
+  id, phase, restored: true,
+  doc: { version: 1, phase, title: id, sources: [], blocks: [
+    { type: "problem", id: "p", md: "Tính vận tốc" },
+    { type: "steps", id: "s", problem_id: "p", input: "math", roadmap: "motion_current", scaffold: [
+      { kind: "choice", prompt: "First", options: ["A", "B"], stage: 0 },
+      { kind: "choice", prompt: "Second", options: ["C", "D"], stage: 1 },
+    ] },
+  ] },
+  state: { blocks: { s: { type: "steps", done, free: false, entries: [
+    { text: "A", item: 0, state: "ok", tries: 1, hint: 0 },
+    { text: "C", item: 1, state: "review" },
+  ] } } },
+});
+const progressCtx = (w: Workspace): BlockCtx => ({
+  workspaceId: w.id, phase: w.doc.phase, check: vi.fn(), report: vi.fn(), onSolved: vi.fn(), overrides: {}, hintCount: 0, help: null,
+});
+
+test("completion rows use saved entries and live overrides even without a takeaway", () => {
+  const w = progressWorkspace("w");
+  const makeCtx = (w: Workspace) => ({ ...progressCtx(w), overrides: { s: { 1: "review" as const, 2: "ok" as const } } });
+  render(<PetAnchorProvider><WorkspaceView tabs={[w]} activeId="w" onActive={vi.fn()} makeCtx={makeCtx} /></PetAnchorProvider>);
+  expect(screen.getByText(copy.stageTodo)).toBeTruthy();
+  expect(screen.getByText(copy.stageUnknown)).toBeTruthy();
+  expect(screen.queryByText(copy.stageFirst)).toBeNull();
+});
+
+test.each(["learn", "free", "no-roadmap"])("%s completion has no stage rows", (mode) => {
+  const w = progressWorkspace("w", mode === "learn" ? "learn" : "solve");
+  const block = w.doc.blocks.find(b => b.type === "steps")!;
+  if (mode === "no-roadmap" && block.type === "steps") delete block.roadmap;
+  const saved = w.state?.blocks?.s;
+  if (mode === "free" && saved?.type === "steps") saved.free = true;
+  const { container } = render(<PetAnchorProvider><WorkspaceView tabs={[w]} activeId="w" onActive={vi.fn()} makeCtx={progressCtx} /></PetAnchorProvider>);
+  const card = container.querySelector('[role="status"]')!;
+  expect(card).toBeTruthy();
+  expect(card.querySelector("ul")).toBeNull();
+});
+
+test("only the last non-learn tab receives the offer, including when a learn tab follows it", () => {
+  const tabs = [progressWorkspace("old"), progressWorkspace("latest", "practice"), progressWorkspace("learn", "learn")];
+  const onPick = vi.fn();
+  const offer = { opts: ["Next lesson", "Similar problem"], onPick };
+  const view = (offerProp: typeof offer | null) => <PetAnchorProvider><WorkspaceView tabs={tabs} activeId="latest" onActive={vi.fn()} makeCtx={progressCtx} offer={offerProp} /></PetAnchorProvider>;
+  const { container, rerender } = render(view(offer));
+  expect(container.querySelectorAll('#panel-old [role="status"] button')).toHaveLength(0);
+  expect(container.querySelectorAll('#panel-latest [role="status"] button')).toHaveLength(2);
+  expect(container.querySelectorAll('#panel-learn [role="status"] button')).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "Next lesson" }));
+  expect(onPick).toHaveBeenCalledWith("Next lesson");
+  rerender(view(null));
+  expect(container.querySelectorAll('[role="status"] button')).toHaveLength(0);
+});
+
+test("a later unfinished non-learn tab keeps the offer off earlier completed cards", () => {
+  const tabs = [progressWorkspace("old"), progressWorkspace("unfinished", "practice", false)];
+  const { container } = render(<PetAnchorProvider><WorkspaceView tabs={tabs} activeId="old" onActive={vi.fn()} makeCtx={progressCtx} offer={{ opts: ["Next", "Similar"], onPick: vi.fn() }} /></PetAnchorProvider>);
+  expect(container.querySelectorAll('[role="status"] button')).toHaveLength(0);
+});

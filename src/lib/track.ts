@@ -8,6 +8,7 @@ export type TrackEvents = {
   share_clicked: { scope: "workspace" | "session"; workspace_count: number };
   tab_switched: { from_phase: "learn" | "solve" | "practice"; to_phase: "learn" | "solve" | "practice" };
   history_opened: { sessions: number };
+  progress_opened: { place: "entry" | "page"; cards: number };
   history_session_viewed: { tabs: number; age_days: number };
   app_opened: { path: string; referrer_host?: string; viewport_w: number; viewport_h: number; restored: boolean };
   empty_state_shown: NoProps;

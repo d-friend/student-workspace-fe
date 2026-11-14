@@ -14,6 +14,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   currentSession: vi.fn().mockResolvedValue(null),
   createSession: vi.fn().mockResolvedValue({ sessionId: "s1" }),
   endSession: vi.fn().mockResolvedValue(undefined),
+  getProgress: vi.fn().mockResolvedValue({ items: [] }),
   turn: vi.fn(),
   check: vi.fn(),
 }));

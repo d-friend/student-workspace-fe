@@ -14,8 +14,12 @@ import { WorkspaceFrame } from "@/components/work/WorkspaceFrame";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useUnfold } from "@/hooks/useUnfold";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { useProgress } from "@/hooks/useProgress";
+import { resumeSession, type ProgressItem } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { frameDoc } from "@/lib/frame";
+import { progressCards } from "@/lib/progress";
+import { track } from "@/lib/track";
 import type { BlockCtx, Workspace } from "@/workspace/types";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
 import type { SelectionQuote } from "@/workspace/SelectionAsk";
@@ -31,6 +35,9 @@ export default function Page() {
 
 function Home() {
   const ws = useWorkspace();
+  const progress = useProgress();
+  const cards = useMemo(() => progressCards(progress.items), [progress.items]);
+  const progressTracked = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
   const entryInput = useRef<HTMLTextAreaElement>(null);
@@ -177,6 +184,21 @@ function Home() {
   const sentPhoto = sent?.kind === "student" && sent.photo ? JPEG_PREFIX + sent.photo : null;
   const unfoldRef = useRef<HTMLDivElement>(null);
 
+  // A restored workspace must not count the entry screen's initial, temporary render.
+  const latest = ws.ready && entry && !drawerOpen && !flying && !photoSrc ? cards[0] : undefined;
+  useEffect(() => {
+    if (!latest || progressTracked.current) return;
+    progressTracked.current = true;
+    track("progress_opened", { place: "entry", cards: cards.length });
+  }, [latest, cards.length]);
+
+  const openProgress = (item: ProgressItem) => {
+    const createdAt = Date.parse(item.created_at);
+    const ageDays = Number.isFinite(createdAt) ? Math.max(0, Math.floor((Date.now() - createdAt) / 86_400_000)) : 0;
+    track("history_session_viewed", { tabs: item.tabs, age_days: ageDays }, item.session_id);
+    resumeSession(item.session_id).then(() => window.location.reload(), () => {});
+  };
+
   // The fly card's start and end and the reveal's origin are measured, not taken from the design's one viewport.
   // Before paint: the entry is still laid out under the stage, and the skeleton has just mounted.
   useLayoutEffect(() => {
@@ -226,6 +248,7 @@ function Home() {
           inputRef={entryInput}
           onStarter={(s) => void ws.startStarter(s)}
           onRetry={ws.buildFailed ? () => void ws.rebuild() : undefined}
+          progress={latest ? { item: latest, onOpen: () => openProgress(latest) } : null}
           leaving={flying}
           photoCheck={
             photoSrc

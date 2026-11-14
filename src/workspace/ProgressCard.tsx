@@ -1,4 +1,5 @@
 import { IconArrowRight, IconBulb, IconCheck, IconRefresh } from "@tabler/icons-react";
+import type { ReactNode } from "react";
 import { useCopy } from "./WorkspaceCopy";
 import { MdInline } from "./md";
 import type { StageResult } from "./stageResults";
@@ -11,6 +12,15 @@ type Props = {
   rows?: StageResult[];
   offer?: { opts: string[]; onPick: (text: string) => void } | null;
 };
+
+export function StagePill({ result, children, className = "" }: { result: StageResult["result"]; children: ReactNode; className?: string }) {
+  return <span className={`${styles.pill} ${styles[result]} ${className}`}>
+    {result === "first" && <IconCheck size={14} aria-hidden="true" />}
+    {result === "hint" && <IconBulb size={14} aria-hidden="true" />}
+    {result === "fixed" && <IconRefresh size={14} aria-hidden="true" />}
+    {children}
+  </span>;
+}
 
 export function ProgressCard({ hints, takeaway, roadmap, rows = [], offer }: Props) {
   const copy = useCopy();
@@ -29,12 +39,9 @@ export function ProgressCard({ hints, takeaway, roadmap, rows = [], offer }: Pro
           <li key={row.stage} className={styles.row}>
             <div className={styles.line}>
               <span className={styles.stage}><MdInline text={names?.[row.stage] ?? ""} /></span>
-              <span className={`${styles.pill} ${styles[row.result]}`}>
-                {row.result === "first" && <IconCheck size={14} aria-hidden="true" />}
-                {row.result === "hint" && <IconBulb size={14} aria-hidden="true" />}
-                {row.result === "fixed" && <IconRefresh size={14} aria-hidden="true" />}
+              <StagePill result={row.result}>
                 {row.result === "first" ? copy.stageFirst : row.result === "hint" ? copy.stageHint(row.n ?? 0) : row.result === "fixed" ? copy.stageFixed(row.n ?? 0) : row.result === "todo" ? copy.stageTodo : copy.stageUnknown}
-              </span>
+              </StagePill>
             </div>
             {(row.result === "hint" || row.result === "fixed") && row.wrong && <p className={styles.reason}>“<MdInline text={row.wrong} />”</p>}
           </li>

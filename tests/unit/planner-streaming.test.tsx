@@ -15,6 +15,7 @@ vi.mock("@/lib/api", async (original) => ({
   ...(await original<typeof import("@/lib/api")>()),
   createGuest: vi.fn(), currentSession: vi.fn(), createSession: vi.fn(), endSession: vi.fn(),
   turn: vi.fn(), check: vi.fn(), putWorkspaceState: vi.fn(),
+  getProgress: vi.fn().mockResolvedValue({ items: [] }),
 }));
 vi.mock("@/lib/track", () => ({ track: vi.fn() }));
 
@@ -33,6 +34,7 @@ const DONE = { turnId: "t", stopReason: "end_turn" };
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(api.getProgress).mockResolvedValue({ items: [] });
   setLocale("vi");
   vi.mocked(api.createGuest).mockResolvedValue({ guestId: "g", created: true });
   vi.mocked(api.currentSession).mockResolvedValue(null);

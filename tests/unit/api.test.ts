@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { ApiError, check, hint, createSession, currentSession, endSession, openSharedWorkspace, openStarter, turn, turnStatus, TurnError, type TurnEvent } from "@/lib/api";
+import { ApiError, check, hint, createSession, currentSession, endSession, getProgress, openSharedWorkspace, openStarter, turn, turnStatus, TurnError, type TurnEvent } from "@/lib/api";
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
@@ -19,6 +19,27 @@ test("hint returns text only on 200 and never throws", async () => {
 });
 
 afterEach(() => vi.unstubAllGlobals());
+
+test("progress uses the default and supplied limits", async () => {
+  const fetchMock = vi.fn().mockImplementation(async () => json(200, { items: [] }));
+  vi.stubGlobal("fetch", fetchMock);
+  expect(await getProgress()).toEqual({ items: [] });
+  expect(fetchMock).toHaveBeenLastCalledWith("/api/progress?limit=30");
+  await getProgress(7);
+  expect(fetchMock).toHaveBeenLastCalledWith("/api/progress?limit=7");
+});
+
+test("progress uses guest recovery and exposes API errors to its caller", async () => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(json(401, { error: { code: "no_guest" } }))
+    .mockResolvedValueOnce(json(200, { guest_id: "g", created: true }))
+    .mockResolvedValueOnce(json(200, { items: [] }))
+    .mockResolvedValueOnce(json(503, { error: { code: "unavailable" } }));
+  vi.stubGlobal("fetch", fetchMock);
+  expect(await getProgress()).toEqual({ items: [] });
+  expect(fetchMock.mock.calls.map(([path]) => path)).toEqual(["/api/progress?limit=30", "/api/guest", "/api/progress?limit=30"]);
+  await expect(getProgress()).rejects.toMatchObject({ status: 503, code: "unavailable" });
+});
 
 test("opening a starter posts JSON, retries without a guest, and maps the session", async () => {
   const fetchMock = vi.fn()

@@ -4,6 +4,8 @@ import { IconArrowRight, IconRefresh } from "@tabler/icons-react";
 import { Composer, type ComposerProps } from "@/components/rail/Composer";
 import { PhotoCheck } from "@/components/work/PhotoCheck";
 import { copy } from "@/lib/copy";
+import type { ProgressItem } from "@/lib/api";
+import { ProgressCardCompact } from "@/workspace/ProgressCardCompact";
 import logoMark from "../../assets/logo-mark.png";
 import styles from "./Entry.module.css";
 
@@ -17,6 +19,7 @@ export function Entry({
   onStarter,
   onRetry,
   photoCheck,
+  progress,
   leaving = false,
 }: {
   composer: Omit<ComposerProps, "inputRef" | "entry">;
@@ -24,6 +27,7 @@ export function Entry({
   onStarter: (starter: Starter) => void;
   onRetry?: () => void; // set after a build failed with nothing to show
   photoCheck?: { src: string; onSend: () => void; onRetake: () => void } | null;
+  progress?: { item: ProgressItem; onOpen: () => void } | null;
   leaving?: boolean; // the unfold has started: everything fades out and the fly card takes the composer's place
 }) {
   const cards: { id: Starter; title: string; sub: string }[] = [
@@ -59,18 +63,24 @@ export function Entry({
                 {copy.retry}
               </button>
             )}
-            <p className={styles.label}>{copy.samplesLabel}</p>
-            <div className={styles.cards}>
-              {cards.map((c) => (
-                <button key={c.id} type="button" className={styles.card} onClick={() => onStarter(c.id)}>
-                  <span className={styles.cardText}>
-                    <span className={styles.cardTitle}>{c.title}</span>
-                    <span className={styles.cardSub}>{c.sub}</span>
-                  </span>
-                  <IconArrowRight size={20} aria-hidden="true" className={styles.arrow} />
-                </button>
-              ))}
-            </div>
+            {progress ? <>
+              <p className={styles.label}>{copy.progressLatest}</p>
+              {/* Step 3 adds the link to /progress here. */}
+              <ProgressCardCompact {...progress} />
+            </> : <>
+              <p className={styles.label}>{copy.samplesLabel}</p>
+              <div className={styles.cards}>
+                {cards.map((c) => (
+                  <button key={c.id} type="button" className={styles.card} onClick={() => onStarter(c.id)}>
+                    <span className={styles.cardText}>
+                      <span className={styles.cardTitle}>{c.title}</span>
+                      <span className={styles.cardSub}>{c.sub}</span>
+                    </span>
+                    <IconArrowRight size={20} aria-hidden="true" className={styles.arrow} />
+                  </button>
+                ))}
+              </div>
+            </>}
           </div>
         )}
       </div>

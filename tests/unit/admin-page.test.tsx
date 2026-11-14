@@ -12,16 +12,16 @@ vi.mock("@/lib/admin", () => ({
 }));
 
 vi.mock("@/app/admin/sections", () => ({
-  HealthSection: () => <div />,
-  CostSection: () => <div />,
-  LatencySection: () => <div />,
-  UsersSection: () => <div />,
-  FeaturesSection: () => <div />,
-  ThesisSection: () => <div />,
-  FeedbackSection: () => <div />,
-  GuestsSection: () => <div />,
-  SheetsSection: () => <div />,
-  GuestTimeline: () => <div />,
+  HealthSection: () => <div>HealthSection</div>,
+  CostSection: () => <div>CostSection</div>,
+  LatencySection: () => <div>LatencySection</div>,
+  UsersSection: () => <div>UsersSection</div>,
+  FeaturesSection: () => <div>FeaturesSection</div>,
+  ThesisSection: () => <div>ThesisSection</div>,
+  FeedbackSection: () => <div>FeedbackSection</div>,
+  GuestsSection: () => <div>GuestsSection</div>,
+  SheetsSection: () => <div>SheetsSection</div>,
+  GuestTimeline: () => <div>GuestTimeline</div>,
 }));
 
 vi.mock("@/app/admin/BusinessSection", () => ({ BusinessSection: () => <div /> }));
@@ -105,4 +105,17 @@ test("Sign out clears the token and shows the form", async () => {
 
   expect(mockedClearToken).toHaveBeenCalledOnce();
   expect(screen.getByRole("heading", { name: "Admin access" })).toBeTruthy();
+});
+
+test("Ops shows its operational sections without UsersSection", async () => {
+  mockedReadToken.mockReturnValue("good");
+  mockedAdminGet.mockResolvedValue({});
+  render(<AdminPage />);
+
+  fireEvent.click(await screen.findByRole("tab", { name: "Ops" }));
+
+  for (const section of ["HealthSection", "CostSection", "LatencySection", "FeaturesSection", "ThesisSection"]) {
+    expect(screen.getByText(section)).toBeTruthy();
+  }
+  expect(screen.queryByText("UsersSection")).toBeNull();
 });

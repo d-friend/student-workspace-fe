@@ -101,7 +101,7 @@ it("restores committed scaffold lines and saves the next answer with its verdict
   expect(screen.getByLabelText(copy.stateOk)).toBeTruthy();
   expect(context.saveBlock).not.toHaveBeenCalled();
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "C" })); });
-  expect(context.saveBlock).toHaveBeenCalledWith("s1", { type: "steps", entries: [...stepsState.entries, { text: "C", state: "ok", answer: "0", item: 1 }], done: false, free: false });
+  expect(context.saveBlock).toHaveBeenCalledWith("s1", { type: "steps", entries: [...stepsState.entries, { text: "C", state: "ok", answer: "0", item: 1, tries: 1, hint: 0 }], done: false, free: false });
 });
 
 it("completes a scaffolded proof without showing free input, even after an override", async () => {

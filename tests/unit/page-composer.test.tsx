@@ -1,8 +1,9 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
 import Page from "@/app/page";
 import * as api from "@/lib/api";
+import { track } from "@/lib/track";
 import { copy } from "@/lib/copy";
 import { fixtures } from "@/workspace/fixtures";
 
@@ -55,4 +56,29 @@ it.each([false, true])("hands the only composer to chat during unfold and back o
   fireEvent.keyDown(screen.getByRole("dialog", { name: copy.drawerLabel }), { key: "Escape" });
   expect(screen.getAllByLabelText(copy.inputLabel)).toHaveLength(1);
   expect(container.querySelector('[role="dialog"][data-leaving] textarea')).toBeNull();
+});
+
+it("the restored completion card answers the live offer with place card and loses its buttons", async () => {
+  vi.mocked(api.currentSession).mockResolvedValueOnce({
+    sessionId: "progress-session", html: null, activeId: "progress-work", sheet: null,
+    messages: [{ role: "assistant", content: "[offer] [opts: Học tiếp: Hệ phương trình | Bài tương tự] Xong rồi." }],
+    tabs: [{ id: "progress-work", phase: "solve", doc: {
+      version: 1, phase: "solve", title: "Bài toán", sources: [], blocks: [
+        { type: "problem", id: "p", md: "Tính vận tốc" },
+        { type: "steps", id: "s", problem_id: "p", input: "math", roadmap: "motion_current", scaffold: [
+          { kind: "choice", prompt: "Chọn ẩn", options: ["x", "y"], stage: 0 },
+        ] },
+      ],
+    }, state: { blocks: { s: { type: "steps", done: true, free: false, entries: [{ text: "x", item: 0, state: "ok", tries: 1, hint: 0 }] } } } }],
+  });
+  vi.mocked(api.turn).mockImplementationOnce(async (_s, _m, onDelta) => {
+    onDelta("Ok.");
+    return { turnId: "next-turn", stopReason: "end_turn" };
+  });
+  render(<Page />);
+  const card = (await screen.findByText(copy.doneLabel)).closest<HTMLElement>('[role="status"]')!;
+  expect(within(card).getByText(copy.stageFirst)).toBeTruthy();
+  fireEvent.click(within(card).getByRole("button", { name: "Học tiếp: Hệ phương trình" }));
+  await waitFor(() => expect(track).toHaveBeenCalledWith("next_topic_accepted", { place: "card" }, "progress-session"));
+  await waitFor(() => expect(within(card).queryByRole("button")).toBeNull());
 });

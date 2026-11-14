@@ -32,8 +32,8 @@ export type TrackEvents = {
   watching_cue_shown: NoProps;
   similar_offer_answered: { accepted: boolean };
   next_topic_offered: NoProps;
-  next_topic_accepted: NoProps;
-  similar_problem_accepted: NoProps;
+  next_topic_accepted: { place?: "chat" | "card" };
+  similar_problem_accepted: { place?: "chat" | "card" };
   new_problem_clicked: { turns_in_session: number };
   turn_failed: { status?: number; code: string };
   session_restored: { messages: number; has_workspace: boolean };

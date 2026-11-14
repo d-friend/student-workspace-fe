@@ -68,15 +68,8 @@
 .segOn { background: var(--accent); }
 .idea { min-height: 48px; padding: 0 16px; font: 600 15px/1.4 var(--font-sans); color: var(--brand); background: transparent; border: 0; border-radius: 10px; cursor: pointer; }
 
-.done { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 18px 22px; color: var(--accent-text); background: var(--accent); border-radius: 18px; animation: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-.doneMain { display: flex; align-items: center; gap: 12px; font: 800 34px/1.2 var(--font-display), var(--font-sans); }
-.doneMain b { font-weight: 800; }
-/* Muted by mixing the text token, not a literal grey, so it holds 4.5:1 in both themes. */
-.doneHints { margin: 0 0 0 auto; font: 400 14px/1.4 var(--font-sans); color: color-mix(in srgb, var(--accent-text) 75%, transparent); text-align: right; }
-@keyframes rise { from { opacity: 0; transform: translateY(18px); } }
-
 @media (prefers-reduced-motion: reduce) {
-  .line, .badge svg, .done { animation: none; }
+  .line, .badge svg { animation: none; }
   .btn:active, .primary:active, .hint:active, .idea:active { transform: none; }
 }
 
@@ -119,8 +112,5 @@
 .patchPrompt > span { display: inline-block; max-width: 100%; overflow-x: auto; vertical-align: middle; }
 .patchSpoken { align-self: stretch; min-width: 0; }
 .patchSpoken:empty { display: none; }
-
-.doneTakeaway { flex-basis: 100%; margin: 0; font: 500 16px/1.5 var(--font-sans); }
-.doneTopic { display: inline-block; margin-left: 8px; padding: 2px 8px; border: 1px solid currentColor; border-radius: 999px; font-size: 13px; }
 
 @media (pointer: fine) { .optionText { user-select: text; } }

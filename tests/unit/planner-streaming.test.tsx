@@ -216,7 +216,7 @@ it("replays a blank through the page, saves it and reports the exact original te
   await act(async () => { turn.emit(finalEvent(blank)); turn.finish(); });
   await waitFor(() => expect(api.check).toHaveBeenCalledTimes(1));
   expect(api.check).toHaveBeenCalledWith("session", { workspaceId: "w", blockId: "s", answer: "2", previous: [], item: 0 });
-  await waitFor(() => expect(api.putWorkspaceState).toHaveBeenCalledWith("w", expect.objectContaining({ blocks: { s: expect.objectContaining({ entries: [{ answer: "2", text: "$x = 2$", state: "ok", item: 0 }] }) } })));
+  await waitFor(() => expect(api.putWorkspaceState).toHaveBeenCalledWith("w", expect.objectContaining({ blocks: { s: expect.objectContaining({ entries: [{ answer: "2", text: "$x = 2$", state: "ok", item: 0, tries: 1, hint: 0 }] }) } })));
   // line_checked is flushed by the normal gesture/event timer alongside the state save.
   const message = vi.mocked(api.turn).mock.calls.slice(1).map((call) => String(call[1].content)).join("\n");
   expect(message).toContain('"type":"line_checked"');

@@ -145,6 +145,7 @@ function Home() {
           resetDisabled={ws.busy || ws.checking > 0}
           makeCtx={makeCtx}
           taskDone={ws.taskDone}
+          offer={ws.optChipKind === "offer" && ws.optChips ? { opts: ws.optChips, onPick: (t) => void ws.answerOpt(t, "card") } : null}
           brokenTabs={ws.brokenTabs}
           onRebuild={ws.rebuildTab}
           busy={ws.busy}

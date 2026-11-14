@@ -15,10 +15,9 @@ import { useDesktop } from "@/hooks/useDesktop";
 import { useUnfold } from "@/hooks/useUnfold";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useProgress } from "@/hooks/useProgress";
-import { resumeSession, type ProgressItem } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { frameDoc } from "@/lib/frame";
-import { progressCards } from "@/lib/progress";
+import { openProgressSession, progressCards } from "@/lib/progress";
 import { track } from "@/lib/track";
 import type { BlockCtx, Workspace } from "@/workspace/types";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
@@ -192,13 +191,6 @@ function Home() {
     track("progress_opened", { place: "entry", cards: cards.length });
   }, [latest, cards.length]);
 
-  const openProgress = (item: ProgressItem) => {
-    const createdAt = Date.parse(item.created_at);
-    const ageDays = Number.isFinite(createdAt) ? Math.max(0, Math.floor((Date.now() - createdAt) / 86_400_000)) : 0;
-    track("history_session_viewed", { tabs: item.tabs, age_days: ageDays }, item.session_id);
-    resumeSession(item.session_id).then(() => window.location.reload(), () => {});
-  };
-
   // The fly card's start and end and the reveal's origin are measured, not taken from the design's one viewport.
   // Before paint: the entry is still laid out under the stage, and the skeleton has just mounted.
   useLayoutEffect(() => {
@@ -248,7 +240,7 @@ function Home() {
           inputRef={entryInput}
           onStarter={(s) => void ws.startStarter(s)}
           onRetry={ws.buildFailed ? () => void ws.rebuild() : undefined}
-          progress={latest ? { item: latest, onOpen: () => openProgress(latest) } : null}
+          progress={latest ? { item: latest, onOpen: () => void openProgressSession(latest, "reload") } : null}
           leaving={flying}
           photoCheck={
             photoSrc
@@ -308,7 +300,7 @@ function Home() {
   return (
     <PetAnchorProvider>
       <Shell work={work} layer={layer} chatOpen={drawerOpen} inert={(drawerOpen || side.drawerOpen) && !desktop}
-        sidebar={<Sidebar side={side} busy={ws.busy} onNewProblem={ws.newProblem} refreshKey={`${ws.newProblemCount}|${ws.hasMessages}|${ws.phase}`} />}
+        sidebar={<Sidebar side={side} busy={ws.busy} onNewProblem={ws.newProblem} progress={cards.length > 0 ? {} : null} refreshKey={`${ws.newProblemCount}|${ws.hasMessages}|${ws.phase}`} />}
         side={desktop ? side.mode : undefined} />
       <input ref={fileInput} type="file" accept="image/*" hidden onChange={onFile} />
       <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={onFile} />

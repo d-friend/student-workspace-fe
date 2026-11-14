@@ -1,5 +1,6 @@
 import { type Ref } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { IconArrowRight, IconRefresh } from "@tabler/icons-react";
 import { Composer, type ComposerProps } from "@/components/rail/Composer";
 import { PhotoCheck } from "@/components/work/PhotoCheck";
@@ -64,9 +65,11 @@ export function Entry({
               </button>
             )}
             {progress ? <>
-              <p className={styles.label}>{copy.progressLatest}</p>
-              {/* Step 3 adds the link to /progress here. */}
-              <ProgressCardCompact {...progress} />
+              <div className={styles.progressHead}>
+                <p className={styles.label}>{copy.progressLatest}</p>
+                <Link className={styles.seeAll} href="/progress">{copy.progressSeeAll}</Link>
+              </div>
+              <ProgressCardCompact {...progress} variant="entry" />
             </> : <>
               <p className={styles.label}>{copy.samplesLabel}</p>
               <div className={styles.cards}>

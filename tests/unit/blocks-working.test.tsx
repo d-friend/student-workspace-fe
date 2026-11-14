@@ -759,12 +759,12 @@ test("takeaway and topic appear after completion and after restoration", async (
   const { unmount } = render(view({ solve: workspace }, "solve", c));
   type("a");
   submit();
-  expect(await screen.findByText(copy.takeaway("Use the time relation"))).toBeTruthy();
+  expect(await screen.findByText("Use the time relation")).toBeTruthy();
   expect(screen.getByText(copy.roadmapTitle.motion_current)).toBeTruthy();
   unmount();
   workspace.state = { blocks: { [block.id]: { type: "steps", entries: [{ text: "a", state: "ok" }], done: true, free: false, takeaway: "Use the time relation" } } };
   render(view({ solve: workspace }, "solve", ctxWith()));
-  expect(screen.getByText(copy.takeaway("Use the time relation"))).toBeTruthy();
+  expect(screen.getByText("Use the time relation")).toBeTruthy();
   expect(screen.getByText(copy.roadmapTitle.motion_current)).toBeTruthy();
 });
 

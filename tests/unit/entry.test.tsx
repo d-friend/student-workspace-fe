@@ -81,8 +81,8 @@ test("progress replaces both starters and keeps the retry action", () => {
   expect(screen.queryByText(copy.samplesLabel)).toBeNull();
   expect(screen.queryByText(copy.starter1)).toBeNull();
   expect(screen.queryByText(copy.starter2)).toBeNull();
-  expect(screen.queryByRole("link")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: /Bài vừa làm/ }));
+  expect(screen.getByRole("link", { name: copy.progressSeeAll }).getAttribute("href")).toBe("/progress");
+  fireEvent.click(screen.getByRole("button", { name: new RegExp(copy.roadmapTitle.generic) }));
   fireEvent.click(screen.getByRole("button", { name: copy.retry }));
   expect(onOpen).toHaveBeenCalledOnce();
   expect(onRetry).toHaveBeenCalledOnce();
@@ -92,7 +92,9 @@ test("null progress keeps both starters and a photo hides progress", () => {
   const { rerender } = render(setup({ progress: null }).ui);
   expect(screen.getByText(copy.starter1)).toBeTruthy();
   expect(screen.getByText(copy.starter2)).toBeTruthy();
+  expect(screen.queryByRole("link", { name: copy.progressSeeAll })).toBeNull();
   rerender(setup({ progress: { item: progressItem, onOpen: vi.fn() }, photoCheck: { src: "data:image/jpeg;base64,x", onSend: vi.fn(), onRetake: vi.fn() } }).ui);
   expect(screen.queryByText(copy.progressLatest)).toBeNull();
-  expect(screen.queryByRole("button", { name: /Bài vừa làm/ })).toBeNull();
+  expect(screen.queryByRole("link", { name: copy.progressSeeAll })).toBeNull();
+  expect(screen.queryByRole("button", { name: new RegExp(copy.roadmapTitle.generic) })).toBeNull();
 });

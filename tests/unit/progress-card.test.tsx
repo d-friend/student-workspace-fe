@@ -26,7 +26,8 @@ test.each(["vi", "en"] as const)("renders stages and all result labels in %s", (
   expect(container.querySelector(".katex")).toBeTruthy();
   expect(screen.getByText(/Cộng thời gian/)).toBeTruthy();
   expect(screen.queryByText(/hidden/)).toBeNull();
-  expect(screen.getByText(c.takeaway("Remember this"))).toBeTruthy();
+  expect(screen.getByText(c.takeawayLabel).tagName).toBe("B");
+  expect(screen.getByText("Remember this")).toBeTruthy();
   expect(screen.queryByText(c.doneHints(2))).toBeNull();
   expect(screen.queryByRole("button")).toBeNull();
 });
@@ -46,7 +47,8 @@ test("offer buttons keep the master's labels and order, and call onPick", () => 
 test("no rows keeps the takeaway and hint count, with optional offer buttons", () => {
   render(<ProgressCard hints={2} rows={[]} takeaway="Check the units" offer={{ opts: ["Next", "Similar"], onPick: vi.fn() }} />);
   expect(screen.getByText(copy.doneLabel)).toBeTruthy();
-  expect(screen.getByText(copy.takeaway("Check the units"))).toBeTruthy();
+  expect(screen.getByText(copy.takeawayLabel).tagName).toBe("B");
+  expect(screen.getByText("Check the units")).toBeTruthy();
   expect(screen.getByText(copy.doneHints(2))).toBeTruthy();
   expect(screen.queryByRole("list")).toBeNull();
   expect(screen.getAllByRole("button")).toHaveLength(2);

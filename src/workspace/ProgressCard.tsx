@@ -47,7 +47,7 @@ export function ProgressCard({ hints, takeaway, roadmap, rows = [], offer }: Pro
           </li>
         ))}
       </ul>}
-      {takeaway && <p className={styles.takeaway}><MdInline text={copy.takeaway(takeaway)} /></p>}
+      {takeaway && <p className={styles.takeaway}><b>{copy.takeawayLabel}</b>{" "}<MdInline text={takeaway} /></p>}
       {shown.length === 0 && hints > 0 && <p className={styles.hints}>{copy.doneHints(hints)}</p>}
       {!!offer?.opts.length && <div className={styles.buttons}>
         {offer.opts.map((text, i) => <button key={i} type="button" className={`${styles.button} ${i === 0 ? styles.primary : styles.secondary}`} onClick={() => offer.onPick(text)}>

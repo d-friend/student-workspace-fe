@@ -43,6 +43,7 @@ it("a failed progress fetch leaves starters usable without an error or impressio
   expect(screen.getByText(copy.starter1)).toBeTruthy();
   expect(screen.getByText(copy.starter2)).toBeTruthy();
   expect(screen.queryByText(copy.progressLatest)).toBeNull();
+  expect(screen.queryByRole("link", { name: copy.progressNav })).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
   expect(vi.mocked(track).mock.calls.filter(([event]) => event === "progress_opened")).toEqual([]);
 });
@@ -65,6 +66,8 @@ it("shows the newest eligible card, counts all cards once, and resumes before re
   ] });
   const { rerender } = render(<StrictMode><Page /></StrictMode>);
   expect(await screen.findByText(copy.progressLatest)).toBeTruthy();
+  // The phone drawer is closed in jsdom, so the link is in the tree but hidden.
+  expect(screen.getByRole("link", { name: copy.progressNav, hidden: true }).getAttribute("href")).toBe("/progress");
   expect(screen.queryByText(copy.starter1)).toBeNull();
   expect(screen.queryByText("Older practice")).toBeNull();
   fireEvent.change(screen.getByLabelText(copy.inputLabel), { target: { value: "Draft" } });
@@ -72,7 +75,7 @@ it("shows the newest eligible card, counts all cards once, and resumes before re
   expect(vi.mocked(track).mock.calls.filter(([event]) => event === "progress_opened")).toEqual([
     ["progress_opened", { place: "entry", cards: 2 }],
   ]);
-  fireEvent.click(screen.getByRole("button", { name: "Bài dòng nước Dừng ở: Lập vận tốc" }));
+  fireEvent.click(screen.getByRole("button", { name: copy.roadmapTitle.motion_current + " Dừng ở: Lập vận tốc" }));
   expect(track).toHaveBeenCalledWith("history_session_viewed", { tabs: 3, age_days: 3 }, "past-session");
   expect(api.resumeSession).toHaveBeenCalledExactlyOnceWith("past-session");
   expect(reload).not.toHaveBeenCalled();
@@ -149,10 +152,10 @@ it("a failed resume keeps the entry card without reloading or showing an error",
   vi.mocked(api.getProgress).mockResolvedValueOnce({ items: [progressItem] });
   vi.mocked(api.resumeSession).mockRejectedValueOnce(Error("offline"));
   render(<Page />);
-  const card = await screen.findByRole("button", { name: /Bài dòng nước/ });
+  const card = await screen.findByRole("button", { name: new RegExp(copy.roadmapTitle.motion_current) });
   await act(async () => { fireEvent.click(card); });
   expect(reload).not.toHaveBeenCalled();
-  expect(screen.getByRole("button", { name: /Bài dòng nước/ })).toBe(card);
+  expect(screen.getByRole("button", { name: new RegExp(copy.roadmapTitle.motion_current) })).toBe(card);
   expect(screen.queryByRole("alert")).toBeNull();
 });
 

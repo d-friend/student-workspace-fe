@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { adminGet, clearToken, readToken, saveToken } from "@/lib/admin";
 import { CostSection, FeaturesSection, FeedbackSection, GuestsSection, GuestTimeline, HealthSection, LatencySection, SheetsSection, ThesisSection, UsersSection } from "./sections";
+import { BusinessSection } from "./BusinessSection";
 import styles from "./admin.module.css";
 
 const DAYS = [
@@ -12,6 +13,7 @@ const DAYS = [
   [30, "30 days"],
   [90, "90 days"],
 ] as const;
+const TABS = ["Business", "Ops", "Tools"] as const;
 
 export default function AdminPage() {
   const [token, setToken] = useState<string | null>(null);
@@ -22,6 +24,7 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [openGuest, setOpenGuest] = useState<string | null>(null);
+  const [tab, setTab] = useState<(typeof TABS)[number]>("Business");
 
   const validate = async (candidate: string, selectedDays = days) => {
     setChecking(true);
@@ -110,15 +113,37 @@ export default function AdminPage() {
         </div>
       </header>
       <div className={styles.content} aria-label="Admin dashboard content">
+        <div className={styles.adminTabs} role="tablist" aria-label="Admin sections">
+          {TABS.map((item, index) => <button key={item} id={`admin-tab-${item}`} type="button" role="tab" aria-selected={tab === item} aria-controls={`admin-panel-${item}`} tabIndex={tab === item ? 0 : -1} onClick={() => setTab(item)} onKeyDown={(event) => {
+            let next = index;
+            if (event.key === "ArrowRight") next = (index + 1) % TABS.length;
+            else if (event.key === "ArrowLeft") next = (index + TABS.length - 1) % TABS.length;
+            else if (event.key === "Home") next = 0;
+            else if (event.key === "End") next = TABS.length - 1;
+            else return;
+            event.preventDefault();
+            setTab(TABS[next]);
+            document.getElementById(`admin-tab-${TABS[next]}`)?.focus();
+          }}>{item}</button>)}
+        </div>
+        <div role="tabpanel" id={`admin-panel-${tab}`} aria-labelledby={`admin-tab-${tab}`}>
+        {tab === "Business" && <BusinessSection token={token} days={days} onGuestOpen={setOpenGuest}>{openGuest && <GuestTimeline key={openGuest} token={token} guestId={openGuest} onGuestOpen={setOpenGuest} onClose={() => setOpenGuest(null)} />}</BusinessSection>}
+        {tab === "Ops" && <>
         <HealthSection token={token} days={days} />
         <CostSection token={token} days={days} />
         <LatencySection token={token} days={days} onGuestOpen={setOpenGuest} />
         <UsersSection token={token} days={days} />
         <FeaturesSection token={token} days={days} />
         <ThesisSection token={token} days={days} />
+        {openGuest && <GuestTimeline key={openGuest} token={token} guestId={openGuest} onGuestOpen={setOpenGuest} onClose={() => setOpenGuest(null)} />}
+        </>}
+        {tab === "Tools" && <>
         <SheetsSection token={token} />
         <FeedbackSection token={token} onGuestOpen={setOpenGuest} />
         {openGuest ? <GuestTimeline key={openGuest} token={token} guestId={openGuest} onGuestOpen={setOpenGuest} onClose={() => setOpenGuest(null)} /> : <GuestsSection token={token} onGuestOpen={setOpenGuest} />}
+        </>}
+        </div>
+        {TABS.filter(item => item !== tab).map(item => <div key={item} role="tabpanel" id={`admin-panel-${item}`} aria-labelledby={`admin-tab-${item}`} hidden />)}
       </div>
     </main>
   );

@@ -24,6 +24,8 @@ vi.mock("@/app/admin/sections", () => ({
   GuestTimeline: () => <div />,
 }));
 
+vi.mock("@/app/admin/BusinessSection", () => ({ BusinessSection: () => <div /> }));
+
 const mockedAdminGet = vi.mocked(adminGet);
 const mockedClearToken = vi.mocked(clearToken);
 const mockedReadToken = vi.mocked(readToken);

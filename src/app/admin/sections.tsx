@@ -9,7 +9,7 @@ import styles from "./admin.module.css";
 type Props = { token: string; days: number; onGuestOpen?: (guestId: string) => void };
 type Loadable<T> = { data: T | null; error: boolean };
 
-function useAdmin<T>(path: string, token: string, days: number): Loadable<T> {
+export function useAdmin<T>(path: string, token: string, days: number): Loadable<T> {
   const [state, setState] = useState<Loadable<T>>({ data: null, error: false });
   useEffect(() => {
     let current = true;
@@ -23,20 +23,20 @@ function useAdmin<T>(path: string, token: string, days: number): Loadable<T> {
   return state;
 }
 
-const money = (value: number | null) => value === null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: value < 1 ? 4 : 2, maximumFractionDigits: value < 1 ? 4 : 2 }).format(value);
+export const money = (value: number | null) => value === null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: value < 1 ? 4 : 2, maximumFractionDigits: value < 1 ? 4 : 2 }).format(value);
 // While no model has a price the backend's total is 0, and a headline "$0.0000" would read as free.
 const spend = (c: Cost, value: number | null) => (c.unpriced_models.length > 0 && c.total_usd === 0 ? "—" : money(value));
-const when = (iso: string) =>
+export const when = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
-const percent = (value: number | null) => value === null ? "—" : `${Math.round(value * 100)}%`;
+export const percent = (value: number | null) => value === null ? "—" : `${Math.round(value * 100)}%`;
 const ms = (value: number | null) => value === null ? "—" : `${Math.round(value)} ms`;
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return <section className={styles.section}><h2>{title}</h2>{children}</section>;
 }
-function Failure() { return <p className={styles.error} role="alert">Could not load this section.</p>; }
-function Empty() { return <p className={styles.empty}>No data yet.</p>; }
-function Metric({ label, value, detail }: { label: string; value: string | number; detail?: string }) {
+export function Failure() { return <p className={styles.error} role="alert">Could not load this section.</p>; }
+export function Empty() { return <p className={styles.empty}>No data yet.</p>; }
+export function Metric({ label, value, detail }: { label: string; value: string | number; detail?: string }) {
   return <div className={styles.metric}><span>{label}</span><strong>{value}</strong>{detail && <small>{detail}</small>}</div>;
 }
 function UsersCharts({ data, days }: { data: Users; days: number }) {

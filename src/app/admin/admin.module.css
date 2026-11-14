@@ -149,6 +149,11 @@
 
 /* ---- Sections ---- */
 .content { max-width: 1120px; margin: 0 auto; padding: 8px 16px 64px; }
+.adminTabs { display: flex; gap: 4px; margin: 16px 0; border-bottom: 1px solid var(--border); }
+.adminTabs button { padding: 10px 16px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); font: inherit; cursor: pointer; }
+.adminTabs button[aria-selected="true"] { border-bottom-color: var(--brand); color: var(--text); }
+.adminTabs button:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.personDetail { margin-top: 4px; color: var(--muted); font-size: 12px; }
 .section { min-width: 0; margin: 40px 0 0; }
 
 .section h2 {

@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import type { Business } from "@/lib/admin";
-import { Empty, Failure, Metric, Section, money, percent, useAdmin, when } from "./sections";
+import { Empty, Failure, Metric, Section, UsersSection, money, percent, useAdmin, when } from "./sections";
 import styles from "./admin.module.css";
 
 export function countPercent(count: number, total: number, rate: number | null = total ? count / total : null) {
@@ -36,6 +36,7 @@ export function BusinessSection({ token, days, onGuestOpen, children }: { token:
         <Metric label="$ per active person" value={money(current.usd_per_active)} detail={`prev ${money(previous.usd_per_active)}`} />
       </div>
     </>}</Section>
+    <UsersSection token={token} days={days} />
     <Section title="How often people come back">{!data ? state : !data.frequency.some(row => row.persons) ? <Empty /> : <div className={styles.bars}>{data.frequency.map(row => <div className={styles.barRow} key={row.bucket}><span>{row.bucket === "3-5" ? "3–5" : row.bucket}</span><div><i style={{ width: `${row.persons / Math.max(1, ...data.frequency.map(item => item.persons)) * 100}%` }} /></div><b>{row.persons}</b></div>)}</div>}</Section>
     <Section title="Weekly cohorts">{!data ? state : data.cohorts.length ? <div className={styles.tableWrap}><table><thead><tr><th>Week</th><th>n</th><th>+1</th><th>+2</th><th>+3</th><th>+4 weeks</th></tr></thead><tbody>{data.cohorts.map(row => <tr key={row.week}><td>{row.week}</td><td>{row.n}</td>{[0, 1, 2, 3].map(index => <td key={index}>{row.weeks[index] ?? "—"}</td>)}</tr>)}</tbody></table></div> : <Empty />}<p className={styles.note}>All time; ignores the date range.</p></Section>
     <Section title="People">

@@ -25,7 +25,7 @@ test("each stage name uses the live card's result pill, with short counts, witho
     const suffixes = ["", " · " + copy.stageHintShort(2), " · " + copy.stageFixedShort(2), " · " + copy.stageTodo, " · " + copy.stageUnknown];
     const pill = screen.getByText(copy.roadmaps.motion_current[stage] + suffixes[stage]);
     expect(pill.classList.contains(pills[result])).toBe(true);
-    expect(pill.querySelectorAll("svg")).toHaveLength(stage < 3 ? 1 : 0);
+    expect(pill.querySelectorAll("svg")).toHaveLength(stage === 1 || stage === 2 ? 1 : 0);
   });
   expect(screen.queryByText(/Do not show/)).toBeNull();
   expect(screen.queryByText(copy.stageHint(2))).toBeNull();
@@ -76,6 +76,8 @@ test("unfinished work shows stoppedAt and complete work has no footer", () => {
   expect(screen.getByRole("button", { name: "Chuyển động dòng nước" })).toBeTruthy();
   expect(screen.queryByText(/Dừng ở:|Tiếp theo:/)).toBeNull();
   expect(container.querySelector(`.${styles.done}`)).toBeTruthy();
+  rerender(<ProgressCardCompact variant="page" item={{ ...data, next: [], steps: { ...data.steps!, done: true } }} onOpen={vi.fn()} />);
+  expect(container.querySelector(`.${styles.done}`)).toBeNull();
 });
 
 test("accepted rows with no todo stage have no stopped footer even when done is false", () => {

@@ -20,13 +20,13 @@ export function ProgressCardCompact({ item, variant, onOpen }: { item: ProgressI
   return <button type="button" className={styles.card} onClick={onOpen} aria-labelledby={`${id}-title${footer ? ` ${id}-footer` : ""}`}>
     <span className={styles.header}>
       <span id={`${id}-title`} className={styles.title}>
-        {item.steps?.done && <IconCheck className={styles.done} size={18} aria-hidden="true" />}
+        {variant === "entry" && item.steps?.done && <IconCheck className={styles.done} size={18} aria-hidden="true" />}
         <span className={styles.titleText}><MdInline text={title} /></span>
       </span>
       <time className={styles.date} dateTime={item.created_at}>{progressDateLabel(item.created_at)}</time>
     </span>
     {rows.length > 0 && <span className={styles.pills}>
-      {rows.map(row => <StagePill key={row.stage} result={row.result} className={styles.mini}>
+      {rows.map(row => <StagePill key={row.stage} result={row.result} className={styles.mini} firstIcon={false}>
         {names?.[row.stage] ?? ""}{row.result !== "first" && ` · ${row.result === "hint" ? copy.stageHintShort(row.n ?? 0) : row.result === "fixed" ? copy.stageFixedShort(row.n ?? 0) : row.result === "todo" ? copy.stageTodo : copy.stageUnknown}`}
       </StagePill>)}
     </span>}

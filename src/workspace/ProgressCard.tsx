@@ -13,9 +13,9 @@ type Props = {
   offer?: { opts: string[]; onPick: (text: string) => void } | null;
 };
 
-export function StagePill({ result, children, className = "" }: { result: StageResult["result"]; children: ReactNode; className?: string }) {
+export function StagePill({ result, children, className = "", firstIcon = true }: { result: StageResult["result"]; children: ReactNode; className?: string; firstIcon?: boolean }) {
   return <span className={`${styles.pill} ${styles[result]} ${className}`}>
-    {result === "first" && <IconCheck size={14} aria-hidden="true" />}
+    {result === "first" && firstIcon && <IconCheck size={14} aria-hidden="true" />}
     {result === "hint" && <IconBulb size={14} aria-hidden="true" />}
     {result === "fixed" && <IconRefresh size={14} aria-hidden="true" />}
     {children}

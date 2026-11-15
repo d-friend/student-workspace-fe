@@ -131,6 +131,7 @@ describe("AccountMenu", () => {
     render(<AccountMenu />);
     await open();
     const button = screen.getByRole("button", { name: copy.authGoogle }) as HTMLButtonElement;
+    expect((screen.getByRole("checkbox", { name: copy.authUpdates }) as HTMLInputElement).checked).toBe(false);
     expect(button.disabled).toBe(true);
     fireEvent.change(screen.getByRole("spinbutton", { name: "Bạn bao nhiêu tuổi?" }), { target: { value: "16" } });
     expect(button.disabled).toBe(false);
@@ -138,6 +139,29 @@ describe("AccountMenu", () => {
     expect(assign).toHaveBeenCalledWith("/api/auth/google/start?age=16");
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.getByText(copy.authOptional)).toBeDefined();
+  });
+
+  it.each([
+    ["vi", "Gửi email cho mình khi D-Friend có tính năng mới"],
+    ["en", "Email me when D-Friend has new features"],
+  ] as const)("opts in to feature emails with the %s label", async (locale, label) => {
+    setLocale(locale);
+    methods = { google: true, email: false };
+    render(<AccountMenu />);
+    await open();
+    const updates = screen.getByRole("checkbox", { name: label }) as HTMLInputElement;
+    expect(updates.checked).toBe(false);
+    fireEvent.change(screen.getByRole("spinbutton", { name: copy.authAge }), { target: { value: "16" } });
+    const google = screen.getByRole("button", { name: copy.authGoogle }) as HTMLButtonElement;
+    expect(google.disabled).toBe(false);
+    fireEvent.click(google);
+    expect(assign).toHaveBeenLastCalledWith("/api/auth/google/start?age=16");
+    fireEvent.click(updates);
+    fireEvent.click(google);
+    expect(assign).toHaveBeenLastCalledWith("/api/auth/google/start?age=16&updates=1");
+    fireEvent.click(updates);
+    fireEvent.click(google);
+    expect(assign).toHaveBeenLastCalledWith("/api/auth/google/start?age=16");
   });
 
   it("starts email login, verifies the code, and reloads", async () => {
@@ -268,26 +292,32 @@ it("requires both minor consents and sends age and consent to Google start", asy
   await open();
   const age = screen.getByRole("spinbutton", { name: "Bạn bao nhiêu tuổi?" });
   const button = screen.getByRole("button", { name: copy.authGoogle }) as HTMLButtonElement;
-  expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+  expect(screen.queryAllByRole("checkbox")).toHaveLength(1);
   expect(button.disabled).toBe(true);
   fireEvent.click(button);
   expect(assign).not.toHaveBeenCalled();
   fireEvent.change(age, { target: { value: "15" } });
-  const boxes = screen.getAllByRole("checkbox");
-  expect(boxes).toHaveLength(2);
+  const parent = screen.getByRole("checkbox", { name: copy.authParentConsent });
+  const read = screen.getByRole("checkbox", { name: /Em đã đọc/ });
+  const updates = screen.getByRole("checkbox", { name: copy.authUpdates });
+  expect(screen.getAllByRole("checkbox")).toHaveLength(3);
   expect(button.disabled).toBe(true);
   expect(screen.getByRole("link", { name: copy.authTerms }).getAttribute("href")).toBe(`${copy.authLegalBase}/terms`);
   expect(screen.getByRole("link", { name: copy.authPrivacy }).getAttribute("href")).toBe(`${copy.authLegalBase}/privacy`);
-  fireEvent.click(boxes[0]);
+  fireEvent.click(parent);
   expect(button.disabled).toBe(true);
-  fireEvent.click(boxes[1]);
+  fireEvent.click(read);
   expect(button.disabled).toBe(false);
   fireEvent.click(button);
   expect(assign).toHaveBeenLastCalledWith("/api/auth/google/start?age=15&consent=1");
-  fireEvent.click(boxes[0]);
+  fireEvent.click(updates);
+  fireEvent.click(button);
+  expect(assign).toHaveBeenLastCalledWith("/api/auth/google/start?age=15&consent=1&updates=1");
+  fireEvent.click(updates);
+  fireEvent.click(parent);
   expect(button.disabled).toBe(true);
   fireEvent.change(age, { target: { value: "16" } });
-  expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+  expect(screen.queryAllByRole("checkbox")).toHaveLength(1);
   expect(button.disabled).toBe(false);
   fireEvent.click(button);
   expect(assign).toHaveBeenLastCalledWith("/api/auth/google/start?age=16");

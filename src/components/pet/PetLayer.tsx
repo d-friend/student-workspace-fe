@@ -179,6 +179,28 @@ export function PetLayer({
 
   // Picking a photo on the entry is something to be glad about.
   const hasPhoto = Boolean(composer.photo);
+  // Shell scrolls its main, while this layer stays over the stage. Keep the CSS entry geometry
+  // in step with that scroll; removing the offset hands positioning back to the dock/flight.
+  useLayoutEffect(() => {
+    const layer = layerRef.current;
+    const main = entryInputRef.current?.closest("main");
+    if (!entry || hasPhoto || !layer || !main) return;
+    let raf = 0;
+    const park = () => {
+      raf = 0;
+      layer.style.setProperty("--entry-scroll-y", `${main.scrollTop}px`);
+    };
+    const schedule = () => { raf ||= requestAnimationFrame(park); };
+    park();
+    main.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      main.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      cancelAnimationFrame(raf);
+      layer.style.removeProperty("--entry-scroll-y");
+    };
+  }, [entry, hasPhoto, entryInputRef]);
   const hadPhoto = useRef(hasPhoto);
   useEffect(() => {
     if (entry && hasPhoto && !hadPhoto.current) celebrate();

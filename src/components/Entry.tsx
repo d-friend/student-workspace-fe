@@ -105,7 +105,7 @@ function NextStep({ item, onOpen }: { item: ProgressItem; onOpen: () => void }) 
       <h2>{copy.entryNext}</h2>
       <Link className={styles.seeAll} href="/progress">{copy.progressSeeAll}</Link>
     </div>
-    <button type="button" className={styles.nextBody} onClick={onOpen}>
+    <div className={styles.nextBody}>
       {next && <span className={styles.nextTitle}><MdInline text={item.title} /></span>}
       <span className={styles.nextMain}>
         {!next && !continuing && <IconCheck size={22} className={styles.done} aria-hidden="true" />}
@@ -113,8 +113,10 @@ function NextStep({ item, onOpen }: { item: ProgressItem; onOpen: () => void }) 
       </span>
       {stopped && <span className={styles.nextTitle}>{copy.progressStopped}{stopped}</span>}
       <time className={styles.nextDate} dateTime={item.created_at}>{progressDateLabel(item.created_at)}</time>
-      {(next || continuing) && <IconArrowRight size={22} aria-hidden="true" />}
-    </button>
+    </div>
+    <div className={`${styles.actions} ${styles.nextActions}`}>
+      <button type="button" className={styles.primary} onClick={onOpen}>{copy.entryResume}<IconArrowRight size={18} aria-hidden="true" /></button>
+    </div>
   </section>;
 }
 
@@ -161,7 +163,7 @@ function Surprise({ onOpen }: { onOpen: (id?: string) => void }) {
         <h3><MdInline text={state.card!.title} /></h3>
         <p title={state.card!.teaser}>{state.card!.teaser}</p>
       </div>
-      <div className={styles.surpriseActions}>
+      <div className={`${styles.actions} ${styles.surpriseActions}`}>
         <button type="button" onClick={() => void shuffle()}><IconArrowsShuffle size={18} aria-hidden="true" />{copy.surpriseShuffle}</button>
         <button type="button" className={styles.primary} onClick={() => onOpen(state.card!.id)}>{copy.surpriseExplore}<IconArrowRight size={18} aria-hidden="true" /></button>
       </div>

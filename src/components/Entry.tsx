@@ -18,6 +18,7 @@ export function Entry({
   composer,
   inputRef,
   onStarter,
+  onSurprise,
   onRetry,
   photoCheck,
   progress,
@@ -26,6 +27,7 @@ export function Entry({
   composer: Omit<ComposerProps, "inputRef" | "entry">;
   inputRef?: Ref<HTMLTextAreaElement>;
   onStarter: (starter: Starter) => void;
+  onSurprise: () => void;
   onRetry?: () => void; // set after a build failed with nothing to show
   photoCheck?: { src: string; onSend: () => void; onRetake: () => void } | null;
   progress?: { item: ProgressItem; onOpen: () => void } | null;
@@ -84,6 +86,7 @@ export function Entry({
                 ))}
               </div>
             </>}
+            <button type="button" className={styles.surprise} onClick={onSurprise}>{copy.surprise}</button>
           </div>
         )}
       </div>

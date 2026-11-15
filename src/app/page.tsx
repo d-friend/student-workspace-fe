@@ -91,6 +91,7 @@ function Home() {
   const photoSrc = ws.photo === null ? null : JPEG_PREFIX + ws.photo;
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [offerOnCard, setOfferOnCard] = useState(false);
   // The quote belongs to the session it was picked in: "Bài mới" bumps newProblemCount, which drops it.
   const [picked, setPicked] = useState<{ quote: SelectionQuote; session: number } | null>(null);
   const quote = picked && picked.session === ws.newProblemCount ? picked.quote : null;
@@ -151,6 +152,7 @@ function Home() {
           resetDisabled={ws.busy || ws.checking > 0}
           makeCtx={makeCtx}
           taskDone={ws.taskDone}
+          onOfferShown={setOfferOnCard}
           offer={ws.optChipKind === "offer" && ws.optChips ? { opts: ws.optChips, onPick: (t) => void ws.answerOpt(t, "card") } : null}
           brokenTabs={ws.brokenTabs}
           onRebuild={ws.rebuildTab}
@@ -239,6 +241,7 @@ function Home() {
           composer={composer}
           inputRef={entryInput}
           onStarter={(s) => void ws.startStarter(s)}
+          onSurprise={() => void ws.startSurprise()}
           onRetry={ws.buildFailed ? () => void ws.rebuild() : undefined}
           progress={latest ? { item: latest, onOpen: () => void openProgressSession(latest, "reload") } : null}
           leaving={flying}
@@ -280,6 +283,7 @@ function Home() {
   const layer = (
     <PetLayer
       state={ws}
+      offerOnCard={offerOnCard}
       inputRef={ws.inputRef}
       entry={entry}
       flying={flying}

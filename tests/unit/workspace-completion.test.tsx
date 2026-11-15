@@ -197,3 +197,27 @@ test("a later unfinished non-learn tab keeps the offer off earlier completed car
   const { container } = render(<PetAnchorProvider><WorkspaceView tabs={tabs} activeId="old" onActive={vi.fn()} makeCtx={progressCtx} offer={{ opts: ["Next", "Similar"], onPick: vi.fn() }} /></PetAnchorProvider>);
   expect(container.querySelectorAll('[role="status"] button')).toHaveLength(0);
 });
+
+test("offer visibility follows the active, completed last working tab", () => {
+  const onOfferShown = vi.fn();
+  const offer = { opts: ["Next", "Similar"], onPick: vi.fn() };
+  const old = progressWorkspace("old");
+  const last = progressWorkspace("last", "practice");
+  const learn = progressWorkspace("learn", "learn");
+  const view = (activeId: string, tabs = [old, last, learn], offered: typeof offer | null = offer) =>
+    <PetAnchorProvider><WorkspaceView tabs={tabs} activeId={activeId} onActive={vi.fn()} makeCtx={progressCtx} offer={offered} onOfferShown={onOfferShown} /></PetAnchorProvider>;
+  const { rerender, unmount } = render(view("last"));
+  expect(onOfferShown).toHaveBeenLastCalledWith(true);
+  rerender(view("learn"));
+  expect(onOfferShown).toHaveBeenLastCalledWith(false);
+  rerender(view("old"));
+  expect(onOfferShown).toHaveBeenLastCalledWith(false);
+  rerender(view("unfinished", [old, progressWorkspace("unfinished", "practice", false), learn]));
+  expect(onOfferShown).toHaveBeenLastCalledWith(false);
+  rerender(view("last", [old, last, learn], null));
+  expect(onOfferShown).toHaveBeenLastCalledWith(false);
+  rerender(view("last"));
+  expect(onOfferShown).toHaveBeenLastCalledWith(true);
+  unmount();
+  expect(onOfferShown).toHaveBeenLastCalledWith(false);
+});

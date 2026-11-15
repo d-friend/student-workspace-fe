@@ -17,6 +17,7 @@ function setup(extra: Partial<Parameters<typeof Entry>[0]> = {}) {
       photo: null,
     },
     onStarter: vi.fn(),
+    onSurprise: vi.fn(),
     ...extra,
   };
   return { props, ui: <Entry {...props} /> };
@@ -97,4 +98,13 @@ test("null progress keeps both starters and a photo hides progress", () => {
   expect(screen.queryByText(copy.progressLatest)).toBeNull();
   expect(screen.queryByRole("link", { name: copy.progressSeeAll })).toBeNull();
   expect(screen.queryByRole("button", { name: new RegExp(copy.roadmapTitle.generic) })).toBeNull();
+});
+
+test.each([false, true])("surprise is available with progress=%s", (hasProgress) => {
+  const onSurprise = vi.fn();
+  render(setup({ onSurprise, progress: hasProgress ? { item: progressItem, onOpen: vi.fn() } : null }).ui);
+  const button = screen.getByRole("button", { name: copy.surprise });
+  expect(button.parentElement?.closest("button")).toBeNull();
+  fireEvent.click(button);
+  expect(onSurprise).toHaveBeenCalledOnce();
 });

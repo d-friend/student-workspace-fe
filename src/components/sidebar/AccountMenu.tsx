@@ -22,7 +22,6 @@ export function AccountMenu({ rail = false, onStatus }: { rail?: boolean; onStat
   const [age, setAge] = useState("");
   const [parent, setParent] = useState(false);
   const [read, setRead] = useState(false);
-  const [updates, setUpdates] = useState(false);
   const [error, setError] = useState<AuthError | null>(null);
   const loginResult = useRef<string | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -125,7 +124,7 @@ export function AccountMenu({ rail = false, onStatus }: { rail?: boolean; onStat
   const ageOk = years >= 6 && years <= 99;
   const minor = ageOk && years < 16;
   const googleReady = ageOk && (!minor || (parent && read));
-  const startGoogle = () => window.location.assign(`/api/auth/google/start?age=${years}${minor ? "&consent=1" : ""}${updates ? "&updates=1" : ""}`);
+  const startGoogle = () => window.location.assign(`/api/auth/google/start?age=${years}${minor ? "&consent=1" : ""}`);
   const legalLinks = (
     <>
       <a href={`${copy.authLegalBase}/terms`}>{copy.authTerms}</a>{" "}
@@ -173,14 +172,6 @@ export function AccountMenu({ rail = false, onStatus }: { rail?: boolean; onStat
                 </div>
               ) : (
                 <p className={styles.legal}>{copy.authAgreement} {legalLinks}</p>
-              )}
-              {methods.google && (
-                <div className={styles.legal}>
-                  <label className={styles.updates}>
-                    <input type="checkbox" checked={updates} onChange={(e) => setUpdates(e.target.checked)} />
-                    <span>{copy.authUpdates}</span>
-                  </label>
-                </div>
               )}
               {methods.demo && (
                 <button type="button" aria-expanded={demo} onClick={() => setDemo(!demo)}>{copy.authDemo}</button>

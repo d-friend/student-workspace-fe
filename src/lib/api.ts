@@ -318,7 +318,7 @@ export async function turn(
 }
 
 export type AuthMethods = { google: boolean; email: boolean; demo?: boolean };
-export type Me = { signed_in: false; profile_needed: boolean } | { signed_in: true; email: string; name: string | null; profile_needed: boolean };
+export type Me = ({ signed_in: false; profile_needed: boolean } | { signed_in: true; email: string; name: string | null; profile_needed: boolean }) & { feature_emails?: boolean; ask_feature_emails?: boolean };
 
 export type Profile = { nickname: string; province: string; grade: number; school: string };
 
@@ -328,6 +328,11 @@ export async function saveProfile(profile: Profile): Promise<void> {
     const error = await toApiError(res);
     throw new ApiError(error.status, error.code, "Profile could not be saved", error.retryAfterS, error.fields);
   }
+}
+
+export async function setFeatureEmails(on: boolean): Promise<void> {
+  const res = await fetch("/api/me/feature-emails", { method: "PUT", headers: JSON_HEADERS, body: JSON.stringify({ on }) });
+  if (!res.ok) throw await toApiError(res);
 }
 
 export async function skipProfile(): Promise<void> {

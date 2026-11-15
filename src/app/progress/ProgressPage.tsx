@@ -78,7 +78,7 @@ function ProgressContent() {
       </div> : <>
         {groups.map(([title, items], index) => <section key={title} aria-labelledby={`${id}-group-${index}`}>
           <h2 id={`${id}-group-${index}`} className={styles.group}>{title}</h2>
-          <div className={styles.grid}>
+          <div className={styles.list}>
             {items.map(item => <ProgressCardCompact key={item.workspace_id} item={item} variant="page" onOpen={() => void openProgressSession(item, "/")} />)}
           </div>
         </section>)}

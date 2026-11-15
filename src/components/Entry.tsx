@@ -1,12 +1,13 @@
-import { type Ref } from "react";
+import { type Ref, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { IconArrowRight, IconRefresh } from "@tabler/icons-react";
+import { IconArrowRight, IconArrowsShuffle, IconCheck, IconRefresh } from "@tabler/icons-react";
 import { Composer, type ComposerProps } from "@/components/rail/Composer";
 import { PhotoCheck } from "@/components/work/PhotoCheck";
 import { copy } from "@/lib/copy";
-import type { ProgressItem } from "@/lib/api";
-import { ProgressCardCompact } from "@/workspace/ProgressCardCompact";
+import { getSurpriseCard, type ProgressItem, type SurpriseCard } from "@/lib/api";
+import { progressDateLabel, stoppedAt } from "@/lib/progress";
+import { MdInline } from "@/workspace/md";
 import logoMark from "../../assets/logo-mark.png";
 import styles from "./Entry.module.css";
 
@@ -27,7 +28,7 @@ export function Entry({
   composer: Omit<ComposerProps, "inputRef" | "entry">;
   inputRef?: Ref<HTMLTextAreaElement>;
   onStarter: (starter: Starter) => void;
-  onSurprise: () => void;
+  onSurprise: (id?: string) => void;
   onRetry?: () => void; // set after a build failed with nothing to show
   photoCheck?: { src: string; onSend: () => void; onRetake: () => void } | null;
   progress?: { item: ProgressItem; onOpen: () => void } | null;
@@ -66,13 +67,7 @@ export function Entry({
                 {copy.retry}
               </button>
             )}
-            {progress ? <>
-              <div className={styles.progressHead}>
-                <p className={styles.label}>{copy.progressLatest}</p>
-                <Link className={styles.seeAll} href="/progress">{copy.progressSeeAll}</Link>
-              </div>
-              <ProgressCardCompact {...progress} variant="entry" />
-            </> : <>
+            {!progress && <>
               <p className={styles.label}>{copy.samplesLabel}</p>
               <div className={styles.cards}>
                 {cards.map((c) => (
@@ -86,11 +81,91 @@ export function Entry({
                 ))}
               </div>
             </>}
-            <button type="button" className={styles.surprise} onClick={onSurprise}>{copy.surprise}</button>
+            <div className={styles.blocks} data-progress={progress ? "" : undefined}>
+              {progress && <NextStep {...progress} />}
+              <Surprise onOpen={onSurprise} />
+            </div>
           </div>
         )}
       </div>
       <p className={styles.foot}>{copy.entryFoot}</p>
     </section>
   );
+}
+
+function NextStep({ item, onOpen }: { item: ProgressItem; onOpen: () => void }) {
+  const next = item.next?.[0];
+  const continuing = !next && item.steps && !item.steps.done;
+  const stopped = continuing ? stoppedAt(item) : null;
+  // Some existing next labels already include "Học tiếp:". Keep their wording once.
+  const main = next ? (/^(học tiếp|learn next|next)\s*:/i.test(next) ? next : copy.entryLearn + next)
+    : continuing ? copy.entryContinue + item.title : item.title;
+  return <section className={styles.block} aria-label={copy.entryNext}>
+    <div className={styles.blockHead}>
+      <h2>{copy.entryNext}</h2>
+      <Link className={styles.seeAll} href="/progress">{copy.progressSeeAll}</Link>
+    </div>
+    <button type="button" className={styles.nextBody} onClick={onOpen}>
+      {next && <span className={styles.nextTitle}><MdInline text={item.title} /></span>}
+      <span className={styles.nextMain}>
+        {!next && !continuing && <IconCheck size={22} className={styles.done} aria-hidden="true" />}
+        <span><MdInline text={main} /></span>
+      </span>
+      {stopped && <span className={styles.nextTitle}>{copy.progressStopped}{stopped}</span>}
+      <time className={styles.nextDate} dateTime={item.created_at}>{progressDateLabel(item.created_at)}</time>
+      {(next || continuing) && <IconArrowRight size={22} aria-hidden="true" />}
+    </button>
+  </section>;
+}
+
+function Surprise({ onOpen }: { onOpen: (id?: string) => void }) {
+  const [state, setState] = useState<{ card: SurpriseCard | null; loading: boolean }>({ card: null, loading: true });
+  const request = useRef<Promise<SurpriseCard> | null>(null);
+  const inFlight = useRef(false);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    // Retain the first request across StrictMode's effect replay.
+    request.current ??= getSurpriseCard();
+    void request.current.then(card => {
+      if (mounted.current) setState({ card, loading: false });
+    }, () => {
+      if (mounted.current) setState({ card: null, loading: false });
+    });
+    return () => { mounted.current = false; };
+  }, []);
+  const shuffle = async () => {
+    if (inFlight.current || state.loading) return;
+    inFlight.current = true;
+    setState(current => ({ ...current, loading: true }));
+    try {
+      const card = await getSurpriseCard(state.card?.id);
+      if (mounted.current) setState({ card, loading: false });
+    } catch {
+      if (mounted.current) setState({ card: null, loading: false });
+    } finally {
+      inFlight.current = false;
+    }
+  };
+  if (!state.loading && !state.card) return <button type="button" className={styles.surprise} onClick={() => onOpen()}>{copy.surprise}</button>;
+  return <section className={styles.block} aria-label={copy.surpriseHeading} aria-busy={state.loading}>
+    <div className={styles.blockHead}>
+      <h2><IconArrowsShuffle size={20} aria-hidden="true" />{copy.surpriseHeading}</h2>
+      {!state.loading && <span className={styles.tag}>{state.card?.tag}</span>}
+    </div>
+    {state.loading ? <div className={styles.skeleton} role="status" aria-label={copy.surpriseLoading}>
+      <span /><span /><span />
+    </div> : <>
+      <div className={styles.lesson}>
+        <span className={styles.emoji} aria-hidden="true">{state.card!.emoji}</span>
+        <h3><MdInline text={state.card!.title} /></h3>
+        <p title={state.card!.teaser}>{state.card!.teaser}</p>
+      </div>
+      <div className={styles.surpriseActions}>
+        <button type="button" onClick={() => void shuffle()}><IconArrowsShuffle size={18} aria-hidden="true" />{copy.surpriseShuffle}</button>
+        <button type="button" className={styles.primary} onClick={() => onOpen(state.card!.id)}>{copy.surpriseExplore}<IconArrowRight size={18} aria-hidden="true" /></button>
+      </div>
+    </>}
+    <p className={styles.surpriseFoot}>{copy.surpriseFoot}</p>
+  </section>;
 }

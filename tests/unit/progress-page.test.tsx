@@ -87,7 +87,7 @@ test.each(["vi", "en"] as const)("learn rows show raw first-try counts, titles a
   render(<Page />);
   const section = await screen.findByRole("region", { name: copy.progressLearned });
   expect(within(section).getAllByRole("button")).toHaveLength(2);
-  expect(within(section).getByRole("button", { name: `Lesson first ${copy.progressQuizCount(3, 4)} 2/10` })).toBeTruthy();
+  expect(within(section).getByRole("button", { name: `Lesson first ${copy.progressQuizCount(3, 4)} ${locale === "vi" ? "2 thg 10" : "Oct 2"}` })).toBeTruthy();
   expect(within(section).getByText(copy.progressQuizCount(2, 3))).toBeTruthy();
   expect(screen.getAllByRole("region")).toHaveLength(1);
   expect(screen.queryByText(copy.progressEmpty)).toBeNull();

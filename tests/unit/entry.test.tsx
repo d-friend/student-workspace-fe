@@ -1,10 +1,21 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { Entry } from "@/components/Entry";
 import { copy } from "@/lib/copy";
-import type { ProgressItem } from "@/lib/api";
+import { ApiError, getSurpriseCard, type ProgressItem } from "@/lib/api";
+import { setLocale } from "@/lib/copy";
+import { stoppedAt } from "@/lib/progress";
 
-afterEach(cleanup);
+vi.mock("@/lib/api", async original => ({
+  ...await original<typeof import("@/lib/api")>(), getSurpriseCard: vi.fn(),
+}));
+const surprise = { id: "lesson-1", title: "Vì sao trời xanh?", emoji: "🌤️", teaser: "Tự thử với ánh sáng.", tag: "Bí ẩn đời thường" };
+beforeEach(() => {
+  setLocale("vi");
+  vi.mocked(getSurpriseCard).mockReset().mockResolvedValue(surprise);
+});
+
+afterEach(() => { cleanup(); setLocale("vi"); });
 
 function setup(extra: Partial<Parameters<typeof Entry>[0]> = {}) {
   const props = {
@@ -78,12 +89,12 @@ const progressItem: ProgressItem = {
 test("progress replaces both starters and keeps the retry action", () => {
   const onOpen = vi.fn(); const onRetry = vi.fn();
   render(setup({ progress: { item: progressItem, onOpen }, onRetry }).ui);
-  expect(screen.getByText(copy.progressLatest)).toBeTruthy();
+  expect(screen.getByRole("heading", { name: copy.entryNext })).toBeTruthy();
   expect(screen.queryByText(copy.samplesLabel)).toBeNull();
   expect(screen.queryByText(copy.starter1)).toBeNull();
   expect(screen.queryByText(copy.starter2)).toBeNull();
   expect(screen.getByRole("link", { name: copy.progressSeeAll }).getAttribute("href")).toBe("/progress");
-  fireEvent.click(screen.getByRole("button", { name: new RegExp(copy.roadmapTitle.generic) }));
+  fireEvent.click(screen.getByRole("button", { name: new RegExp(progressItem.title) }));
   fireEvent.click(screen.getByRole("button", { name: copy.retry }));
   expect(onOpen).toHaveBeenCalledOnce();
   expect(onRetry).toHaveBeenCalledOnce();
@@ -97,14 +108,73 @@ test("null progress keeps both starters and a photo hides progress", () => {
   rerender(setup({ progress: { item: progressItem, onOpen: vi.fn() }, photoCheck: { src: "data:image/jpeg;base64,x", onSend: vi.fn(), onRetake: vi.fn() } }).ui);
   expect(screen.queryByText(copy.progressLatest)).toBeNull();
   expect(screen.queryByRole("link", { name: copy.progressSeeAll })).toBeNull();
-  expect(screen.queryByRole("button", { name: new RegExp(copy.roadmapTitle.generic) })).toBeNull();
+  expect(screen.queryByRole("button", { name: new RegExp(progressItem.title) })).toBeNull();
 });
 
-test.each([false, true])("surprise is available with progress=%s", (hasProgress) => {
+test.each([false, true])("surprise preview is available with progress=%s", async (hasProgress) => {
   const onSurprise = vi.fn();
   render(setup({ onSurprise, progress: hasProgress ? { item: progressItem, onOpen: vi.fn() } : null }).ui);
-  const button = screen.getByRole("button", { name: copy.surprise });
-  expect(button.parentElement?.closest("button")).toBeNull();
-  fireEvent.click(button);
-  expect(onSurprise).toHaveBeenCalledOnce();
+  expect(await screen.findByText(surprise.title)).toBeTruthy();
+  expect(screen.getByText(surprise.tag)).toBeTruthy();
+  expect(screen.getByText(surprise.teaser)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: copy.surpriseExplore }));
+  expect(onSurprise).toHaveBeenCalledExactlyOnceWith(surprise.id);
+});
+
+test.each(["vi", "en"] as const)("next-step variants in %s", locale => {
+  setLocale(locale);
+  const onOpen = vi.fn();
+  const next = "Căn bậc hai";
+  const { rerender, container } = render(setup({ progress: { item: { ...progressItem, next: [next, "Ignored"] }, onOpen } }).ui);
+  expect(screen.getByText(progressItem.title)).toBeTruthy();
+  const body = screen.getByRole("button", { name: new RegExp(copy.entryLearn + next) });
+  expect(body.querySelector("a")).toBeNull();
+  fireEvent.click(body);
+  expect(onOpen).toHaveBeenCalledOnce();
+  expect(screen.queryByText("Ignored")).toBeNull();
+  rerender(setup({ progress: { item: progressItem, onOpen } }).ui);
+  expect(screen.getByText(copy.entryContinue + progressItem.title)).toBeTruthy();
+  expect(screen.getByText(copy.progressStopped + stoppedAt(progressItem))).toBeTruthy();
+  rerender(setup({ progress: { item: { ...progressItem, steps: { ...progressItem.steps!, done: true } }, onOpen } }).ui);
+  expect(screen.getByRole("button", { name: new RegExp(progressItem.title) }).querySelector("svg")).toBeTruthy();
+  expect(container.textContent).not.toContain(copy.entryContinue);
+});
+
+test("an existing Học tiếp label is not duplicated", () => {
+  render(setup({ progress: { item: { ...progressItem, next: ["Học tiếp: Căn bậc hai"] }, onOpen: vi.fn() } }).ui);
+  expect(screen.getByText("Học tiếp: Căn bậc hai")).toBeTruthy();
+});
+
+test.each([new Error("offline"), new ApiError(404, "pool_empty", "")])("a failed preview keeps the old random surprise action: %s", async error => {
+  vi.mocked(getSurpriseCard).mockRejectedValueOnce(error);
+  const onSurprise = vi.fn();
+  render(setup({ onSurprise }).ui);
+  fireEvent.click(await screen.findByRole("button", { name: copy.surprise }));
+  expect(onSurprise).toHaveBeenCalledExactlyOnceWith();
+  expect(screen.queryByRole("button", { name: copy.surpriseExplore })).toBeNull();
+});
+
+test("shuffle excludes this card without opening; explore opens the replacement", async () => {
+  const onSurprise = vi.fn();
+  let resolve!: (card: typeof surprise) => void;
+  vi.mocked(getSurpriseCard).mockResolvedValueOnce(surprise).mockReturnValueOnce(new Promise(done => { resolve = done; }));
+  render(setup({ onSurprise }).ui);
+  expect(await screen.findByText(surprise.title)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: copy.surpriseShuffle }));
+  expect(getSurpriseCard).toHaveBeenLastCalledWith(surprise.id);
+  expect(onSurprise).not.toHaveBeenCalled();
+  expect(screen.getByRole("status", { name: copy.surpriseLoading })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: copy.surpriseExplore })).toBeNull();
+  resolve({ ...surprise, id: "lesson-2", title: "Bài khác" });
+  await screen.findByText("Bài khác");
+  fireEvent.click(screen.getByRole("button", { name: copy.surpriseExplore }));
+  expect(onSurprise).toHaveBeenCalledExactlyOnceWith("lesson-2");
+});
+
+test("shuffle failure also shows the random fallback", async () => {
+  vi.mocked(getSurpriseCard).mockResolvedValueOnce(surprise).mockRejectedValueOnce(new Error("offline"));
+  render(setup().ui);
+  await screen.findByText(surprise.title);
+  fireEvent.click(screen.getByRole("button", { name: copy.surpriseShuffle }));
+  expect(await screen.findByRole("button", { name: copy.surprise })).toBeTruthy();
 });

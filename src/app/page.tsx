@@ -241,7 +241,7 @@ function Home() {
           composer={composer}
           inputRef={entryInput}
           onStarter={(s) => void ws.startStarter(s)}
-          onSurprise={() => void ws.startSurprise()}
+          onSurprise={(id) => void ws.startSurprise(id)}
           onRetry={ws.buildFailed ? () => void ws.rebuild() : undefined}
           progress={latest ? { item: latest, onOpen: () => void openProgressSession(latest, "reload") } : null}
           leaving={flying}

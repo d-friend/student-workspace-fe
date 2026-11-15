@@ -50,7 +50,7 @@ const JSON_HEADERS = { "content-type": "application/json" };
 
 async function toApiError(res: Response): Promise<ApiError> {
   const body = await res.json().catch(() => ({}));
-  const error = body?.error ?? {};
+  const error = body?.error ?? body ?? {};
   const retryAfter = error.retry_after_s ?? (Number(res.headers.get("retry-after")) || undefined);
   const fields = error.fields ?? error.extra?.fields;
   return new ApiError(res.status, error.code ?? "unknown", error.message ?? res.statusText, retryAfter, Array.isArray(fields) ? fields.filter((field: unknown): field is string => typeof field === "string") : undefined);
@@ -121,8 +121,17 @@ export async function openSharedWorkspace(workspaceId: string): Promise<{ sessio
   return { sessionId: body.session_id };
 }
 
-export async function openStarter(starter: "derivative" | "geometry" | "surprise"): Promise<{ sessionId: string }> {
-  const res = await post(`/api/starters/${starter}/open`, {});
+export type SurpriseCard = { id: string; title: string; emoji: string; teaser: string; tag: string };
+
+export async function getSurpriseCard(exclude?: string): Promise<SurpriseCard> {
+  const query = exclude ? `?${new URLSearchParams({ exclude })}` : "";
+  const res = await get(`/api/starters/surprise${query}`);
+  if (!res.ok) throw await toApiError(res);
+  return res.json();
+}
+
+export async function openStarter(starter: "derivative" | "geometry" | "surprise", id?: string): Promise<{ sessionId: string }> {
+  const res = await post(`/api/starters/${starter}/open`, id ? { id } : {});
   if (!res.ok) throw await toApiError(res);
   const body = await res.json();
   return { sessionId: body.session_id };

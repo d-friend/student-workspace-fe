@@ -959,13 +959,13 @@ export function createWorkspace(deps: WorkspaceDeps) {
       track("chat_opened", { unread }, sid());
     },
 
-    async startSurprise(): Promise<void> {
+    async startSurprise(id?: string): Promise<void> {
       if (busy || starterInFlight) return;
       starterInFlight = true;
       let fallback = false;
       try {
         if (!api.openStarter || !api.resumeSession) throw new Error("Starter API unavailable");
-        const { sessionId } = await api.openStarter("surprise");
+        const { sessionId } = await (id ? api.openStarter("surprise", id) : api.openStarter("surprise"));
         try {
           await api.resumeSession(sessionId);
         } catch {

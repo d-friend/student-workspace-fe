@@ -220,6 +220,21 @@ describe("PetLayer", () => {
     const opts = (extra: Partial<Extract<Bubble, { kind: "agent" }>> = {}) =>
       setup([agent(1, "Em chọn nhé", { opts: ["A", "B"], ...extra })], { optChips: ["A", "B"] });
 
+    it("hides offer choices only when the done card shows them", () => {
+      const s = setup([agent(1, "What next?", { opts: ["Next", "Later"], offer: true })], { optChips: ["Next", "Later"], optChipKind: "offer", optChipSeed: 1 });
+      const { rerender } = render(<PetLayer state={s.state} {...s.props} offerOnCard />);
+      let bubble = screen.getByRole("status");
+      expect(within(bubble).getByText("What next?")).toBeTruthy();
+      expect(within(bubble).queryByRole("button", { name: "Next" })).toBeNull();
+      expect(within(bubble).queryByRole("button", { name: copy.writeOwn })).toBeNull();
+      rerender(<PetLayer state={s.state} {...s.props} offerOnCard={false} />);
+      bubble = screen.getByRole("status");
+      expect(within(bubble).getByRole("button", { name: "Next" })).toBeTruthy();
+      expect(within(bubble).getByRole("button", { name: copy.writeOwn })).toBeTruthy();
+      rerender(<PetLayer state={{ ...s.state, optChipKind: "answer" }} {...s.props} offerOnCard />);
+      expect(within(screen.getByRole("status")).getByRole("button", { name: "Next" })).toBeTruthy();
+    });
+
     it("bubble shows opts and Tự nhắn", () => {
       const s = opts();
       render(s.ui);

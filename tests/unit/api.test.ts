@@ -52,6 +52,13 @@ test("opening a starter posts JSON, retries without a guest, and maps the sessio
   expect(fetchMock.mock.calls[2][1]).toMatchObject({ method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
 });
 
+test("opening a surprise posts to the surprise endpoint", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(json(201, { session_id: "surprise-session" }));
+  vi.stubGlobal("fetch", fetchMock);
+  expect(await openStarter("surprise")).toEqual({ sessionId: "surprise-session" });
+  expect(fetchMock).toHaveBeenCalledWith("/api/starters/surprise/open", expect.objectContaining({ method: "POST" }));
+});
+
 test("an unbuilt starter throws its API error", async () => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(404, { error: { code: "starter_not_built" } })));
   await expect(openStarter("derivative")).rejects.toMatchObject({ status: 404, code: "starter_not_built" });

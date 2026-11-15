@@ -959,6 +959,27 @@ export function createWorkspace(deps: WorkspaceDeps) {
       track("chat_opened", { unread }, sid());
     },
 
+    async startSurprise(): Promise<void> {
+      if (busy || starterInFlight) return;
+      starterInFlight = true;
+      let fallback = false;
+      try {
+        if (!api.openStarter || !api.resumeSession) throw new Error("Starter API unavailable");
+        const { sessionId } = await api.openStarter("surprise");
+        try {
+          await api.resumeSession(sessionId);
+        } catch {
+          // The opened starter is already the newest session and will be restored on reload.
+        }
+        dom.reload();
+      } catch {
+        fallback = true;
+      } finally {
+        starterInFlight = false;
+      }
+      if (fallback) await actions.startStarter(Math.random() < 0.5 ? "derivative" : "geometry");
+    },
+
     async startStarter(starter: "derivative" | "geometry"): Promise<void> {
       if (busy || starterInFlight) return;
       track("starter_clicked", { starter }, sid());

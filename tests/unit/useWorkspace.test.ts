@@ -443,6 +443,38 @@ describe("focusInput", () => {
 });
 
 describe("session lifecycle", () => {
+  it("falls back to a randomly chosen starter when surprise opening fails", async () => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.9);
+    try {
+      const t = await boot();
+      await t.ws.actions.startSurprise();
+      expect(t.api.openStarter).toHaveBeenNthCalledWith(1, "surprise");
+      expect(t.api.openStarter).toHaveBeenNthCalledWith(2, "geometry");
+      expect(lastContent(t.api)).toBe(copy.starterPrompts.geometry);
+    } finally {
+      random.mockRestore();
+    }
+  });
+
+  it("resumes and reloads an opened surprise", async () => {
+    const t = await boot();
+    t.api.openStarter.mockResolvedValueOnce({ sessionId: "surprise-session" });
+    await t.ws.actions.startSurprise();
+    expect(t.api.openStarter).toHaveBeenCalledWith("surprise");
+    expect(t.api.resumeSession).toHaveBeenCalledWith("surprise-session");
+    expect(t.reload).toHaveBeenCalledOnce();
+    expect(t.api.turn).not.toHaveBeenCalled();
+  });
+
+  it("reloads an opened surprise even when resume fails", async () => {
+    const t = await boot();
+    t.api.openStarter.mockResolvedValueOnce({ sessionId: "surprise-session" });
+    t.api.resumeSession.mockRejectedValueOnce(new Error("offline"));
+    await t.ws.actions.startSurprise();
+    expect(t.reload).toHaveBeenCalledOnce();
+    expect(t.api.openStarter).toHaveBeenCalledOnce();
+  });
+
   it("opens a prebuilt starter without a turn", async () => {
     const t = await boot();
     t.api.openStarter.mockResolvedValueOnce({ sessionId: "s9" });

@@ -32,13 +32,15 @@ type Props = {
   taskDone?: Record<string, string[]>; // master completions (SSE task_done), by workspace id
   busy?: boolean;
   offer?: { opts: string[]; onPick: (text: string) => void } | null;
+  onOfferShown?: (shown: boolean) => void;
   brokenTabs?: Record<string, true>;
   onRebuild?: (id: string) => void;
   onSelectionAsk?: (quote: SelectionQuote) => void;
 };
 
-function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onRebuild, sessionId, workspaceCount, sessionUnready, tabs, onActive, onReset, resetDisabled, offer }: {
+function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onRebuild, sessionId, workspaceCount, sessionUnready, tabs, onActive, onReset, resetDisabled, offer, onOfferShown }: {
   offer?: Props["offer"];
+  onOfferShown?: Props["onOfferShown"];
   w: Workspace;
   tabs: (Workspace & { phase: Phase })[];
   onActive: (id: string) => void;
@@ -94,6 +96,11 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
     w.doc.blocks.filter((b) => b.type === "quiz").every((b) => restoredQuizzes.has(b.id)));
   const level = Math.min(presses, 3);
   const working = p !== "learn";
+  const offerShown = !!offer && allDone && working && !hidden;
+  useEffect(() => {
+    onOfferShown?.(offerShown);
+    return () => onOfferShown?.(false);
+  }, [offerShown, onOfferShown]);
   const doneAnchorRef = usePetAnchorRef(working && allDone && !hidden);
   const finishedSteps = w.doc.blocks.find((b): b is Extract<Block, { type: "steps" }> => {
     const saved = state.blocks[b.id];
@@ -279,7 +286,7 @@ function LocalizedDoc(props: Parameters<typeof Doc>[0]) {
   return <WorkspaceCopy.Provider value={copyFor(lang)}><Doc {...props} /></WorkspaceCopy.Provider>;
 }
 
-export function WorkspaceView({ sessionId, tabs, activeId, onActive, onReset, resets = {}, resetDisabled = false, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild, onSelectionAsk, offer }: Props) {
+export function WorkspaceView({ sessionId, tabs, activeId, onActive, onReset, resets = {}, resetDisabled = false, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild, onSelectionAsk, offer, onOfferShown }: Props) {
   const lastWorkingId = tabs.findLast(tab => tab.phase !== "learn")?.id;
   const activeDoc = tabs.find((tab) => tab.id === activeId)?.doc;
   const activeCopy = useMemo(() => activeDoc ? copyFor(workspaceLocale(activeDoc)) : copy, [activeDoc]);
@@ -303,7 +310,7 @@ export function WorkspaceView({ sessionId, tabs, activeId, onActive, onReset, re
       <div className={styles.view} data-pet-column>
         <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} />
         {tabs.map((w) => (
-          <LocalizedDoc key={`${w.id}:${resets[w.id] ?? 0}`} sessionId={sessionId} workspaceCount={tabs.length} sessionUnready={tabs.some((tab) => tab.doc.blocks.some((block) => block.type === "custom" && block.html == null))} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} tabs={tabs} onActive={onActive} onReset={onReset} resetDisabled={resetDisabled} offer={w.id === lastWorkingId ? offer : null} />
+          <LocalizedDoc key={`${w.id}:${resets[w.id] ?? 0}`} sessionId={sessionId} workspaceCount={tabs.length} sessionUnready={tabs.some((tab) => tab.doc.blocks.some((block) => block.type === "custom" && block.html == null))} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} tabs={tabs} onActive={onActive} onReset={onReset} resetDisabled={resetDisabled} offer={w.id === lastWorkingId ? offer : null} onOfferShown={w.id === lastWorkingId ? onOfferShown : undefined} />
         ))}
       </div>
     </div>

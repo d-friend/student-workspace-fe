@@ -68,6 +68,7 @@ export function PetLayer({
   quote,
   onDismissQuote,
   flying = false,
+  offerOnCard = false,
   ...actions
 }: {
   state: ChatState & PetSignals;
@@ -86,6 +87,7 @@ export function PetLayer({
   onDismissQuote?: () => void;
   // The unfold is carrying the pet from the entry to its dock (spec §6): it travels, hops, and is happy about it.
   flying?: boolean;
+  offerOnCard?: boolean;
 } & ChatActions) {
   const { mood, celebrate, celebrateKey } = usePet(state);
   // "Bài mới": the pet hops from where it is back to its place on the entry, the way the unfold carried it away.
@@ -392,7 +394,7 @@ export function PetLayer({
         <RestateChips onConfirm={actions.onConfirmRestate} onCorrect={actions.onCorrectRestate} />
       )}
       {chips && state.offerChips && <OfferChips onAccept={actions.onAcceptOffer} onLater={actions.onOfferLater} />}
-      {chips && state.optChips && (
+      {chips && state.optChips && !(state.optChipKind === "offer" && offerOnCard) && (
         <OptChips options={state.optChips} kind={state.optChipKind} seed={state.optChipSeed} onPick={actions.onOpt} onWriteOwn={() => inputRef.current?.focus(true)} />
       )}
     </PetBubble>

@@ -1,15 +1,17 @@
-.page { box-sizing: border-box; width: 100%; min-width: 0; padding: 48px 16px 80px; color: var(--text); }
+.page { align-self: flex-start; box-sizing: border-box; width: 100%; min-width: 0; padding: 48px 16px 80px; color: var(--text); }
 .content { display: flex; flex-direction: column; gap: 36px; width: 100%; max-width: 800px; margin: 0 auto; }
 .title { margin: 0 0 8px; font: 800 40px/1.1 var(--font-display), var(--font-sans); letter-spacing: -0.01em; }
 .subtitle { margin: 0; color: var(--muted); font: 400 16px/1.5 var(--font-sans); }
 .group { margin: 0 0 12px 4px; font: 700 20px/1.2 var(--font-display), var(--font-sans); }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.grid { display: grid; align-items: start; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 12px; }
 .learned { overflow: hidden; border: 1px solid var(--hairline); border-radius: 18px; background: var(--panel); }
 .learnRow { display: flex; align-items: center; justify-content: space-between; gap: 16px; box-sizing: border-box; width: 100%; min-height: 56px; padding: 12px 18px; border: 0; border-top: 1px solid var(--hairline); background: var(--panel); color: var(--text); text-align: left; font: 500 15px/1.4 var(--font-sans); cursor: pointer; }
 .learnRow:first-child { border-top: 0; }
 .learnRow:hover { background: var(--bg); }
 .learnTitle { min-width: 0; overflow-wrap: anywhere; }
 .learnMeta { display: flex; flex: none; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px 16px; color: var(--muted); font: 400 14px/1.4 var(--font-sans); }
+.quizChip { padding: 4px 10px; border: 1px solid var(--ok-border); border-radius: 999px; color: var(--ok-text); background: var(--ok-bg); font-weight: 600; }
+.quizChip[data-hint] { color: var(--review-text); background: var(--review-bg); border-color: var(--review-border); }
 .learnMeta time { white-space: nowrap; }
 .state { padding: 24px; border: 1px solid var(--hairline); border-radius: 18px; background: var(--panel); }
 .state p { margin: 0 0 16px; color: var(--muted); line-height: 1.5; }
@@ -19,7 +21,7 @@
 @media (max-width: 799px) {
   .page { padding-top: 80px; padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
   .title { font-size: 32px; }
-  .learnRow { align-items: flex-start; }
-  .learnMeta { flex-direction: column; align-items: flex-end; gap: 4px; max-width: 55%; }
+  .learnRow { flex-direction: column; align-items: stretch; gap: 10px; }
+  .learnMeta { justify-content: flex-start; gap: 8px 16px; }
 }
 @media (max-width: 351px) { .grid { grid-template-columns: minmax(0, 1fr); } }

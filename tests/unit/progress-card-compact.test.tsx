@@ -105,5 +105,5 @@ test.each(["vi", "en"] as const)("dates use local calendar days and existing lab
   rerender(<ProgressCardCompact variant="entry" item={{ ...data, created_at: new Date(2026, 10, 13, 23, 59).toISOString() }} onOpen={vi.fn()} />);
   expect(screen.getByText(copy.historyYesterday)).toBeTruthy();
   rerender(<ProgressCardCompact variant="entry" item={{ ...data, created_at: new Date(2026, 9, 2).toISOString() }} onOpen={vi.fn()} />);
-  expect(screen.getByText("2/10")).toBeTruthy();
+  expect(screen.getByText(locale === "vi" ? "2 thg 10" : "Oct 2")).toBeTruthy();
 });

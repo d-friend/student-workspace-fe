@@ -88,7 +88,7 @@ function ProgressContent() {
             {learned.map(item => <button key={item.workspace_id} type="button" className={styles.learnRow} onClick={() => void openProgressSession(item, "/")}>
               <span className={styles.learnTitle}><MdInline text={item.title} /></span>{" "}
               <span className={styles.learnMeta}>
-                <span>{copy.progressQuizCount(item.quizzes!.first_try, item.quizzes!.total)}</span>{" "}
+                <span className={styles.quizChip} data-hint={item.quizzes!.first_try < item.quizzes!.total || undefined}>{copy.progressQuizCount(item.quizzes!.first_try, item.quizzes!.total)}</span>{" "}
                 <time dateTime={item.created_at}>{progressDateLabel(item.created_at)}</time>
               </span>
             </button>)}

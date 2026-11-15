@@ -456,6 +456,15 @@ describe("session lifecycle", () => {
     }
   });
 
+  it("opens a selected surprise id before resuming it", async () => {
+    const t = setup();
+    t.api.openStarter.mockResolvedValueOnce({ sessionId: "selected-session" });
+    await t.ws.actions.startSurprise("lesson-1");
+    expect(t.api.openStarter).toHaveBeenCalledExactlyOnceWith("surprise", "lesson-1");
+    expect(t.api.resumeSession).toHaveBeenCalledWith("selected-session");
+    expect(t.reload).toHaveBeenCalledOnce();
+  });
+
   it("resumes and reloads an opened surprise", async () => {
     const t = await boot();
     t.api.openStarter.mockResolvedValueOnce({ sessionId: "surprise-session" });

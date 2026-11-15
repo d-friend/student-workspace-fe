@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { ApiError, check, hint, createSession, currentSession, endSession, getProgress, openSharedWorkspace, openStarter, turn, turnStatus, TurnError, type TurnEvent } from "@/lib/api";
+import { ApiError, check, hint, createSession, currentSession, endSession, getProgress, getSurpriseCard, openSharedWorkspace, openStarter, turn, turnStatus, TurnError, type TurnEvent } from "@/lib/api";
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
@@ -288,4 +288,35 @@ test("turn passes a partial doc to onEvent", async () => {
   const events: TurnEvent[] = [];
   await turn("s1", { role: "user", content: "hi" }, () => {}, (e) => events.push(e));
   expect(events).toEqual([{ event: "workspace_partial", ...data }]);
+});
+
+test("surprise preview encodes exclude and recovers cookie auth", async () => {
+  const card = { id: "w/1", title: "Light", emoji: "💡", teaser: "Try light", tag: "Everyday" };
+  const fetchMock = vi.fn().mockResolvedValueOnce(json(401, { error: { code: "no_guest" } }))
+    .mockResolvedValueOnce(json(201, { guest_id: "g", created: true }))
+    .mockResolvedValueOnce(json(200, card)).mockResolvedValueOnce(json(200, card));
+  vi.stubGlobal("fetch", fetchMock);
+  expect(await getSurpriseCard("w/1 &")).toEqual(card);
+  expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/starters/surprise?exclude=w%2F1+%26");
+  expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/starters/surprise?exclude=w%2F1+%26");
+  await getSurpriseCard();
+  expect(fetchMock).toHaveBeenLastCalledWith("/api/starters/surprise");
+});
+
+test("surprise preview exposes pool_empty and network errors", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json(404, { code: "pool_empty" })).mockRejectedValueOnce(new TypeError("offline")));
+  await expect(getSurpriseCard()).rejects.toMatchObject({ status: 404, code: "pool_empty" });
+  await expect(getSurpriseCard()).rejects.toThrow("offline");
+});
+
+test("surprise open sends the selected id and exposes unknown ids", async () => {
+  const fetchMock = vi.fn().mockResolvedValueOnce(json(201, { session_id: "selected" }))
+    .mockResolvedValueOnce(json(404, { code: "not_found" }))
+    .mockResolvedValueOnce(json(201, { session_id: "random" }));
+  vi.stubGlobal("fetch", fetchMock);
+  expect(await openStarter("surprise", "w1")).toEqual({ sessionId: "selected" });
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ id: "w1" });
+  await expect(openStarter("surprise", "unknown")).rejects.toMatchObject({ status: 404 });
+  await openStarter("surprise");
+  expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({});
 });

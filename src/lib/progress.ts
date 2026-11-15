@@ -1,5 +1,5 @@
 import { resumeSession, type ProgressItem } from "./api";
-import { copy } from "./copy";
+import { copy, getLocale } from "./copy";
 import { track } from "./track";
 import { stageResults } from "@/workspace/stageResults";
 
@@ -25,7 +25,7 @@ export function progressDateLabel(iso: string): string {
   // Like sidebar grouping, compare local calendar days (also across DST), not elapsed hours.
   const day = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86_400_000;
   const age = day(now) - day(date);
-  return age === 0 ? copy.historyToday : age === 1 ? copy.historyYesterday : `${date.getDate()}/${date.getMonth() + 1}`;
+  return age === 0 ? copy.historyToday : age === 1 ? copy.historyYesterday : new Intl.DateTimeFormat(getLocale() === "vi" ? "vi-VN" : "en-US", { month: "short", day: "numeric" }).format(date);
 }
 
 export function stoppedAt(item: ProgressItem): string | null {

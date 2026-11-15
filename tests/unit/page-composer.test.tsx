@@ -14,6 +14,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   currentSession: vi.fn().mockResolvedValue(null),
   createSession: vi.fn().mockResolvedValue({ sessionId: "s" }),
   listSessions: vi.fn().mockResolvedValue({ sessions: [], next_before: null }),
+  getSurpriseCard: vi.fn().mockRejectedValue(new Error("empty pool")),
   getProgress: vi.fn().mockResolvedValue({ items: [] }),
   resumeSession: vi.fn().mockResolvedValue(undefined),
   authMethods: vi.fn().mockResolvedValue({ google: false, email: false }),
@@ -42,7 +43,7 @@ it("a failed progress fetch leaves starters usable without an error or impressio
   await waitFor(() => expect(api.getProgress).toHaveBeenCalledOnce());
   expect(screen.getByText(copy.starter1)).toBeTruthy();
   expect(screen.getByText(copy.starter2)).toBeTruthy();
-  expect(screen.queryByText(copy.progressLatest)).toBeNull();
+  expect(screen.queryByText(copy.entryNext)).toBeNull();
   expect(screen.queryByRole("link", { name: copy.progressNav })).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
   expect(vi.mocked(track).mock.calls.filter(([event]) => event === "progress_opened")).toEqual([]);
@@ -65,7 +66,7 @@ it("shows the newest eligible card, counts all cards once, and resumes before re
     { ...progressItem, steps: null },
   ] });
   const { rerender } = render(<StrictMode><Page /></StrictMode>);
-  expect(await screen.findByText(copy.progressLatest)).toBeTruthy();
+  expect(await screen.findByText(copy.entryNext)).toBeTruthy();
   // The phone drawer is closed in jsdom, so the link is in the tree but hidden.
   expect(screen.getByRole("link", { name: copy.progressNav, hidden: true }).getAttribute("href")).toBe("/progress");
   expect(screen.queryByText(copy.starter1)).toBeNull();
@@ -75,7 +76,7 @@ it("shows the newest eligible card, counts all cards once, and resumes before re
   expect(vi.mocked(track).mock.calls.filter(([event]) => event === "progress_opened")).toEqual([
     ["progress_opened", { place: "entry", cards: 2 }],
   ]);
-  fireEvent.click(screen.getByRole("button", { name: copy.roadmapTitle.motion_current + " Dừng ở: Lập vận tốc" }));
+  fireEvent.click(screen.getByRole("button", { name: new RegExp(copy.entryContinue + progressItem.title) }));
   expect(track).toHaveBeenCalledWith("history_session_viewed", { tabs: 3, age_days: 3 }, "past-session");
   expect(api.resumeSession).toHaveBeenCalledExactlyOnceWith("past-session");
   expect(reload).not.toHaveBeenCalled();
@@ -94,7 +95,7 @@ it("does not count entry progress while restoring a workspace", async () => {
     sessionId: "restored", html: null, activeId: "w", sheet: null, messages: [],
     tabs: [{ id: "w", phase: "solve", doc: fixtures["solve-tangent.json"] }],
   }));
-  expect(screen.queryByText(copy.progressLatest)).toBeNull();
+  expect(screen.queryByText(copy.entryNext)).toBeNull();
   expect(vi.mocked(track).mock.calls.filter(([event]) => event === "progress_opened")).toEqual([]);
 });
 
@@ -108,10 +109,10 @@ it("keeps entry usable while progress loads and counts it only after the photo c
   fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [new File(["x"], "problem.jpg", { type: "image/jpeg" })] } });
   await screen.findByRole("heading", { name: copy.photoTitle });
   await act(async () => finish({ items: [progressItem] }));
-  expect(screen.queryByText(copy.progressLatest)).toBeNull();
+  expect(screen.queryByText(copy.entryNext)).toBeNull();
   expect(vi.mocked(track).mock.calls.filter(([event]) => event === "progress_opened")).toEqual([]);
   fireEvent.click(screen.getByRole("button", { name: copy.removePhoto }));
-  await screen.findByText(copy.progressLatest);
+  await screen.findByText(copy.entryNext);
   expect(vi.mocked(track).mock.calls.filter(([event]) => event === "progress_opened")).toEqual([
     ["progress_opened", { place: "entry", cards: 1 }],
   ]);
@@ -136,7 +137,7 @@ it("does not show or track a list arriving while the entry is leaving", async ()
   await act(async () => { build(); });
   expect(container.querySelector('[data-unfold="flying"]')).toBeTruthy();
   await act(async () => finish({ items: [progressItem] }));
-  expect(screen.queryByText(copy.progressLatest)).toBeNull();
+  expect(screen.queryByText(copy.entryNext)).toBeNull();
   expect(vi.mocked(track).mock.calls.filter(([event]) => event === "progress_opened")).toEqual([]);
 });
 
@@ -152,10 +153,10 @@ it("a failed resume keeps the entry card without reloading or showing an error",
   vi.mocked(api.getProgress).mockResolvedValueOnce({ items: [progressItem] });
   vi.mocked(api.resumeSession).mockRejectedValueOnce(Error("offline"));
   render(<Page />);
-  const card = await screen.findByRole("button", { name: new RegExp(copy.roadmapTitle.motion_current) });
+  const card = await screen.findByRole("button", { name: new RegExp(copy.entryContinue + progressItem.title) });
   await act(async () => { fireEvent.click(card); });
   expect(reload).not.toHaveBeenCalled();
-  expect(screen.getByRole("button", { name: new RegExp(copy.roadmapTitle.motion_current) })).toBe(card);
+  expect(screen.getByRole("button", { name: new RegExp(copy.entryContinue + progressItem.title) })).toBe(card);
   expect(screen.queryByRole("alert")).toBeNull();
 });
 

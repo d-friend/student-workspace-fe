@@ -1,7 +1,7 @@
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import type { ProgressItem } from "@/lib/api";
 import { setLocale } from "@/lib/copy";
-import { progressCards, stoppedAt } from "@/lib/progress";
+import { progressCards, progressDateLabel, stoppedAt } from "@/lib/progress";
 
 const item = (extra: Partial<ProgressItem> = {}): ProgressItem => ({
   workspace_id: "w", session_id: "s", phase: "solve", title: "Bài toán", created_at: "2026-11-14T05:00:00Z", tabs: 2,
@@ -9,7 +9,7 @@ const item = (extra: Partial<ProgressItem> = {}): ProgressItem => ({
   steps: { entries: [{ item: 0, state: "ok", tries: 1, hint: 0 }], done: false, free: false },
   quizzes: null, next: null, ...extra,
 });
-afterEach(() => setLocale("vi"));
+afterEach(() => { setLocale("vi"); vi.useRealTimers(); });
 
 test("only accepted solve/practice cards survive, in API order", () => {
   const solve = item();
@@ -38,4 +38,14 @@ test("stoppedAt has no stage for free work, missing/unknown roadmaps or complete
   expect(stoppedAt(item({ phase: "learn" }))).toBeNull();
   expect(stoppedAt(item({ steps: { entries: [], done: false, free: true } }))).toBeNull();
   expect(stoppedAt(item({ stages: [0] }))).toBeNull();
+});
+
+test.each(["vi", "en"] as const)("dates cannot be mistaken for scores in %s", locale => {
+  setLocale(locale);
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 10, 15, 0, 5));
+  expect(progressDateLabel(new Date(2026, 10, 15, 0, 1).toISOString())).toBe(locale === "vi" ? "Hôm nay" : "Today");
+  expect(progressDateLabel(new Date(2026, 10, 14, 23, 59).toISOString())).toBe(locale === "vi" ? "Hôm qua" : "Yesterday");
+  expect(progressDateLabel(new Date(2026, 9, 30).toISOString())).toBe(locale === "vi" ? "30 thg 10" : "Oct 30");
+  expect(progressDateLabel("invalid")).toBe("");
 });

@@ -4,11 +4,13 @@ import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useRef, 
 import { ApiError, getMe, saveProfile, skipProfile } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import styles from "./ProfileGate.module.css";
+import { FeatureEmailPrompt } from "./FeatureEmailPrompt";
 
 type Field = "nickname" | "province" | "grade" | "school";
 const fields: Field[] = ["nickname", "province", "grade", "school"];
 
 export function ProfileGate({ children, hold = false }: { children: ReactNode; hold?: boolean }) {
+  const [askFeatureEmails, setAskFeatureEmails] = useState(false);
   const [status, setStatus] = useState<"loading" | "needed" | "ready">("loading");
   const [values, setValues] = useState<Record<Field, string>>({ nickname: "", province: "", grade: "", school: "" });
   const [errors, setErrors] = useState<Partial<Record<Field, boolean>>>({});
@@ -21,7 +23,7 @@ export function ProfileGate({ children, hold = false }: { children: ReactNode; h
   useEffect(() => {
     let active = true;
     request.current ??= getMe();
-    void request.current.then((me) => { if (active) setStatus(me.profile_needed ? "needed" : "ready"); }, () => { if (active) setStatus("ready"); });
+    void request.current.then((me) => { if (active) { setAskFeatureEmails(me.signed_in && !!me.ask_feature_emails); setStatus(me.profile_needed ? "needed" : "ready"); } }, () => { if (active) setStatus("ready"); });
     return () => { active = false; };
   }, []);
   useEffect(() => {
@@ -86,9 +88,10 @@ export function ProfileGate({ children, hold = false }: { children: ReactNode; h
   const labels = { nickname: copy.profileNickname, province: copy.profileProvince, grade: copy.profileGrade, school: copy.profileSchool };
   const messages = { nickname: copy.profileNicknameError, province: copy.profileProvinceError, grade: copy.profileGradeError, school: copy.profileSchoolError };
   return <>
-    <div style={{ display: "contents" }} inert={status === "needed" || undefined} aria-hidden={status === "needed" || undefined}>
+    <div style={{ display: "contents" }} inert={status === "needed" || (status === "ready" && askFeatureEmails) || undefined} aria-hidden={status === "needed" || (status === "ready" && askFeatureEmails) || undefined}>
       {(!hold || status === "ready") && children}
     </div>
+    {status === "ready" && askFeatureEmails && <FeatureEmailPrompt onClose={() => setAskFeatureEmails(false)} />}
     {status === "needed" && <div className={styles.backdrop}>
     <div ref={dialog} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="profile-title" aria-describedby="profile-note" onKeyDown={trapFocus}>
       <h1 id="profile-title">{copy.profileTitle}</h1>

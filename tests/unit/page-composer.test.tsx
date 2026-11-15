@@ -76,7 +76,7 @@ it("shows the newest eligible card, counts all cards once, and resumes before re
   expect(vi.mocked(track).mock.calls.filter(([event]) => event === "progress_opened")).toEqual([
     ["progress_opened", { place: "entry", cards: 2 }],
   ]);
-  fireEvent.click(screen.getByRole("button", { name: new RegExp(copy.entryContinue + progressItem.title) }));
+  fireEvent.click(screen.getByRole("button", { name: copy.entryResume }));
   expect(track).toHaveBeenCalledWith("history_session_viewed", { tabs: 3, age_days: 3 }, "past-session");
   expect(api.resumeSession).toHaveBeenCalledExactlyOnceWith("past-session");
   expect(reload).not.toHaveBeenCalled();
@@ -153,10 +153,10 @@ it("a failed resume keeps the entry card without reloading or showing an error",
   vi.mocked(api.getProgress).mockResolvedValueOnce({ items: [progressItem] });
   vi.mocked(api.resumeSession).mockRejectedValueOnce(Error("offline"));
   render(<Page />);
-  const card = await screen.findByRole("button", { name: new RegExp(copy.entryContinue + progressItem.title) });
+  const card = await screen.findByRole("button", { name: copy.entryResume });
   await act(async () => { fireEvent.click(card); });
   expect(reload).not.toHaveBeenCalled();
-  expect(screen.getByRole("button", { name: new RegExp(copy.entryContinue + progressItem.title) })).toBe(card);
+  expect(screen.getByRole("button", { name: copy.entryResume })).toBe(card);
   expect(screen.queryByRole("alert")).toBeNull();
 });
 

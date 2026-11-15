@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { Entry } from "@/components/Entry";
 import { copy } from "@/lib/copy";
@@ -94,7 +94,7 @@ test("progress replaces both starters and keeps the retry action", () => {
   expect(screen.queryByText(copy.starter1)).toBeNull();
   expect(screen.queryByText(copy.starter2)).toBeNull();
   expect(screen.getByRole("link", { name: copy.progressSeeAll }).getAttribute("href")).toBe("/progress");
-  fireEvent.click(screen.getByRole("button", { name: new RegExp(progressItem.title) }));
+  fireEvent.click(screen.getByRole("button", { name: copy.entryResume }));
   fireEvent.click(screen.getByRole("button", { name: copy.retry }));
   expect(onOpen).toHaveBeenCalledOnce();
   expect(onRetry).toHaveBeenCalledOnce();
@@ -108,7 +108,7 @@ test("null progress keeps both starters and a photo hides progress", () => {
   rerender(setup({ progress: { item: progressItem, onOpen: vi.fn() }, photoCheck: { src: "data:image/jpeg;base64,x", onSend: vi.fn(), onRetake: vi.fn() } }).ui);
   expect(screen.queryByText(copy.progressLatest)).toBeNull();
   expect(screen.queryByRole("link", { name: copy.progressSeeAll })).toBeNull();
-  expect(screen.queryByRole("button", { name: new RegExp(progressItem.title) })).toBeNull();
+  expect(screen.queryByRole("button", { name: copy.entryResume })).toBeNull();
 });
 
 test.each([false, true])("surprise preview is available with progress=%s", async (hasProgress) => {
@@ -127,16 +127,25 @@ test.each(["vi", "en"] as const)("next-step variants in %s", locale => {
   const next = "Căn bậc hai";
   const { rerender, container } = render(setup({ progress: { item: { ...progressItem, next: [next, "Ignored"] }, onOpen } }).ui);
   expect(screen.getByText(progressItem.title)).toBeTruthy();
-  const body = screen.getByRole("button", { name: new RegExp(copy.entryLearn + next) });
-  expect(body.querySelector("a")).toBeNull();
-  fireEvent.click(body);
+  expect(screen.getByText(copy.entryLearn + next)).toBeTruthy();
+  const card = screen.getByRole("region", { name: copy.entryNext });
+  const button = within(card).getByRole("button", { name: copy.entryResume });
+  expect(within(card).getAllByRole("button")).toHaveLength(1);
+  expect(button.querySelector("a, button, [role=button]")).toBeNull();
+  expect(within(card).getByRole("link", { name: copy.progressSeeAll }).closest("button")).toBeNull();
+  expect(screen.getByText(copy.entryLearn + next).closest("button, [role=button]")).toBeNull();
+  fireEvent.click(button);
   expect(onOpen).toHaveBeenCalledOnce();
   expect(screen.queryByText("Ignored")).toBeNull();
   rerender(setup({ progress: { item: progressItem, onOpen } }).ui);
   expect(screen.getByText(copy.entryContinue + progressItem.title)).toBeTruthy();
   expect(screen.getByText(copy.progressStopped + stoppedAt(progressItem))).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: copy.entryResume }));
+  expect(onOpen).toHaveBeenCalledTimes(2);
   rerender(setup({ progress: { item: { ...progressItem, steps: { ...progressItem.steps!, done: true } }, onOpen } }).ui);
-  expect(screen.getByRole("button", { name: new RegExp(progressItem.title) }).querySelector("svg")).toBeTruthy();
+  expect(screen.getByText(progressItem.title).parentElement!.querySelector("svg")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: copy.entryResume }));
+  expect(onOpen).toHaveBeenCalledTimes(3);
   expect(container.textContent).not.toContain(copy.entryContinue);
 });
 

@@ -33,12 +33,12 @@
   --pet-size: 96px;
   /* The bubble (errors only) sits above the pet, right-aligned to it. */
   --bubble-right: calc(50% - 276px);
-  --bubble-bottom: calc(56dvh + 90px);
+  --bubble-bottom: calc(56dvh + 90px + var(--entry-scroll-y, 0px));
 }
 
 .layer[data-place="entry"] .pet {
   left: calc(50% + 180px);
-  top: calc(44dvh - 82px);
+  top: calc(44dvh - 82px - var(--entry-scroll-y, 0px));
 }
 
 /* Chat column open (from 800px): the pet leaves the corner for the seam between the stage and the column, at the
@@ -127,12 +127,12 @@
   .layer[data-place="entry"] {
     --pet-size: 112px;
     --bubble-right: 16px;
-    --bubble-bottom: calc(63dvh + 142px);
+    --bubble-bottom: calc(63dvh + 142px + var(--entry-scroll-y, 0px));
   }
 
   .layer[data-place="entry"] .pet {
     left: calc(50% - 56px);
-    top: calc(37dvh - 134px);
+    top: calc(37dvh - 134px - var(--entry-scroll-y, 0px));
   }
 
   .layer[data-fly] .pet {

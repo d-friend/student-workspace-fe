@@ -372,6 +372,69 @@ describe("PetLayer", () => {
     };
     const entryPet = () => screen.getByRole("button", { name: "D-Friend" });
 
+    it("follows the Shell main's scroll once per frame and re-parks on resize", () => {
+      let nextFrame: FrameRequestCallback | undefined;
+      const request = vi.spyOn(window, "requestAnimationFrame").mockImplementation(cb => {
+        nextFrame = cb;
+        return 1;
+      });
+      const cancel = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+      const s = setup([], {}, true);
+      const view = render(<>
+        <main><textarea ref={s.props.entryInputRef} /></main>
+        <PetLayer state={s.state} {...s.props} />
+      </>);
+      try {
+        const main = view.container.querySelector("main")!;
+        const layer = entryPet().parentElement!;
+        const offset = () => layer.style.getPropertyValue("--entry-scroll-y");
+        expect(offset()).toBe("0px");
+        main.scrollTop = 100;
+        fireEvent.scroll(main);
+        main.scrollTop = 160;
+        fireEvent.scroll(main);
+        expect(request).toHaveBeenCalledTimes(1);
+        expect(offset()).toBe("0px");
+        act(() => nextFrame!(0));
+        expect(offset()).toBe("160px");
+        main.scrollTop = 80;
+        fireEvent.resize(window);
+        act(() => nextFrame!(0));
+        expect(offset()).toBe("80px");
+        fireEvent.scroll(main);
+        const remove = vi.spyOn(main, "removeEventListener");
+        view.unmount();
+        expect(remove).toHaveBeenCalledWith("scroll", expect.any(Function));
+        expect(cancel).toHaveBeenCalledWith(1);
+        expect(offset()).toBe("");
+      } finally {
+        view.unmount();
+        request.mockRestore();
+        cancel.mockRestore();
+      }
+    });
+
+    it.each(["workspace", "photo"] as const)("clears the entry scroll offset when docking for %s", destination => {
+      const s = setup([], {}, true);
+      const ui = (docked = false) => <>
+        <main><textarea ref={s.props.entryInputRef} /></main>
+        <PetLayer state={s.state} {...s.props}
+          entry={destination === "photo" || !docked}
+          flying={destination === "workspace" && docked}
+          composer={{ ...s.props.composer, photo: destination === "photo" && docked ? { src: "data:x", onRemove: vi.fn() } : null }}
+        />
+      </>;
+      const { rerender } = render(ui());
+      const node = entryPet();
+      const layer = node.parentElement!;
+      expect(layer.style.getPropertyValue("--entry-scroll-y")).toBe("0px");
+      rerender(ui(true));
+      expect(layer.style.getPropertyValue("--entry-scroll-y")).toBe("");
+      expect(layer.dataset.place).toBe("dock");
+      expect(layer.querySelector("button")).toBe(node);
+      if (destination === "workspace") expect(layer.dataset.fly).toBeDefined();
+    });
+
     it("focusInput focuses the entry composer, with or without reveal, and opens no drawer", () => {
       const s = withEntry();
       render(s.ui);

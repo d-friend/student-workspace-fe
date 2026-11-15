@@ -187,7 +187,7 @@
 .lesson { flex: 1; padding: 16px 0; text-align: center; overflow-wrap: anywhere; }
 .emoji { display: block; font-size: 40px; line-height: 1.2; }
 .lesson h3 { margin: 12px 0 8px; font: 700 20px/1.3 var(--font-sans); }
-.lesson p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; color: var(--muted); font: 400 14px/1.5 var(--font-sans); }
+.lesson p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 0; color: var(--muted); font: 400 14px/1.5 var(--font-sans); }
 .actions { display: grid; gap: 8px; }
 .surpriseActions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .nextActions { grid-template-columns: minmax(0, 1fr); }
@@ -205,7 +205,8 @@
 /* Share header, content, actions and footer rows so wrapping copy cannot misalign the buttons. */
 @media (min-width: 640px) {
   .blocks[data-progress] { grid-template-rows: auto minmax(0, 1fr) auto auto; row-gap: 0; }
-  .blocks[data-progress] .block { display: grid; grid-row: span 4; grid-template-rows: subgrid; row-gap: 0; }
+  /* minmax(0, 1fr): without it the column sizes to the nowrap teaser and the content overflows the card */
+  .blocks[data-progress] .block { display: grid; grid-row: span 4; grid-template-rows: subgrid; grid-template-columns: minmax(0, 1fr); row-gap: 0; }
   .blocks[data-progress] .actions { grid-row: 3; }
   .blocks[data-progress] .surpriseFoot { grid-row: 4; }
   .blocks[data-progress] .skeleton { grid-row: 2 / 4; }

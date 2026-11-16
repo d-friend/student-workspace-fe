@@ -71,7 +71,7 @@ function setup(turn: Turn = reply(HTML_REPLY), current: CurrentArg = null) {
     return { ws, detach };
   };
   const { ws, detach } = make();
-  return { ws, api, track, focus, reload, readPhoto, make, detach, state: () => ws.getState() };
+  return { ws, api, track, focus, reload, readPhoto, make, detach, advanceClock: (ms: number) => { clock += ms; }, state: () => ws.getState() };
 }
 
 const post = (event: Record<string, unknown>, source: unknown = window) =>
@@ -93,6 +93,7 @@ function deferred() {
 let cleanup: (() => void)[] = [];
 beforeEach(() => {
   vi.useFakeTimers();
+  localStorage.clear();
 });
 afterEach(() => {
   cleanup.forEach((fn) => fn());
@@ -724,6 +725,72 @@ describe("restore from the server", () => {
     tabs: [],
     activeId: null,
   };
+
+  it("starts a new problem after returning from at least 30 minutes away", async () => {
+    localStorage.setItem("dfriend.hiddenAt", String(1000 - 31 * 60_000));
+    const t = await boot(undefined, SERVER_SESSION);
+    expect(t.state()).toMatchObject({ screen: "empty", bubbles: [], hasMessages: false });
+    expect(t.api.endSession).toHaveBeenCalledWith("srv1", "abandoned");
+    expect(t.track).not.toHaveBeenCalledWith("session_restored", expect.anything());
+  });
+
+  it("restores after a short absence", async () => {
+    localStorage.setItem("dfriend.hiddenAt", String(1000 - 5 * 60_000));
+    const t = await boot(undefined, SERVER_SESSION);
+    expect(t.state()).toMatchObject({ screen: "workspace", hasMessages: true });
+    expect(t.api.endSession).not.toHaveBeenCalled();
+  });
+
+  it("restores when there is no recorded absence", async () => {
+    const t = await boot(undefined, SERVER_SESSION);
+    expect(t.state()).toMatchObject({ screen: "workspace", hasMessages: true });
+    expect(t.api.endSession).not.toHaveBeenCalled();
+  });
+
+  it("records pagehide for a subsequent reload", async () => {
+    const t = await boot(undefined, SERVER_SESSION);
+    window.dispatchEvent(new Event("pagehide"));
+    expect(localStorage.getItem("dfriend.hiddenAt")).not.toBeNull();
+    t.detach();
+    t.advanceClock(31 * 60_000);
+    const reloaded = t.make();
+    cleanup.push(reloaded.detach);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(reloaded.ws.getState()).toMatchObject({ screen: "empty", hasMessages: false });
+    expect(t.api.endSession).toHaveBeenCalledWith("srv1", "abandoned");
+  });
+
+  it("starts a new problem when a hidden tab returns after 31 minutes", async () => {
+    const t = await boot(undefined, SERVER_SESSION);
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    document.dispatchEvent(new Event("visibilitychange"));
+    t.advanceClock(31 * 60_000);
+    visibility.mockReturnValue("visible");
+    document.dispatchEvent(new Event("visibilitychange"));
+    visibility.mockRestore();
+    expect(t.state()).toMatchObject({ screen: "empty", bubbles: [], hasMessages: false, newProblemCount: 0 });
+    expect(t.api.endSession).toHaveBeenCalledWith("srv1", "abandoned");
+    expect(t.track.mock.calls.some((call) => call[0] === "new_problem_clicked")).toBe(false);
+  });
+
+  it("does not reset a busy turn when a hidden tab returns", async () => {
+    const gate = deferred();
+    const t = await boot(async () => { await gate.promise; return DONE; }, SERVER_SESSION);
+    t.ws.actions.setInput("tiếp");
+    const sending = t.ws.actions.submit();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.state().busy).toBe(true);
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    document.dispatchEvent(new Event("visibilitychange"));
+    t.advanceClock(31 * 60_000);
+    visibility.mockReturnValue("visible");
+    document.dispatchEvent(new Event("visibilitychange"));
+    visibility.mockRestore();
+    expect(t.state()).toMatchObject({ busy: true, hasMessages: true, sessionId: "srv1" });
+    expect(t.api.endSession).not.toHaveBeenCalled();
+    gate.resolve();
+    await sending;
+  });
 
   it("restores bubbles and the workspace html from currentSession on init", async () => {
     const t = await boot(undefined, SERVER_SESSION);

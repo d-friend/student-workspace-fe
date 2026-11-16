@@ -28,6 +28,7 @@ const statusLabel = (stage: "planning" | "searching" | "reading" | "simulating")
   ({ planning: copy.statusPlanning, searching: copy.statusSearching, reading: copy.statusReading, simulating: copy.statusSimulating })[stage];
 
 const FLUSH_DELAY_MS = 800;
+const AWAY_MS = 30 * 60_000; // Absence after which a returning student starts on a new problem.
 const RECOVER_MS = 120_000; // how long to wait for a build that outlived its connection (the planner caps at 90 s)
 const RECOVER_POLL_MS = 2000;
 const RECOVER_MAX_FAILS = 5; // consecutive failed status checks (about 10 s offline) before the turn counts as lost
@@ -144,6 +145,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let turnNo = 0;
   let newProblems = 0;
   let messages: Message[] = [];
+  let hiddenAt: number | null = null;
   let bubbles: Bubble[] = [];
   let busy = false;
   let starterInFlight = false;
@@ -726,17 +728,41 @@ export function createWorkspace(deps: WorkspaceDeps) {
     flush(true);
   }
 
+  function recordHidden() {
+    hiddenAt = now();
+    try {
+      localStorage.setItem("dfriend.hiddenAt", String(hiddenAt));
+    } catch {
+      // Storage may be unavailable.
+    }
+  }
+
   const onVisibility = () => {
-    if (document.visibilityState === "hidden") flushEvents();
+    if (document.visibilityState === "hidden") {
+      recordHidden();
+      flushEvents();
+    } else if (document.visibilityState === "visible") {
+      if (hiddenAt !== null && now() - hiddenAt >= AWAY_MS && !busy && messages.length > 0) {
+        resetToNew("abandoned");
+      }
+      hiddenAt = null;
+      try {
+        localStorage.removeItem("dfriend.hiddenAt");
+      } catch {
+        // Storage may be unavailable.
+      }
+    }
     track("visibility_changed", { visible: document.visibilityState === "visible" }, sid());
   };
 
   // Registered before the first track() call, so the tracker's own hidden-flush runs after this one.
   function attach(): () => void {
     window.addEventListener("message", onMessage);
+    window.addEventListener("pagehide", recordHidden);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       window.removeEventListener("message", onMessage);
+      window.removeEventListener("pagehide", recordHidden);
       document.removeEventListener("visibilitychange", onVisibility);
       clearTimer();
       flushSaves();
@@ -811,6 +837,14 @@ export function createWorkspace(deps: WorkspaceDeps) {
   function init() {
     if (started) return;
     started = true;
+    let storedHiddenAt: number | null = null;
+    try {
+      const value = localStorage.getItem("dfriend.hiddenAt");
+      if (value !== null && value.trim() !== "" && Number.isFinite(Number(value))) storedHiddenAt = Number(value);
+      localStorage.removeItem("dfriend.hiddenAt");
+    } catch {
+      // Start as usual when storage is unavailable.
+    }
     const mine = epoch;
     void (async () => {
       try {
@@ -827,8 +861,12 @@ export function createWorkspace(deps: WorkspaceDeps) {
       // The composer is live while the two requests above run: never replace a turn that already started.
       let applied: typeof saved = null;
       if (epoch === mine && saved && !busy && messages.length === 0) {
-        restore(saved);
-        applied = saved;
+        if (storedHiddenAt !== null && now() - storedHiddenAt >= AWAY_MS) {
+          api.endSession(saved.sessionId, "abandoned").catch(() => {});
+        } else {
+          restore(saved);
+          applied = saved;
+        }
       }
       ready = true;
       publish();
@@ -867,6 +905,42 @@ export function createWorkspace(deps: WorkspaceDeps) {
         }
       }
     })();
+  }
+
+  function resetToNew(reason: "new_problem" | "abandoned") {
+    epoch++;
+    flushSaves();
+    if (sessionId) api.endSession(sessionId, reason).catch(() => {});
+    clearTimer();
+    messages = [];
+    pending = [];
+    queued = null;
+    busy = false;
+    typedTurn = false;
+    bubbles = [];
+    html = null;
+    tabs = [];
+    brokenEvents.clear();
+    simulationVersions = {};
+    simulationFailures = {};
+    simulationPending = {};
+    activeId = null;
+    verdicts = {};
+    overrides = {};
+    taskDone = {};
+    building = false;
+    status = null;
+    buildingPhase = null;
+    preview = null;
+    queuedAnswer = null;
+    buildFailed = false;
+    sessionId = null;
+    sheet = null;
+    sessionConfirmed = false;
+    restateClosedId = null;
+    offerClosedId = null;
+    optsClosedId = null;
+    publish();
   }
 
   const actions = {
@@ -1112,41 +1186,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
     },
 
     newProblem() {
-      epoch++;
-      flushSaves();
       newProblems++;
       track("new_problem_clicked", { turns_in_session: Math.floor(messages.length / 2) }, sid());
-      if (sessionId) api.endSession(sessionId, "new_problem").catch(() => {});
-      clearTimer();
-      messages = [];
-      pending = [];
-      queued = null;
-      busy = false;
-      typedTurn = false;
-      bubbles = [];
-      html = null;
-      tabs = [];
-      brokenEvents.clear();
-      simulationVersions = {};
-      simulationFailures = {};
-      simulationPending = {};
-      activeId = null;
-      verdicts = {};
-      overrides = {};
-      taskDone = {};
-      building = false;
-      status = null;
-      buildingPhase = null;
-      preview = null;
-      queuedAnswer = null;
-      buildFailed = false;
-      sessionId = null;
-      sheet = null;
-      sessionConfirmed = false;
-      restateClosedId = null;
-      offerClosedId = null;
-    optsClosedId = null;
-      publish();
+      resetToNew("new_problem");
     },
   };
 

@@ -2,8 +2,30 @@
 
 import { useState, type ReactNode } from "react";
 import type { Business } from "@/lib/admin";
-import { Empty, Failure, Metric, Section, UsersSection, money, percent, useAdmin, when } from "./sections";
+import { Empty, Failure, Metric, Section, money, percent, useAdmin, when } from "./sections";
+import { LineChart } from "./LineChart";
 import styles from "./admin.module.css";
+
+const sign = (value: number) => value > 0 ? "+" : value < 0 ? "−" : "";
+const signedPercent = (difference: number, previous: number) => `${sign(difference)}${Math.round(Math.abs(difference / previous) * 100)}%`;
+
+export function change(current: number, previous: number): string {
+  if (previous === 0) return "—";
+  const difference = current - previous;
+  return `${sign(difference)}${Math.abs(difference)} (${signedPercent(difference, previous)}) vs prev`;
+}
+
+export function changePts(current: number | null, previous: number | null): string {
+  if (current === null || previous === null) return "—";
+  const points = Math.round(Math.abs(current - previous) * 100);
+  return `${points ? sign(current - previous) : ""}${points} pts vs prev`;
+}
+
+export function changeMoney(current: number | null, previous: number | null): string {
+  if (current === null || previous === null || previous === 0) return "—";
+  const difference = current - previous;
+  return `${sign(difference)}${money(Math.abs(difference))} (${signedPercent(difference, previous)}) vs prev`;
+}
 
 export function countPercent(count: number, total: number, rate: number | null = total ? count / total : null) {
   return total ? `${count} / ${total} (${percent(rate)})` : "—";
@@ -23,20 +45,32 @@ export function BusinessSection({ token, days, onGuestOpen, children }: { token:
   const state = error ? <Failure /> : <p>Loading…</p>;
   const current = data?.scorecard;
   const previous = data?.scorecard_previous;
+  const weekly = data?.weekly;
+  const thisWeek = weekly?.[11];
+  const lastWeek = weekly?.[10];
 
   return <>
+    <Section title="Weekly traction">{!data ? state : !weekly?.some(week => week.active > 0) ? <Empty /> : <>
+      <LineChart labels={weekly.map(week => week.start)} label="Weekly active, new and returning people" series={[
+        { label: "Active", color: "var(--c-1)", values: weekly.map(week => week.active) },
+        { label: "New", color: "var(--c-2)", values: weekly.map(week => week.new) },
+        { label: "Returning", color: "var(--c-3)", dash: "5 4", values: weekly.map(week => week.returning) },
+      ]} />
+      <p className={styles.note}>{thisWeek && lastWeek ? <>Week of {thisWeek.start.slice(5)} (partial, so far): {thisWeek.active} active vs {lastWeek.active} last week: {change(thisWeek.active, lastWeek.active)}. Ignores the date range.</> : <>Ignores the date range; the last week is partial.</>}</p>
+    </>}</Section>
     <Section title="Scorecard">{!current || !previous ? state : <>
       {current.new > 0 && <p className={styles.note}>{current.new_via_link} of {current.new} new people this window arrived through a shared link or sheet.</p>}
       <div className={styles.metrics}>
-        <Metric label="Active people" value={current.active} detail={`prev ${previous.active}`} />
-        <Metric label="New people" value={current.new} detail={`prev ${previous.new}`} />
-        <Metric label="Returning people" value={current.returning} detail={`prev ${previous.returning}`} />
-        <Metric label="Start rate" value={countPercent(current.start.sent, current.start.opened, current.start.rate)} detail={`prev ${countPercent(previous.start.sent, previous.start.opened, previous.start.rate)}`} />
-        <Metric label="Completed ≥1" value={countPercent(current.completed.persons, current.completed.active, current.completed.rate)} detail={`prev ${countPercent(previous.completed.persons, previous.completed.active, previous.completed.rate)}`} />
-        <Metric label="$ per active person" value={money(current.usd_per_active)} detail={`prev ${money(previous.usd_per_active)}`} />
+        <Metric label="Active people" value={current.active} detail={change(current.active, previous.active)} />
+        <Metric label="New people" value={current.new} detail={change(current.new, previous.new)} />
+        <Metric label="Returning people" value={current.returning} detail={change(current.returning, previous.returning)} />
+        <Metric label="Workspaces" value={current.workspaces} detail={change(current.workspaces, previous.workspaces)} />
+        <Metric label="Turns" value={current.turns} detail={change(current.turns, previous.turns)} />
+        <Metric label="Start rate" value={countPercent(current.start.sent, current.start.opened, current.start.rate)} detail={changePts(current.start.rate, previous.start.rate)} />
+        <Metric label="Completed ≥1" value={countPercent(current.completed.persons, current.completed.active, current.completed.rate)} detail={changePts(current.completed.rate, previous.completed.rate)} />
+        <Metric label="$ per active person" value={money(current.usd_per_active)} detail={changeMoney(current.usd_per_active, previous.usd_per_active)} />
       </div>
     </>}</Section>
-    <UsersSection token={token} days={days} />
     <Section title="How often people come back">{!data ? state : !data.frequency.some(row => row.persons) ? <Empty /> : <div className={styles.bars}>{data.frequency.map(row => <div className={styles.barRow} key={row.bucket}><span>{row.bucket === "3-5" ? "3–5" : row.bucket}</span><div><i style={{ width: `${row.persons / Math.max(1, ...data.frequency.map(item => item.persons)) * 100}%` }} /></div><b>{row.persons}</b></div>)}</div>}</Section>
     <Section title="Weekly cohorts">{!data ? state : data.cohorts.length ? <div className={styles.tableWrap}><table><thead><tr><th>Week</th><th>n</th><th>+1</th><th>+2</th><th>+3</th><th>+4 weeks</th></tr></thead><tbody>{data.cohorts.map(row => <tr key={row.week}><td>{row.week}</td><td>{row.n}</td>{[0, 1, 2, 3].map(index => <td key={index}>{row.weeks[index] ?? "—"}</td>)}</tr>)}</tbody></table></div> : <Empty />}<p className={styles.note}>All time; ignores the date range.</p></Section>
     <Section title="People">

@@ -199,7 +199,7 @@ export function clearToken(): void {
   } catch {}
 }
 export type Scorecard = {
-  active: number; new: number; returning: number; new_via_link: number;
+  active: number; new: number; returning: number; new_via_link: number; turns: number; workspaces: number;
   start: { sent: number; opened: number; rate: number | null };
   completed: { persons: number; active: number; rate: number | null };
   usd_per_active: number | null;
@@ -220,6 +220,7 @@ export type BusinessLink = {
 
 export type Business = {
   scorecard: Scorecard; scorecard_previous: Scorecard;
+  weekly: { week: string; start: string; partial: boolean; active: number; new: number; returning: number; turns: number; workspaces: number }[];
   frequency: { bucket: "1" | "2" | "3-5" | "6+"; persons: number }[];
   cohorts: { week: string; n: number; weeks: (number | null)[] }[];
   people: BusinessPerson[]; links: BusinessLink[]; unknown_link_opens: number;

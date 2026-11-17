@@ -107,15 +107,17 @@ test("Sign out clears the token and shows the form", async () => {
   expect(screen.getByRole("heading", { name: "Admin access" })).toBeTruthy();
 });
 
-test("Ops shows its operational sections without UsersSection", async () => {
+test("Ops shows Users before its operational sections", async () => {
   mockedReadToken.mockReturnValue("good");
   mockedAdminGet.mockResolvedValue({});
   render(<AdminPage />);
 
-  fireEvent.click(await screen.findByRole("tab", { name: "Ops" }));
+  await screen.findByRole("tab", { name: "Ops" });
+  expect(screen.queryByText("UsersSection")).toBeNull();
+  fireEvent.click(screen.getByRole("tab", { name: "Ops" }));
 
   for (const section of ["HealthSection", "CostSection", "LatencySection", "FeaturesSection", "ThesisSection"]) {
     expect(screen.getByText(section)).toBeTruthy();
   }
-  expect(screen.queryByText("UsersSection")).toBeNull();
+  expect(screen.getByText("UsersSection").compareDocumentPosition(screen.getByText("HealthSection")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });

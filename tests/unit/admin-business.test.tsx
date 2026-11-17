@@ -28,23 +28,23 @@ test("renders weekly traction first, followed by the scorecard and return freque
 
 test("shows windowed people activity and links with no opens", () => {
   const scorecard = {
-    active: 15, new: 0, returning: 0, new_via_link: 0, turns: 12, workspaces: 3,
+    active: 15, new: 0, returning: 0, new_via_link: 0, messages: 12, workspaces: 3,
     start: { sent: 0, opened: 0, rate: null },
     completed: { persons: 0, active: 0, rate: null }, usd_per_active: null,
   };
   const data: Business = {
-    scorecard, scorecard_previous: { ...scorecard, active: 12 }, frequency: [], cohorts: [],
-    weekly: Array.from({ length: 12 }, (_, index) => ({ week: `2026-W${String(index + 1).padStart(2, "0")}`, start: `2026-01-${String(index + 1).padStart(2, "0")}`, partial: index === 11, active: index === 11 ? 5 : 8, new: 2, returning: 3, turns: 12, workspaces: 3 })),
+    scorecard, scorecard_previous: { ...scorecard, active: 12, messages: 10 }, frequency: [], cohorts: [],
+    weekly: Array.from({ length: 12 }, (_, index) => ({ week: `2026-W${String(index + 1).padStart(2, "0")}`, start: `2026-01-${String(index + 1).padStart(2, "0")}`, partial: index === 11, active: index === 11 ? 5 : 8, new: 2, returning: 3, messages: 12, workspaces: 3 })),
     people: [{
       person_id: "person", guest_id: "guest", label: "Student", school: null, grade: null,
       first_day: "2026-11-01", last_day: "2026-11-17", active_days_window: 2, active_days_total: 5,
-      turns_window: 12, workspaces_window: 3, sessions: 4, completions: 1, usd: null,
+      messages_window: 12, workspaces_window: 3, sessions: 4, completions: 1, usd: null,
       came_from: "direct", returning: false, dormant: false,
     }],
     links: [{
       type: "workspace", id: "workspace-id", path: "/s/workspace-id", title: null,
       sharer: null, created: "2026-11-17", opened: 0, new_to_dfriend: 0,
-      did_something: 0, came_back: 0, started_own: 0, last_shared_day: "2026-11-17",
+      did_something: 0, came_back: 0, started_own: 0,
     }],
     unknown_link_opens: 0,
   };
@@ -57,13 +57,16 @@ test("shows windowed people activity and links with no opens", () => {
   const scorecardSection = screen.getByRole("heading", { name: "Scorecard" }).closest("section")!;
   expect(within(scorecardSection).getByText("+3 (+25%) vs prev")).toBeTruthy();
   expect(within(scorecardSection).getByText("Workspaces")).toBeTruthy();
-  expect(within(scorecardSection).getByText("Turns")).toBeTruthy();
+  const messagesMetric = within(scorecardSection).getByText("Messages sent").parentElement!;
+  expect(within(messagesMetric).getByText("12")).toBeTruthy();
+  expect(within(messagesMetric).getByText("+2 (+20%) vs prev")).toBeTruthy();
 
   const people = screen.getByRole("heading", { name: "People" }).closest("section")!;
   const headers = within(people).getAllByRole("columnheader").map(header => header.textContent);
-  expect(headers.slice(4, 7)).toEqual(["Active days (all time)", "Turns (window)", "Workspaces (window)"]);
+  expect(headers.slice(4, 7)).toEqual(["Active days (all time)", "Messages sent (window)", "Workspaces (window)"]);
   const cells = within(within(people).getByRole("row", { name: /Student/ })).getAllByRole("cell");
   expect(cells.slice(5, 7).map(cell => cell.textContent)).toEqual(["12", "3"]);
+  expect(within(people).getByText(/Windowed: active days \(window\), Messages sent \(window\)/)).toBeTruthy();
 
   const links = screen.getByRole("heading", { name: "Shared links" }).closest("section")!;
   const linkCells = within(within(links).getByRole("row", { name: /workspace-id/ })).getAllByRole("cell");

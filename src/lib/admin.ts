@@ -208,14 +208,14 @@ export type Scorecard = {
 export type BusinessPerson = {
   person_id: string; guest_id: string; label: string | null; school: string | null; grade: number | null;
   first_day: string; last_day: string; active_days_window: number; active_days_total: number;
-  sessions: number; completions: number; usd: number | null;
+  turns_window: number; workspaces_window: number; sessions: number; completions: number; usd: number | null;
   came_from: "shared link" | "sheet" | "direct"; returning: boolean; dormant: boolean;
 };
 
 export type BusinessLink = {
   type: "workspace" | "session" | "sheet"; id: string; path: string; title: string | null;
   sharer: string | null; created: string; opened: number; new_to_dfriend: number;
-  did_something: number; came_back: number; started_own: number;
+  did_something: number; came_back: number; started_own: number; last_shared_day: string | null;
 };
 
 export type Business = {

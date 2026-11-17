@@ -1,13 +1,14 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ShareButton } from "@/components/work/ShareButton";
+import { track } from "@/lib/track";
 
 vi.mock("@/lib/share", () => ({ shareWorkspace: () => new Promise(() => {}) }));
 vi.mock("@/lib/track", () => ({ track: vi.fn() }));
 
 const props = { workspaceId: "workspace", sessionId: "session", workspaceCount: 2, sessionUnready: false, title: "Title" };
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("ShareButton scope menu", () => {
   it.each([
@@ -41,6 +42,16 @@ describe("ShareButton scope menu", () => {
     expect(document.activeElement).toBe(button);
     fireEvent.click(button);
     expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it.each([
+    { name: "Chia sẻ bài này", scope: "workspace", target_id: "workspace" },
+    { name: "Chia sẻ cả phiên (2 bài)", scope: "session", target_id: "session" },
+  ])("tracks the target when choosing $scope", ({ name, scope, target_id }) => {
+    render(<ShareButton {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Chia sẻ" }));
+    fireEvent.click(screen.getByRole("menuitem", { name }));
+    expect(track).toHaveBeenCalledWith("share_clicked", { scope, workspace_count: 2, target_id }, "session");
   });
 
   it("closes when focus moves outside the wrapper", () => {

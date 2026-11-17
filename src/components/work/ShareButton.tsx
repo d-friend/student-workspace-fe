@@ -37,7 +37,7 @@ export function ShareButton({ workspaceId, sessionId, workspaceCount, sessionUnr
     setOpen(false);
     setBusy(true);
     setFeedback("");
-    track("share_clicked", { scope, workspace_count: workspaceCount }, sessionId);
+    track("share_clicked", { scope, workspace_count: workspaceCount, target_id: scope === "session" ? sessionId! : workspaceId }, sessionId);
     const path = scope === "session" ? `/s/session/${encodeURIComponent(sessionId!)}` : `/s/${encodeURIComponent(workspaceId)}`;
     try {
       const result = await shareWorkspace(window.location.origin, path, title, navigator);

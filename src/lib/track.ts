@@ -5,7 +5,7 @@ import { sendEvents, type EventPayload } from "./api";
 export type TrackEvents = {
   line_why_opened: { block_id: string; line: number };
   roadmap_opened: { block_id: string };
-  share_clicked: { scope: "workspace" | "session"; workspace_count: number };
+  share_clicked: { scope: "workspace" | "session"; workspace_count: number; target_id?: string };
   tab_switched: { from_phase: "learn" | "solve" | "practice"; to_phase: "learn" | "solve" | "practice" };
   history_opened: { sessions: number };
   progress_opened: { place: "entry" | "page"; cards: number };

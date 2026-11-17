@@ -46,6 +46,18 @@ describe("track", () => {
     ]);
   });
 
+  it("keeps share targets for both scopes and accepts legacy events", () => {
+    tracker.track("share_clicked", { scope: "workspace", workspace_count: 2, target_id: "workspace" }, "session");
+    tracker.track("share_clicked", { scope: "session", workspace_count: 2, target_id: "session" }, "session");
+    tracker.track("share_clicked", { scope: "workspace", workspace_count: 1 });
+    tracker.flush();
+    expect(send.mock.calls[0][0].map((event: { props: unknown }) => event.props)).toEqual([
+      { scope: "workspace", workspace_count: 2, target_id: "workspace" },
+      { scope: "session", workspace_count: 2, target_id: "session" },
+      { scope: "workspace", workspace_count: 1 },
+    ]);
+  });
+
   it("flushes at 20 queued events, without waiting", () => {
     for (let i = 0; i < 19; i++) tracker.track("photo_removed");
     expect(send).not.toHaveBeenCalled();

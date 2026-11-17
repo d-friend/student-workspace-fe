@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { adminGet, clearToken, readToken, saveToken } from "@/lib/admin";
-import { CostSection, FeaturesSection, FeedbackSection, GuestsSection, GuestTimeline, HealthSection, LatencySection, SheetsSection, ThesisSection } from "./sections";
+import { CostSection, FeaturesSection, FeedbackSection, GuestsSection, GuestTimeline, HealthSection, LatencySection, SheetsSection, ThesisSection, UsersSection } from "./sections";
 import { BusinessSection } from "./BusinessSection";
 import styles from "./admin.module.css";
 
@@ -129,6 +129,7 @@ export default function AdminPage() {
         <div role="tabpanel" id={`admin-panel-${tab}`} aria-labelledby={`admin-tab-${tab}`}>
         {tab === "Business" && <BusinessSection token={token} days={days} onGuestOpen={setOpenGuest}>{openGuest && <GuestTimeline key={openGuest} token={token} guestId={openGuest} onGuestOpen={setOpenGuest} onClose={() => setOpenGuest(null)} />}</BusinessSection>}
         {tab === "Ops" && <>
+        <UsersSection token={token} days={days} />
         <HealthSection token={token} days={days} />
         <CostSection token={token} days={days} />
         <LatencySection token={token} days={days} onGuestOpen={setOpenGuest} />

@@ -11,7 +11,8 @@ import { copy } from "@/lib/copy";
 
 afterEach(cleanup);
 
-const agent = (id: number, text: string, extra: Partial<Extract<Bubble, { kind: "agent" }>> = {}): Bubble => ({
+type AgentBubble = Extract<Bubble, { kind: "agent" }>;
+const agent = (id: number, text: string, extra: Partial<AgentBubble> = {}): AgentBubble => ({
   id,
   turn: 1,
   kind: "agent",
@@ -47,6 +48,9 @@ function setup(bubbles: Bubble[], extra: Partial<WorkspaceState> = {}, entry = f
     onChatOpened: vi.fn(),
     onNewProblem: vi.fn(),
     onConfirmRestate: vi.fn(),
+    onRetry: vi.fn(),
+    onRebuild: vi.fn(),
+    onOpenWorkspace: vi.fn(),
     onCorrectRestate: vi.fn(),
     onAcceptOffer: vi.fn(),
     onOfferLater: vi.fn(),
@@ -66,6 +70,42 @@ function setup(bubbles: Bubble[], extra: Partial<WorkspaceState> = {}, entry = f
 const pet = () => screen.getByRole("button", { name: copy.petOpen });
 
 describe("PetLayer", () => {
+  it("opens failed student turns from the entry and offers retry only on the latest student bubble", () => {
+    const failed = copy.errConnect();
+    const s = setup([
+      { kind: "student", id: 1, turn: 1, text: "first", photos: [], failed },
+      { kind: "student", id: 2, turn: 2, text: "latest", photos: ["PHOTO"], failed },
+    ], {}, true);
+    render(s.ui);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(pet());
+    const log = within(screen.getByRole("dialog"));
+    expect(log.getAllByText(failed)).toHaveLength(2);
+    expect(log.getByText("first")).toBeTruthy();
+    expect(log.getByText("latest")).toBeTruthy();
+    fireEvent.click(log.getByRole("button", { name: copy.retry }));
+    expect(s.props.onRetry).toHaveBeenCalledExactlyOnceWith(2);
+  });
+
+  it("shows workspace card status and wires the ready and failed actions", () => {
+    const s = setup([
+      { kind: "workspace", id: 1, turn: 1, workspaceId: "w1", title: "Solved problem", state: "ready" },
+      { kind: "workspace", id: 2, turn: 2, workspaceId: null, title: "Failed build", state: "failed" },
+      { kind: "workspace", id: 3, turn: 3, workspaceId: null, title: "Next problem", state: "building" },
+    ], { status: copy.statusSearching });
+    render(s.ui);
+    fireEvent.click(pet());
+    const log = within(screen.getByRole("dialog"));
+    expect(log.getByText("Solved problem")).toBeTruthy();
+    expect(log.getByText(copy.workspaceBuildFailed)).toBeTruthy();
+    expect(log.getByText(copy.statusSearching)).toBeTruthy();
+    fireEvent.click(log.getByRole("button", { name: copy.retry }));
+    expect(s.props.onRebuild).toHaveBeenCalledOnce();
+    fireEvent.click(log.getByRole("button", { name: copy.workspaceOpen }));
+    expect(s.props.onOpenWorkspace).toHaveBeenCalledExactlyOnceWith("w1");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("(a) the pet is a button labelled petOpen", () => {
     render(setup([]).ui);
     expect(pet().tagName).toBe("BUTTON");
@@ -288,7 +328,7 @@ describe("PetLayer", () => {
   });
 
   it("shows every message of the turn, with the dots under the announce while the reply is awaited", () => {
-    const student: Bubble = { id: 1, turn: 1, kind: "student", text: "x", photos: [] };
+    const student: Bubble = { id: 1, turn: 1, kind: "student", text: "x", photos: [], failed: null };
     render(setup([student, agent(3, "Mình dựng nhé."), agent(2, "đang nghĩ", { waiting: true })], { busy: true }).ui);
     const bubble = screen.getByRole("status");
     expect(within(bubble).getByText("Mình dựng nhé.")).toBeTruthy();

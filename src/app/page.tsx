@@ -134,6 +134,7 @@ function Home() {
     photos: ws.photos.map((data, index) => ({ src: JPEG_PREFIX + data, onRemove: () => ws.removePhoto(index) })),
   };
 
+  const sent = ws.bubbles.find((b) => b.kind === "student" && b.failed === null);
   let stage;
   if (ws.activeId !== null) {
     stage = (
@@ -161,13 +162,12 @@ function Home() {
   } else if (srcDoc !== null) {
     stage = <WorkspaceFrame srcDoc={srcDoc} iframeRef={ws.frameRef} />;
   } else if (ws.screen === "building") {
-    const firstSent = ws.bubbles.find((b) => b.kind === "student");
     stage = (
       <BuildingSkeleton
         variant={ws.buildingPhase === "learn" ? "learn" : "solve"}
         preview={ws.preview}
         onQueue={ws.queueAnswer}
-        problem={firstSent?.kind === "student" ? firstSent.text : undefined}
+        problem={sent?.kind === "student" ? sent.text : undefined}
       />
     );
   }
@@ -177,8 +177,6 @@ function Home() {
   // the stage opens over it from the composer and a card carries the problem to the top of the doc column.
   const unfold = useUnfold(ws.screen, ws.phase !== null || ws.html !== null);
   const flying = unfold === "flying";
-  // The store has cleared the draft. The fly card uses the first message the student sent.
-  const sent = ws.bubbles.find((b) => b.kind === "student");
   const unfoldRef = useRef<HTMLDivElement>(null);
 
   // A restored workspace must not count the entry screen's initial, temporary render.
@@ -276,6 +274,9 @@ function Home() {
       onAcceptOffer={() => void ws.answerOffer(true)}
       onOfferLater={() => void ws.answerOffer(false)}
       onOpt={(t) => void ws.answerOpt(t)}
+      onRetry={(id) => void ws.retry(id)}
+      onRebuild={() => void ws.rebuild()}
+      onOpenWorkspace={ws.openWorkspace}
       composer={composer}
       selectionOpen={selectionOpen}
       quote={quote?.text}

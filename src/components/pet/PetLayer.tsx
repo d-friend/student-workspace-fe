@@ -73,9 +73,9 @@ export function PetLayer({
 }: {
   state: ChatState & PetSignals;
   // The store's focusInput(reveal) calls inputRef.current.focus(reveal). Whichever composer is on screen takes it:
-  // the entry's, else the drawer's. A closed drawer opens only when reveal is set (a failed send, a correction).
+  // the drawer's when open, otherwise the entry's. A closed drawer opens on an explicit reveal request.
   inputRef: RefObject<{ focus: (reveal?: boolean) => void } | null>;
-  // The entry screen is showing: no conversation yet, so the pet greets instead of opening the drawer.
+  // The entry screen is showing. Its pet usually greets, and can open the drawer after a failure.
   entry: boolean;
   entryInputRef: RefObject<HTMLTextAreaElement | null>;
   composer: Omit<ComposerProps, "inputRef" | "entry">;
@@ -116,6 +116,9 @@ export function PetLayer({
   const wantFocus = useRef<boolean | null>(null); // a focus request waiting for the render that shows the right composer
   const [focusTick, setFocusTick] = useState(0);
 
+  // Keep failed turns reachable when the stage falls back to the entry.
+  const entryOnly = entry && !state.bubbles.some((b) =>
+    (b.kind === "student" && b.failed !== null) || (b.kind === "workspace" && b.state === "failed"));
   const isSpoken = (b: Bubble): b is SpokenBubble => b.kind === "agent" || b.kind === "error" || b.kind === "note";
   const latest = state.bubbles.findLast(isSpoken);
   // Everything D-Friend said in the latest exchange (an announce, then its reply), newest last. Older turns stay
@@ -141,8 +144,7 @@ export function PetLayer({
     if (!open) openDrawer();
   }, [selectionOpen, open, openDrawer]);
   // Whatever was said while the drawer was open has been seen, so it does not pop back as a bubble.
-  // The drawer has no place on the entry (Bài mới from the drawer lands there).
-  if (entry && open) setOpen(false);
+  if (entryOnly && open) setOpen(false);
   const closeDrawer = () => {
     setHiddenKey(key);
     setOpen(false);
@@ -172,8 +174,8 @@ export function PetLayer({
     const reveal = wantFocus.current;
     if (reveal === null) return;
     wantFocus.current = null;
-    if (entry) entryInputRef.current?.focus();
-    else if (open) composerRef.current?.focus({ preventScroll: true });
+    if (open) composerRef.current?.focus({ preventScroll: true });
+    else if (entry) entryInputRef.current?.focus();
     else if (reveal) openDrawer();
   }, [focusTick, entry, open, entryInputRef, openDrawer]);
 
@@ -220,7 +222,7 @@ export function PetLayer({
   }, [open]);
 
   // The entry is silent until a conversation exists. A text-only reply (an unreadable photo, a clarification) lands
-  // back on the entry, and the student must still see it: the entry has no drawer, the bubble is the only place.
+  // back on the entry, where the bubble is the usual place to read it.
   const talked = state.bubbles.length > 0;
   const chips =
     latest?.kind === "agent" && !latest.waiting && latest.id === state.bubbles.findLast((b) => b.kind === "agent")?.id;
@@ -228,7 +230,7 @@ export function PetLayer({
     (chips && (state.restateChips || state.offerChips || state.optChips)) ||
     (latest?.kind === "agent" && latest.ask !== null),
   );
-  const docked = open && desktop && !entry;
+  const docked = open && desktop && !entryOnly;
 
   // The lane: beside the active line of the doc, only when nothing else has a claim on the pet.
   const { anchor, scroller } = usePetAnchor();
@@ -369,11 +371,11 @@ export function PetLayer({
       style={lane ? { top: lane.top, left: lane.left, transition: matchMedia("(prefers-reduced-motion: reduce)").matches ? "none" : undefined } : undefined}
       type="button"
       className={inline ? styles.inlinePet : styles.pet}
-      aria-label={entry ? copy.brand : open ? copy.petClose : copy.petOpen}
-      aria-describedby={unread && !entry ? "pet-unread" : undefined}
+      aria-label={entryOnly ? copy.brand : open ? copy.petClose : copy.petOpen}
+      aria-describedby={unread && !entryOnly ? "pet-unread" : undefined}
       inert={open && !desktop}
       onClick={
-        entry
+        entryOnly
           ? () => {
               setHiddenKey(null); // a dismissed reply comes back
               celebrate();
@@ -384,7 +386,7 @@ export function PetLayer({
       }
     >
       <Pet mood={travelling ? "happy" : mood} celebrateKey={celebrateKey} />
-      {unread && !open && !entry && (
+      {unread && !open && !entryOnly && (
         <span id="pet-unread" className={styles.badge}>
           <span className={styles.srOnly}>{copy.petUnread}</span>
         </span>
@@ -427,14 +429,14 @@ export function PetLayer({
     <div
       ref={layerRef}
       className={styles.layer}
-      data-place={inline ? "inline" : entry && !hasPhoto ? "entry" : "dock"}
+      data-place={inline ? "inline" : entry && !hasPhoto && !docked ? "entry" : "dock"}
       data-fly={travelling || undefined}
       data-chat={docked || undefined}
       data-lane={lane ? "" : undefined}
     >
       {inline && inlineSlot ? createPortal(petButton, inlineSlot) : petButton}
       {inline && spokenSlot ? createPortal(spokenBubble, spokenSlot) : spokenBubble}
-      {(open || leaving) && !entry && (
+      {(open || leaving) && !entryOnly && (
         <ChatDrawer
           state={state}
           actions={actions}

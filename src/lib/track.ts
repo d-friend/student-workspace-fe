@@ -37,6 +37,7 @@ export type TrackEvents = {
   similar_problem_accepted: { place?: "chat" | "card" };
   new_problem_clicked: { turns_in_session: number };
   turn_failed: { status?: number; code: string };
+  turn_retried: NoProps;
   session_restored: { messages: number; has_workspace: boolean };
   visibility_changed: { visible: boolean };
   workspace_error_restored: Record<string, never>; // a restored tab reported a broken page; no rebuild until the student asks

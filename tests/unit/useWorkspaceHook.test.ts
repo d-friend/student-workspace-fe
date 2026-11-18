@@ -43,7 +43,10 @@ it("wires the controller into React: input, a typed turn, and the screen", async
     await result.current.submit();
   });
   expect(result.current.input).toBe("");
-  expect(result.current.bubbles.map((b) => b.text)).toEqual(["xin chào", "Chào bạn."]);
+  expect(result.current.bubbles).toEqual([
+    expect.objectContaining({ kind: "student", text: "xin chào", failed: null }),
+    expect.objectContaining({ kind: "agent", text: "Chào bạn." }),
+  ]);
   expect(result.current.busy).toBe(false);
 });
 

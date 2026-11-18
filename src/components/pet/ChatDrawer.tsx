@@ -14,13 +14,16 @@ import { WatchingCue } from "@/components/rail/WatchingCue";
 import { Pet } from "./Pet";
 import styles from "./ChatDrawer.module.css";
 
-export type ChatState = Pick<WorkspaceState, "bubbles" | "hasMessages" | "watching" | "restateChips" | "offerChips" | "optChips" | "optChipKind" | "optChipSeed">;
+export type ChatState = Pick<WorkspaceState, "bubbles" | "busy" | "status" | "hasMessages" | "watching" | "restateChips" | "offerChips" | "optChips" | "optChipKind" | "optChipSeed">;
 export type ChatActions = {
   onConfirmRestate: () => void;
   onCorrectRestate: () => void;
   onAcceptOffer: () => void;
   onOfferLater: () => void;
   onOpt: (text: string) => void;
+  onRetry: (bubbleId: number) => void;
+  onRebuild: () => void;
+  onOpenWorkspace: (workspaceId: string) => void;
 };
 
 // From 800px a column beside the stage (the stage narrows, nothing is frozen); below, a modal bottom sheet over it,
@@ -47,6 +50,7 @@ export function ChatDrawer({
   const desktop = useDesktop();
   const { bubbles } = state;
   const lastAgent = bubbles.findLast((b) => b.kind === "agent");
+  const lastStudentId = bubbles.findLast((b) => b.kind === "student")?.id;
   const recap = bubbles.find((b) => b.kind === "agent" && b.restate);
 
   // preventScroll: the column starts off-screen, and a plain focus() scrolls the overflow-hidden shell sideways to it.
@@ -98,6 +102,31 @@ export function ChatDrawer({
                 <Bubble key={b.id} variant="student">
                   <PhotoGrid photos={b.photos} />
                   {b.text && <div>{b.text}</div>}
+                  {b.failed !== null && <div>{b.failed}</div>}
+                  {b.failed !== null && b.id === lastStudentId && (
+                    <button type="button" disabled={state.busy} onClick={() => actions.onRetry(b.id)}>{copy.retry}</button>
+                  )}
+                </Bubble>
+              );
+            }
+            if (b.kind === "workspace") {
+              const workspaceId = b.workspaceId;
+              return (
+                <Bubble key={b.id} variant={b.state === "failed" ? "error" : "agent"}>
+                  <span>{b.title ?? copy.workspaceCardLabel}</span>{" "}
+                  {b.state === "building" && <span>{state.status ?? copy.building}</span>}
+                  {b.state === "ready" && workspaceId !== null && (
+                    <button type="button" onClick={() => {
+                      actions.onOpenWorkspace(workspaceId);
+                      if (!desktop) onClose();
+                    }}>{copy.workspaceOpen}</button>
+                  )}
+                  {b.state === "failed" && (
+                    <>
+                      <span>{copy.workspaceBuildFailed}</span>{" "}
+                      <button type="button" disabled={state.busy} onClick={actions.onRebuild}>{copy.retry}</button>
+                    </>
+                  )}
                 </Bubble>
               );
             }

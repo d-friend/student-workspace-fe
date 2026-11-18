@@ -37,7 +37,7 @@ const MAX_PENDING = 20;
 // `turn` numbers the exchanges (a typed message, or a batch of workspace events, and what comes back), so the pet
 // bubble can show only the latest one.
 export type Bubble =
-  | { id: number; turn: number; kind: "student"; text: string; photos: string[] }
+  | { id: number; turn: number; kind: "student"; text: string; photos: string[]; failed: string | null }
   | {
       id: number;
       turn: number;
@@ -51,7 +51,8 @@ export type Bubble =
       ask: "how" | "why" | null;
     }
   | { id: number; turn: number; kind: "error" | "note"; text: string }
-  | { id: number; turn: number; kind: "reset"; text: string; title: string | null };
+  | { id: number; turn: number; kind: "reset"; text: string; title: string | null }
+  | { id: number; turn: number; kind: "workspace"; workspaceId: string | null; title: string | null; state: "building" | "ready" | "failed" };
 
 type NewBubble = Bubble extends infer B ? (B extends Bubble ? Omit<B, "id" | "turn"> : never) : never;
 
@@ -123,12 +124,11 @@ function describeError(e: unknown): { text: string; code: string; status?: numbe
     else if (e.status === 413) text = copy.errTooLong;
     else if (e.status === 429) text = copy.errRateLimited(Math.max(1, Math.ceil((e.retryAfterS ?? 60) / 60)));
     else if (e.status === 503) text = copy.errBudget;
-    else text = copy.errConnect(e.message);
+    else text = copy.errConnect();
     return { text, code: e.code, status: e.status, sessionGone };
   }
-  if (e instanceof TurnError) return { text: copy.errConnect(e.message), code: e.code, sessionGone: false };
-  const message = e instanceof Error ? e.message : "request failed";
-  return { text: copy.errConnect(message), code: "network", sessionGone: false };
+  if (e instanceof TurnError) return { text: copy.errConnect(), code: e.code, sessionGone: false };
+  return { text: copy.errConnect(), code: "network", sessionGone: false };
 }
 
 export function createWorkspace(deps: WorkspaceDeps) {
@@ -136,7 +136,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   const now = deps.now ?? Date.now;
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   // Set by the hook once the iframe and the composer exist.
-  // reveal: the student must see the composer (a failed send, a correction), so a closed drawer opens for it.
+  // reveal opens a closed drawer when the student needs to write (e.g. a correction).
   const dom = { frameWindow: (): Window | null => null, focusInput: ((): void => {}) as (reveal?: boolean) => void, reload: (): void => {} };
 
   let ready = false;
@@ -396,7 +396,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     busy = true;
     typedTurn = typed;
     buildFailed = false;
-    turnNo++;
+    const turn = ++turnNo;
     const sentAt = now();
     let consumed: WorkspaceEvent[] = [];
     let studentId = existingStudentId;
@@ -406,7 +406,12 @@ export function createWorkspace(deps: WorkspaceDeps) {
       claim(consumed);
       content = withPhoto(userMessage(consumed, text), shots);
       pending = [];
-      studentId ??= addBubble({ kind: "student", text, photos: shots });
+      const student = bubbles.find((b) => b.id === studentId && b.kind === "student");
+      if (student?.kind === "student") {
+        bubbles = bubbles.map((b) => b.id === student.id ? { ...student, turn, failed: null } : b);
+      } else {
+        studentId = addBubble({ kind: "student", text, photos: shots, failed: null });
+      }
     } else {
       content = text;
     }
@@ -433,6 +438,20 @@ export function createWorkspace(deps: WorkspaceDeps) {
     let announceRestate = false; // a photo's restatement travels in the announce, so its reply inherits the chips
     let sawEvent = false;
     let gotWorkspace = false;
+    let buildingCardId: number | null = null;
+
+    const showBuildingCard = (title: string | null = null) => {
+      if (gotWorkspace) return;
+      const card: NewBubble = { kind: "workspace", workspaceId: null, title, state: "building" };
+      if (buildingCardId === null) buildingCardId = addBubble(card);
+      else if (title !== null) updateBubble(buildingCardId, card);
+    };
+
+    const failBuildingCard = () => {
+      if (buildingCardId === null) return;
+      bubbles = bubbles.map((b) => b.id === buildingCardId && b.kind === "workspace" ? { ...b, state: "failed" } : b);
+      buildingCardId = null;
+    };
 
     // The model sometimes says its announce again as the reply; the student reads it once. While streaming, a reply
     // that is still a prefix of the announce is held back too.
@@ -467,11 +486,14 @@ export function createWorkspace(deps: WorkspaceDeps) {
         announceId = agentId === null ? addBubble(b) : insertBubbleBefore(agentId, b);
       } else if (e.event === "status") {
         buildFailed = e.stage === "failed";
+        if (buildFailed) failBuildingCard();
+        else showBuildingCard();
         if (buildFailed) { preview = null; queuedAnswer = null; }
         status = e.stage === "failed" ? null : statusLabel(e.stage);
         building = e.stage !== "failed";
         buildingPhase = e.stage === "failed" ? null : (e.phase ?? buildingPhase);
       } else if (e.event === "workspace_partial") {
+        showBuildingCard(e.title);
         if (queuedAnswer) {
           const answer = queuedAnswer;
           const steps = e.blocks.find((b) => b.id === answer.blockId);
@@ -483,6 +505,17 @@ export function createWorkspace(deps: WorkspaceDeps) {
         }
         preview = { phase: e.phase, title: e.title, blocks: e.blocks };
       } else if (e.event === "workspace") {
+        const previousCard = bubbles.find((b) => b.kind === "workspace" && b.workspaceId === (e.replaces ?? e.workspaceId));
+        const readyCard: NewBubble = { kind: "workspace", workspaceId: e.workspaceId, title: e.doc.title, state: "ready" };
+        if (previousCard) {
+          removeBubble(buildingCardId);
+          updateBubble(previousCard.id, readyCard);
+        } else if (buildingCardId !== null) {
+          updateBubble(buildingCardId, readyCard);
+        } else {
+          addBubble(readyCard);
+        }
+        buildingCardId = null;
         const old = tabs.find((w) => w.id === e.replaces);
         const replaced = old !== undefined;
         const steps = e.doc.blocks.find((b) => b.id === queuedAnswer?.blockId);
@@ -557,7 +590,6 @@ export function createWorkspace(deps: WorkspaceDeps) {
     };
 
     let keepEvents = false;
-    let failed = false;
     try {
       if (sessionId === null) {
         const created = await api.createSession(via ?? (shots.length ? "photo" : "typed"));
@@ -606,16 +638,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
       removeBubble(agentId);
       removeBubble(announceId);
       const info = describeError(e);
-      failed = true;
+      failBuildingCard();
       if (typed) {
-        removeBubble(studentId);
-        if (text) input = input ? text + "\n" + input : text;
-        if (shots.length) {
-          const restored = [...shots, ...photos];
-          photos = restored.slice(0, MAX_PHOTOS);
-          if (restored.length > MAX_PHOTOS) setPhotoNote(copy.photoLimit(MAX_PHOTOS));
-        }
-        addBubble({ kind: "error", text: info.text });
+        if (studentId !== null) updateBubble(studentId, { kind: "student", text, photos: shots, failed: info.text });
         // Put the events back so they ride along with the resend; a stale flush timer must not fire them alone.
         if (!pending.length) clearTimer();
         pending = [...consumed, ...pending].slice(-MAX_PENDING);
@@ -642,14 +667,19 @@ export function createWorkspace(deps: WorkspaceDeps) {
           // The next turn creates one.
         }
       } else if (e instanceof TurnError && e.code === "history_conflict") {
-        // Another tab changed the history: take the server's version, and keep the error visible.
+        // Another tab changed the history: restore it and keep the local failed attempt at the end.
         try {
           const saved = await api.currentSession();
           if (epoch !== mine) return;
           if (saved) {
+            const failedBubbles = bubbles.filter((b) => b.id === studentId ||
+              (b.kind === "workspace" && b.turn === turn && b.state === "failed"));
             restore(saved, true);
-            if (epoch !== mine) return;
-            addBubble(typed ? { kind: "error", text: info.text } : { kind: "note", text: info.text });
+            if (failedBubbles.length) {
+              turnNo++;
+              bubbles = [...bubbles, ...failedBubbles.map((b) => ({ ...b, turn: turnNo }))];
+            }
+            if (!typed) addBubble({ kind: "note", text: info.text });
           }
         } catch {
           if (epoch !== mine) return;
@@ -658,6 +688,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       }
     } finally {
       if (epoch === mine) {
+        failBuildingCard();
         busy = false;
         building = false;
         status = null;
@@ -666,7 +697,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
         queuedAnswer = null;
         simulationPending = {};
         publish();
-        if (typed) dom.focusInput(failed);
+        if (typed) dom.focusInput(false);
         if (!keepEvents) flush();
       }
     }
@@ -691,7 +722,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     if (queued || (busy && typedTurn)) return Promise.resolve();
     optsClosedId = lastAgentId();
     if (busy) {
-      queued = { text, photos: shots, bubbleId: addBubble({ kind: "student", text, photos: shots }) };
+      queued = { text, photos: shots, bubbleId: addBubble({ kind: "student", text, photos: shots, failed: null }) };
       publish();
       return Promise.resolve();
     }
@@ -827,9 +858,11 @@ export function createWorkspace(deps: WorkspaceDeps) {
         said = null;
         addResetDividers(workspaceEvents(m.content));
         const view = studentView(m.content);
-        if (view) addBubble({ kind: "student", ...view });
+        if (view) addBubble({ kind: "student", ...view, failed: null });
       }
     }
+    // shortcut: the server does not store which message built a tab, so append cards in tab order.
+    for (const tab of tabs) addBubble({ kind: "workspace", workspaceId: tab.id, title: tab.doc.title, state: "ready" });
     // A trailing [silent] or workspace batch means something happened after the last visible agent message.
     const last = saved.messages.at(-1);
     if (last && (last.role === "user" || parse(last.content as string).chat === "")) {
@@ -1002,6 +1035,13 @@ export function createWorkspace(deps: WorkspaceDeps) {
       return dispatch(text, shots);
     },
 
+    retry(bubbleId: number): Promise<void> {
+      const student = bubbles.findLast((b) => b.kind === "student");
+      if (busy || student?.id !== bubbleId || student.kind !== "student" || student.failed === null) return Promise.resolve();
+      track("turn_retried", {}, sid());
+      return runTurn(true, student.text, bubbleId, student.photos);
+    },
+
     async pickPhoto(file: Blob, source: TrackEvents["photo_picked"]["source"]) {
       if (photos.length >= MAX_PHOTOS) {
         setPhotoNote(copy.photoLimit(MAX_PHOTOS));
@@ -1145,6 +1185,10 @@ export function createWorkspace(deps: WorkspaceDeps) {
       if (sessionId !== null) api.setActiveWorkspace(sessionId, id).catch(() => {}); // best effort: the turn then sees the older tab
       if (from) track("tab_switched", { from_phase: from, to_phase: tab.phase }, sid());
       actions.report("phase_viewed", { phase: tab.phase, workspace_id: id }, true, id);
+    },
+
+    openWorkspace(workspaceId: string) {
+      actions.setActive(workspaceId);
     },
 
     resetWorkspace(id: string) {

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Shell } from "@/components/Shell";
+import { PanelActions, Shell } from "@/components/Shell";
+import { useDesktop } from "@/hooks/useDesktop";
 import type { BlockCtx, WorkspaceDoc } from "@/workspace/types";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
 import styles from "../../page.module.css";
@@ -13,6 +14,7 @@ const phases = ["learn", "learn", "solve", "practice", "solve"] as const;
 // tabs > 1 clones the doc into that many tabs (max 5) so the tab strip can be screenshotted.
 export function FixtureView({ doc, tabs = 1 }: { doc: WorkspaceDoc; tabs?: number }) {
   const [activeId, setActive] = useState("fx");
+  const desktop = useDesktop();
   const list = Array.from({ length: Math.min(Math.max(tabs, 1), 5) }, (_, i) => ({
     id: i ? `fx${i}` : "fx",
     doc: i ? { ...doc, title: `${doc.title} ${i + 1}`, phase: phases[i] } : doc,
@@ -36,9 +38,12 @@ export function FixtureView({ doc, tabs = 1 }: { doc: WorkspaceDoc; tabs?: numbe
   });
   return (
     <Shell
+      floatingPanels
+      showCornerActions={!desktop}
       layer={null}
       work={
-        <div className={styles.viewWrap}>
+        <div className={styles.viewWrap} data-shell-panel>
+          {desktop && <PanelActions />}
           <WorkspaceView tabs={list} activeId={activeId} onActive={setActive} makeCtx={makeCtx} />
         </div>
       }

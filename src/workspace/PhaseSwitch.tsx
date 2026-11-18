@@ -12,7 +12,18 @@ export function PhaseSwitch({ tabs, activeId, onActive }: {
 }) {
   const row = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    row.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    const strip = row.current;
+    const selected = strip?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!strip || !selected) return;
+    if (window.matchMedia?.("(min-width: 800px)").matches) {
+      // Revealing a tab must preserve the workspace's restored vertical position.
+      const bounds = strip.getBoundingClientRect();
+      const tab = selected.getBoundingClientRect();
+      if (tab.left < bounds.left) strip.scrollLeft += tab.left - bounds.left;
+      else if (tab.right > bounds.right) strip.scrollLeft += tab.right - bounds.right;
+      return;
+    }
+    selected.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }, [activeId, tabs.length]);
 
   if (tabs.length <= 1) return null;

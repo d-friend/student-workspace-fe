@@ -5,7 +5,7 @@ import { fixtures } from "@/workspace/fixtures";
 import type { BlockCtx, Phase, Workspace, WorkspaceDoc } from "@/workspace/types";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 test("sharing waits for custom HTML and remains available for solve tabs", () => {
   const custom = { type: "custom" as const, id: "sim", html: null, height: null, reason: "building" };
@@ -198,7 +198,8 @@ test("a master-completed steps block stops asking for another line", () => {
 });
 
 
-test("renders ordered same-phase tabs with distinct panels, keeps inputs mounted, and reveals the active tab", () => {
+test.each([false, true])("keeps same-phase panels mounted and reveals the active tab (desktop=%s)", (desktop) => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: desktop })));
   const solve = { ...fixtures["solve-tangent.json"], title: "First solve" };
   const tabs = [
     { id: "S1", phase: "solve" as const, doc: solve },
@@ -219,8 +220,16 @@ test("renders ordered same-phase tabs with distinct panels, keeps inputs mounted
   expect(onActive).toHaveBeenCalledWith("S2");
   const scrollIntoView = vi.fn();
   secondTab.scrollIntoView = scrollIntoView;
+  const strip = screen.getByRole("tablist");
+  strip.getBoundingClientRect = () => new DOMRect(0, 0, 180, 40);
+  secondTab.getBoundingClientRect = () => new DOMRect(120, 0, 120, 40);
   rerender(<WorkspaceView {...props} activeId="S2" />);
-  expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
+  if (desktop) {
+    expect(strip.scrollLeft).toBe(60);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  } else {
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
+  }
   expect(container.querySelector("#panel-S1")?.hasAttribute("hidden")).toBe(true);
   expect(secondTab.getAttribute("aria-selected")).toBe("true");
   expect(secondTab.getAttribute("aria-controls")).toBe("panel-S2");

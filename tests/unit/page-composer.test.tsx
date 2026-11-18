@@ -324,6 +324,9 @@ it("collapses the desktop column, marks unread replies and reopens with focus", 
   expect(chat.hidden).toBe(true);
   const pill = screen.getByRole("button", { name: copy.openChat });
   expect(document.activeElement).toBe(pill);
+  const stage = within(pill.closest<HTMLElement>("[data-shell-panel]")!);
+  expect(stage.getByRole("button", { name: copy.feedbackOpen })).toBeTruthy();
+  expect(stage.getByRole("button", { name: copy.themeDark })).toBeTruthy();
   expect(chat.closest("[data-chat]")).toBeNull();
   expect(localStorage.getItem("dfriend.chatCollapsed")).toBe("true");
   await act(async () => {

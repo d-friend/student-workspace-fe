@@ -14,14 +14,18 @@
 }
 
 @media (min-width: 800px) {
-  .chat[data-column] {
-    position: absolute;
-    inset: 0 0 0 auto;
-    width: var(--chat-w);
-    box-sizing: border-box;
-    border-left: 1px solid var(--border);
-    background: var(--panel);
+  .chat {
+    overflow: auto;
+    overscroll-behavior: contain;
   }
+
+  .chat[data-column] {
+    flex: 0 0 var(--chat-w);
+    margin-inline: 0;
+  }
+
+  .chat .head { padding: 0 12px 0 16px; }
+  .chat .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 }
 
 .chat[data-column] .head { padding: 0 8px 0 16px; gap: 4px; }

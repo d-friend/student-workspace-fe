@@ -4,7 +4,11 @@ import { FeedbackButton } from "./FeedbackButton";
 import { ThemeToggle } from "./ThemeToggle";
 import styles from "./Shell.module.css";
 
-// The full-viewport shell reserves the chat column on desktop and makes the main content inert while the mobile sidebar is open.
+export function PanelActions() {
+  return <div className={styles.panelActions} data-panel-header><FeedbackButton /><ThemeToggle /></div>;
+}
+
+// The main content is inert while the mobile sidebar is open.
 export function Shell({
   bar,
   menuRef,
@@ -13,6 +17,8 @@ export function Shell({
   work,
   layer,
   chatOpen = false,
+  floatingPanels = false,
+  showCornerActions = true,
   inert = false,
 }: {
   sidebar?: ReactNode;
@@ -22,11 +28,13 @@ export function Shell({
   work: ReactNode;
   layer: ReactNode;
   chatOpen?: boolean;
+  floatingPanels?: boolean;
+  showCornerActions?: boolean;
   inert?: boolean;
 }) {
   return (
-    <div className={styles.shell} data-chat={chatOpen || undefined} data-side={sidebar ? side ?? "rail" : undefined} data-sidebar={sidebar ? true : undefined} data-top-bar={!!bar || undefined}>
-      {sidebar && <aside className={styles.sidebar}>{sidebar}</aside>}
+    <div className={styles.shell} data-chat={chatOpen || undefined} data-floating-panels={floatingPanels || undefined} data-side={sidebar ? side ?? "rail" : undefined} data-sidebar={sidebar ? true : undefined} data-top-bar={!!bar || undefined}>
+      {sidebar && <aside className={styles.sidebar} data-shell-panel>{sidebar}</aside>}
       <div className={styles.stage} inert={inert}>
         {bar && <header className={styles.topBar}>
           <div className={styles.menuSlot} ref={menuRef} />
@@ -37,7 +45,7 @@ export function Shell({
         <main aria-label={copy.workLabel} className={styles.work}>
           {work}
         </main>
-        {!bar && !chatOpen && <><FeedbackButton /><ThemeToggle /></>}
+        {!bar && !chatOpen && showCornerActions && <><FeedbackButton /><ThemeToggle /></>}
       </div>
       {layer}
     </div>

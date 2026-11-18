@@ -53,8 +53,20 @@ export function SelectionAsk({ scroller, activeId, onAsk }: { scroller: RefObjec
   useLayoutEffect(() => {
     if (!candidate || !button.current) return;
     const { width, height } = button.current.getBoundingClientRect();
-    setPosition({ left: Math.max(0, Math.min(candidate.left, window.innerWidth - width)), top: Math.max(0, Math.min(candidate.bottom + 6, window.innerHeight - height)) });
-  }, [candidate]);
+    let left = 0, top = 0, right = window.innerWidth, bottom = window.innerHeight;
+    const root = scroller.current;
+    if (root && window.matchMedia?.("(min-width: 800px)").matches) {
+      const box = root.getBoundingClientRect();
+      left = box.left + root.clientLeft;
+      top = box.top + root.clientTop;
+      right = left + root.clientWidth;
+      bottom = top + root.clientHeight;
+    }
+    setPosition({
+      left: Math.max(left, Math.min(candidate.left, right - width)),
+      top: Math.max(top, Math.min(candidate.bottom + 6, bottom - height)),
+    });
+  }, [candidate, scroller]);
 
   if (!candidate) return null;
   return createPortal(<button ref={button} type="button" className={styles.button} style={{ left: position.left, top: position.top }} onClick={() => { onAsk?.(candidate.quote); setCandidate(null); }}>{copy.selectionAsk}</button>, document.body);

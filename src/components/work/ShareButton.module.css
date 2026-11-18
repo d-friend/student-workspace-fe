@@ -82,3 +82,11 @@
 
 .wrap[data-overflow] .menu { min-width: 136px; }
 .wrap[data-overflow] :focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+@media (min-width: 800px) {
+  @container (max-width: 360px) {
+    .wrap:not([data-overflow]) .button { padding-inline: 8px; }
+    .wrap:not([data-overflow]) .menu { max-width: 100cqi; }
+    .wrap:not([data-overflow]) .feedback { max-width: min(260px, 100cqi); }
+  }
+}

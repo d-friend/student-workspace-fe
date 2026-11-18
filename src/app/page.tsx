@@ -4,7 +4,7 @@ import { type ChangeEvent, useCallback, useEffect, useImperativeHandle, useLayou
 import { ProfileGate } from "@/components/ProfileGate";
 import { AskStrip, pendingAsk } from "@/components/chat/AskStrip";
 import { ChatView } from "@/components/chat/ChatView";
-import { Shell } from "@/components/Shell";
+import { PanelActions, Shell } from "@/components/Shell";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { useSidebar } from "@/components/sidebar/useSidebar";
 import { PetAnchorProvider } from "@/components/pet/PetAnchor";
@@ -291,7 +291,8 @@ function Home() {
   };
   const work = (
     <>
-      <div className={styles.stage} data-visible={showWorkspace} inert={!showWorkspace} aria-hidden={!showWorkspace || undefined}>
+      <div className={styles.stage} data-shell-panel data-visible={showWorkspace} inert={!showWorkspace} aria-hidden={!showWorkspace || undefined}>
+        {desktopCollapsed && <PanelActions />}
         {/* Keep the current doc mounted across chat visits and while another workspace builds. */}
         {workspace && <div className={styles.viewWrap} data-visible={!showBuild} inert={showBuild} aria-hidden={showBuild || undefined}>{workspace}</div>}
         {showBuild && (
@@ -349,7 +350,7 @@ function Home() {
 
   return (
     <PetAnchorProvider>
-      <Shell work={work} bar={bar} menuRef={setMenuTarget} chatOpen={desktop && showWorkspace && !chatCollapsed} inert={side.drawerOpen && !desktop}
+      <Shell work={work} bar={bar} menuRef={setMenuTarget} chatOpen={desktop && showWorkspace && !chatCollapsed} floatingPanels showCornerActions={false} inert={side.drawerOpen && !desktop}
         layer={<PetLayer state={ws} actions={chipActions} offerOnCard={offerOnCard} questionInStrip={ask !== null} onWriteOwn={() => ws.inputRef.current?.focus(true)} />}
         sidebar={<Sidebar side={side} menuTarget={desktop ? undefined : menuTarget} busy={ws.busy} onNewProblem={ws.newProblem} progress={cards.length > 0 ? {} : null} refreshKey={`${ws.newProblemCount}|${ws.hasMessages}|${ws.phase}`} />}
         side={desktop ? side.mode : undefined} />

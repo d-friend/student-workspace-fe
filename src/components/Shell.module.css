@@ -1,7 +1,6 @@
 .shell {
   --side-w: 0px;
   --menu-clear: 0px;
-  --chat-w: clamp(340px, 34vw, 430px);
   --ease: cubic-bezier(0.2, 0.9, 0.25, 1);
   position: relative;
   display: flex;
@@ -47,20 +46,57 @@
 .topBar > button { position: static; flex: 0 0 44px; }
 .shell[data-top-bar] .work { overflow: hidden; }
 
-/* The chat column (from 800px) takes its width from the stage, which glides to make room. */
 @media (min-width: 800px) {
-  .stage {
-    transition: margin-right 0.4s var(--ease);
+  .shell[data-floating-panels] {
+    --shell-gap: 8px;
+    /* Give the workspace more room when both side panels are open near 800px. */
+    --chat-w: clamp(280px, calc(100vw - var(--side-w) - 4 * var(--shell-gap) - 250px), clamp(340px, 34vw, 430px));
+    gap: var(--shell-gap);
+    padding: var(--shell-gap);
+    background: var(--desk) radial-gradient(var(--desk-dot) 1px, transparent 1.4px) 0 0 / 22px 22px;
   }
 
-  .shell[data-chat] .stage {
-    margin-right: var(--chat-w);
+  .shell[data-floating-panels] .work {
+    gap: var(--shell-gap);
+    overflow: visible;
   }
-}
 
-@media (prefers-reduced-motion: reduce) {
-  .stage {
-    transition: none;
+  .shell[data-floating-panels] [data-shell-panel] {
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-lg);
+    background: var(--panel);
+    box-shadow: 0 1px 0 var(--border), 0 20px 50px color-mix(in srgb, var(--text) 10%, transparent);
+  }
+
+  .shell[data-floating-panels] .sidebar { overflow: auto; }
+
+  .panelActions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 4px;
+    min-height: 64px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .shell[data-floating-panels] [data-panel-header] {
+    position: relative;
+    flex: none;
+  }
+
+  .shell[data-floating-panels] [data-panel-header] > button {
+    position: static;
+    flex: 0 0 44px;
+  }
+
+  .shell[data-floating-panels] [data-panel-header] > form {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 12px;
+    width: min(360px, calc(100% - 24px));
+    max-height: calc(100dvh - 88px);
+    overflow: auto;
   }
 }
 
@@ -75,7 +111,7 @@
 @media (min-width: 800px) {
   .shell[data-side="open"] { --side-w: 260px; }
   .shell[data-side="rail"] { --side-w: 56px; }
-  .shell[data-sidebar] .sidebar { border-right: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
+  .shell[data-sidebar]:not([data-floating-panels]) .sidebar { border-right: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
 }
 @media (max-width: 799px) {
   .shell[data-sidebar] { --menu-clear: 56px; }

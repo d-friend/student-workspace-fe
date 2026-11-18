@@ -77,12 +77,13 @@ export function ChatView({
   const emptyColumn = workspaceVisible && !bubbles.some((b) => b.kind === "student" || b.kind === "agent");
 
   return (
-    <section aria-label={copy.drawerLabel} className={styles.chat} data-testid="chat-view" data-column={(workspaceVisible && !hidden) || undefined} hidden={hidden}>
+    <section aria-label={copy.drawerLabel} className={styles.chat} data-shell-panel data-testid="chat-view" data-column={(workspaceVisible && !hidden) || undefined} hidden={hidden}>
       {showHeader && (
-        <header className={styles.head}>
+        <header className={styles.head} data-panel-header>
           <span className={styles.headPet}><Pet mood="idle" /></span>
           <span className={styles.name}>D-Friend</span>
-          {workspaceVisible && <><FeedbackButton /><ThemeToggle /><button type="button" className={styles.collapse} aria-label={copy.hideChat} onClick={onCollapse}><IconLayoutSidebarRightCollapse size={22} aria-hidden="true" /></button></>}
+          <FeedbackButton /><ThemeToggle />
+          {workspaceVisible && <button type="button" className={styles.collapse} aria-label={copy.hideChat} onClick={onCollapse}><IconLayoutSidebarRightCollapse size={22} aria-hidden="true" /></button>}
         </header>
       )}
       {emptyColumn && <p className={styles.emptyHint}>{copy.chatEmptyHint}</p>}

@@ -4,7 +4,7 @@ import { copy } from "../../src/lib/copy";
 
 // The API is mocked in the browser, so no backend is needed.
 
-test("a pasted image becomes the photo; pasted text is left alone", async ({ page }) => {
+test("pasted images fill the tray and open a preview; pasted text is left alone", async ({ page }) => {
   await page.route("**/api/**", (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/sessions/current") return route.fulfill({ status: 204 });
@@ -24,6 +24,7 @@ test("a pasted image becomes the photo; pasted text is left alone", async ({ pag
         canvas.width = canvas.height = 8;
         const blob = await new Promise<Blob>((ok) => canvas.toBlob((b) => ok(b!), "image/png"));
         data.items.add(new File([blob], "screenshot.png", { type: "image/png" }));
+        data.items.add(new File([blob], "detail.png", { type: "image/png" }));
       }
       const event = new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true });
       document.dispatchEvent(event);
@@ -31,7 +32,13 @@ test("a pasted image becomes the photo; pasted text is left alone", async ({ pag
     }, kind);
 
   expect(await paste("text")).toBe(false);
-  await expect(page.getByRole("heading", { name: copy.photoTitle })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: copy.removePhoto })).toHaveCount(0);
   expect(await paste("image")).toBe(true);
-  await expect(page.getByRole("heading", { name: copy.photoTitle })).toBeVisible();
+  await expect(page.getByRole("button", { name: copy.removePhoto })).toHaveCount(2);
+  await expect(page.getByRole("heading", { name: copy.entryTitle })).toBeVisible();
+  await page.getByRole("button", { name: copy.photoChip }).first().click();
+  const preview = page.getByRole("dialog", { name: copy.photoChip });
+  await expect(preview.getByRole("img", { name: copy.photoChip })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(preview).toBeHidden();
 });

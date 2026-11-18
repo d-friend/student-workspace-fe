@@ -1,6 +1,6 @@
 "use client";
 
-import { type ChangeEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ProfileGate } from "@/components/ProfileGate";
 import { Entry } from "@/components/Entry";
 import { Shell } from "@/components/Shell";
@@ -8,6 +8,7 @@ import { Sidebar } from "@/components/sidebar/Sidebar";
 import { useSidebar } from "@/components/sidebar/useSidebar";
 import { PetAnchorProvider } from "@/components/pet/PetAnchor";
 import { PetLayer } from "@/components/pet/PetLayer";
+import { PhotoGrid } from "@/components/rail/PhotoGrid";
 import { BuildingSkeleton } from "@/components/work/BuildingSkeleton";
 import { SheetSwitcher } from "@/components/work/SheetSwitcher";
 import { WorkspaceFrame } from "@/components/work/WorkspaceFrame";
@@ -17,16 +18,15 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import { useProgress } from "@/hooks/useProgress";
 import { copy } from "@/lib/copy";
 import { frameDoc } from "@/lib/frame";
+import { JPEG_PREFIX } from "@/lib/photo";
 import { openProgressSession, progressCards } from "@/lib/progress";
-import { track } from "@/lib/track";
+import { track, type TrackEvents } from "@/lib/track";
 import type { BlockCtx, Workspace } from "@/workspace/types";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
 import type { SelectionQuote } from "@/workspace/SelectionAsk";
 import styles from "./page.module.css";
 
-const JPEG_PREFIX = "data:image/jpeg;base64,";
-
-type PhotoSource = "snap_button" | "composer_button" | "retake" | "paste" | "drop";
+type PhotoSource = TrackEvents["photo_picked"]["source"];
 
 export default function Page() {
   return <ProfileGate><Home /></ProfileGate>;
@@ -40,32 +40,30 @@ function Home() {
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
   const entryInput = useRef<HTMLTextAreaElement>(null);
-  const source = useRef<PhotoSource>("snap_button");
-
-  const pick = (from: PhotoSource, input = fileInput) => {
-    source.current = from;
-    input.current?.click();
-  };
-  const onFile = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (file) void ws.pickPhoto(file, source.current);
-  };
-
-  // A pasted screenshot becomes the photo, wherever the focus is. Pasted text is left to the browser.
   const { pickPhoto } = ws;
+  const addPhotos = useCallback(async (files: File[], source: PhotoSource) => {
+    for (const file of files) await pickPhoto(file, source);
+  }, [pickPhoto]);
+  const onFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    const files = Array.from(input.files ?? []);
+    input.value = "";
+    void addPhotos(files, input.hasAttribute("capture") ? "snap_button" : "composer_button");
+  };
+
+  // Attach pasted images wherever the focus is. Leave text pastes to the browser.
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
-      const file = Array.from(e.clipboardData?.files ?? []).find((f) => f.type.startsWith("image/"));
-      if (!file) return;
+      const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
+      if (!files.length) return;
       e.preventDefault();
-      void pickPhoto(file, "paste");
+      void addPhotos(files, "paste");
     };
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
-  }, [pickPhoto]);
+  }, [addPhotos]);
 
-  // A dragged image (e.g. the macOS screenshot thumbnail) becomes the photo, wherever it lands.
+  // Attach dragged images wherever they land.
   // dragover must be cancelled, or the browser opens the image instead of firing drop.
   useEffect(() => {
     const hasImage = (e: DragEvent) => Array.from(e.dataTransfer?.items ?? []).some((i) => i.type.startsWith("image/"));
@@ -73,10 +71,10 @@ function Home() {
       if (hasImage(e)) e.preventDefault();
     };
     const onDrop = (e: DragEvent) => {
-      const file = Array.from(e.dataTransfer?.files ?? []).find((f) => f.type.startsWith("image/"));
-      if (!file) return;
+      const files = Array.from(e.dataTransfer?.files ?? []).filter((f) => f.type.startsWith("image/"));
+      if (!files.length) return;
       e.preventDefault();
-      void pickPhoto(file, "drop");
+      void addPhotos(files, "drop");
     };
     document.addEventListener("dragover", onDragOver);
     document.addEventListener("drop", onDrop);
@@ -84,11 +82,10 @@ function Home() {
       document.removeEventListener("dragover", onDragOver);
       document.removeEventListener("drop", onDrop);
     };
-  }, [pickPhoto]);
+  }, [addPhotos]);
 
   // html is null on the server and on the first client render, so location is only read in the browser.
   const srcDoc = useMemo(() => (ws.html === null ? null : frameDoc(ws.html, location.origin)), [ws.html]);
-  const photoSrc = ws.photo === null ? null : JPEG_PREFIX + ws.photo;
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [offerOnCard, setOfferOnCard] = useState(false);
@@ -125,16 +122,16 @@ function Home() {
     value: ws.input,
     onChange: ws.setInput,
     onSend: () => {
-      if (ws.sendDisabled || (!ws.input.trim() && !photoSrc)) return;
+      if (ws.sendDisabled || (!ws.input.trim() && !ws.photos.length)) return;
       if (quote) ws.report("selection_asked", quote, true, ws.activeId ?? undefined);
       setQuote(null);
       void ws.submit();
     },
-    onPickPhoto: () => pick("composer_button"),
-    onSnapPhoto: () => pick("composer_button", cameraInput),
+    onPickPhoto: () => fileInput.current?.click(),
+    onSnapPhoto: () => cameraInput.current?.click(),
     placeholder: ws.hasMessages ? copy.placeholderWorking : copy.placeholderEmpty,
     sendDisabled: ws.sendDisabled,
-    photo: photoSrc ? { src: photoSrc, onRemove: ws.removePhoto } : null,
+    photos: ws.photos.map((data, index) => ({ src: JPEG_PREFIX + data, onRemove: () => ws.removePhoto(index) })),
   };
 
   let stage;
@@ -180,13 +177,12 @@ function Home() {
   // the stage opens over it from the composer and a card carries the problem to the top of the doc column.
   const unfold = useUnfold(ws.screen, ws.phase !== null || ws.html !== null);
   const flying = unfold === "flying";
-  // The store has already cleared the input and the photo; the problem is the first thing the student sent.
+  // The store has cleared the draft. The fly card uses the first message the student sent.
   const sent = ws.bubbles.find((b) => b.kind === "student");
-  const sentPhoto = sent?.kind === "student" && sent.photo ? JPEG_PREFIX + sent.photo : null;
   const unfoldRef = useRef<HTMLDivElement>(null);
 
   // A restored workspace must not count the entry screen's initial, temporary render.
-  const latest = ws.ready && entry && !drawerOpen && !flying && !photoSrc ? cards[0] : undefined;
+  const latest = ws.ready && entry && !drawerOpen && !flying ? cards[0] : undefined;
   useEffect(() => {
     if (!latest || progressTracked.current) return;
     progressTracked.current = true;
@@ -245,20 +241,6 @@ function Home() {
           onRetry={ws.buildFailed ? () => void ws.rebuild() : undefined}
           progress={latest ? { item: latest, onOpen: () => void openProgressSession(latest, "reload") } : null}
           leaving={flying}
-          photoCheck={
-            photoSrc
-              ? {
-                  src: photoSrc,
-                  onSend: () => void ws.submit(),
-                  onRetake: () => {
-                    ws.retake();
-                    pick("retake");
-                  },
-                }
-              : flying && sentPhoto
-                ? { src: sentPhoto, onSend: () => {}, onRetake: () => {} } // fading out with the rest
-                : null
-          }
         />
       )}
       {/* The same element before, during and after the flight, so a doc that arrives mid-flight is not remounted. */}
@@ -271,8 +253,7 @@ function Home() {
         <div className={styles.fly} aria-hidden="true">
           <div className={styles.flyIn}>
             <span className={styles.flyLabel}>{copy.problemLabel}</span>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {sentPhoto && <img className={styles.flyPhoto} src={sentPhoto} alt="" />}
+            <PhotoGrid photos={sent.photos} compact />
             {sent.text && <p className={styles.flyText}>{sent.text}</p>}
           </div>
         </div>
@@ -306,7 +287,7 @@ function Home() {
       <Shell work={work} layer={layer} chatOpen={drawerOpen} inert={(drawerOpen || side.drawerOpen) && !desktop}
         sidebar={<Sidebar side={side} busy={ws.busy} onNewProblem={ws.newProblem} progress={cards.length > 0 ? {} : null} refreshKey={`${ws.newProblemCount}|${ws.hasMessages}|${ws.phase}`} />}
         side={desktop ? side.mode : undefined} />
-      <input ref={fileInput} type="file" accept="image/*" hidden onChange={onFile} />
+      <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={onFile} />
       <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={onFile} />
     </PetAnchorProvider>
   );

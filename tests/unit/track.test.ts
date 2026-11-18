@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTracker, FLUSH_AFTER_MS, MAX_BATCH } from "@/lib/track";
 
-const photoProps = { has_photo: false, has_text: true, text_len: 4, had_events: false, queued: false };
+const photoProps = { has_photo: false, photo_count: 0, has_text: true, text_len: 4, had_events: false, queued: false };
 
 describe("track", () => {
   const send = vi.fn();

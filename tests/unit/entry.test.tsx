@@ -25,7 +25,7 @@ function setup(extra: Partial<Parameters<typeof Entry>[0]> = {}) {
       onSend: vi.fn(),
       onPickPhoto: vi.fn(),
       placeholder: copy.placeholderEmpty,
-      photo: null,
+      photos: [],
     },
     onStarter: vi.fn(),
     onSurprise: vi.fn(),
@@ -34,11 +34,11 @@ function setup(extra: Partial<Parameters<typeof Entry>[0]> = {}) {
   return { props, ui: <Entry {...props} /> };
 }
 
-test("shows the greeting, the composer, the camera and both starters", () => {
+test("shows the greeting, the composer, Add photo and both starters", () => {
   render(setup().ui);
   expect(screen.getByRole("heading", { name: copy.entryTitle })).toBeTruthy();
   expect(screen.getByLabelText(copy.inputLabel)).toBeTruthy();
-  expect(screen.getByRole("button", { name: copy.pickPhoto })).toBeTruthy();
+  expect(screen.getByRole("button", { name: copy.addPhoto })).toBeTruthy();
   expect(screen.getByText(copy.starter1)).toBeTruthy();
   expect(screen.getByText(copy.starter2)).toBeTruthy();
 });
@@ -67,19 +67,6 @@ test("Thử lại shows only when a retry is given", () => {
   expect(onRetry).toHaveBeenCalledTimes(1);
 });
 
-test("with a photo, the photo check replaces the greeting and the starters", () => {
-  const onSend = vi.fn();
-  const onRetake = vi.fn();
-  const s = setup({ photoCheck: { src: "data:image/jpeg;base64,x", onSend, onRetake } });
-  render(s.ui);
-  expect(screen.getByRole("heading", { name: copy.photoTitle })).toBeTruthy();
-  expect(screen.queryByText(copy.starter1)).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: copy.sendPhoto }));
-  fireEvent.click(screen.getByRole("button", { name: copy.retake }));
-  expect(onSend).toHaveBeenCalledTimes(1);
-  expect(onRetake).toHaveBeenCalledTimes(1);
-});
-
 const progressItem: ProgressItem = {
   workspace_id: "w", session_id: "s", phase: "solve", title: "Bài vừa làm", created_at: "2026-11-14T05:00:00Z", tabs: 1,
   roadmap: "generic", stages: [0, 1], steps: { entries: [{ state: "ok", tries: 1, hint: 0 }], done: false, free: false },
@@ -100,15 +87,11 @@ test("progress replaces both starters and keeps the retry action", () => {
   expect(onRetry).toHaveBeenCalledOnce();
 });
 
-test("null progress keeps both starters and a photo hides progress", () => {
-  const { rerender } = render(setup({ progress: null }).ui);
+test("null progress keeps both starters", () => {
+  render(setup({ progress: null }).ui);
   expect(screen.getByText(copy.starter1)).toBeTruthy();
   expect(screen.getByText(copy.starter2)).toBeTruthy();
   expect(screen.queryByRole("link", { name: copy.progressSeeAll })).toBeNull();
-  rerender(setup({ progress: { item: progressItem, onOpen: vi.fn() }, photoCheck: { src: "data:image/jpeg;base64,x", onSend: vi.fn(), onRetake: vi.fn() } }).ui);
-  expect(screen.queryByText(copy.progressLatest)).toBeNull();
-  expect(screen.queryByRole("link", { name: copy.progressSeeAll })).toBeNull();
-  expect(screen.queryByRole("button", { name: copy.entryResume })).toBeNull();
 });
 
 test.each([false, true])("surprise preview is available with progress=%s", async (hasProgress) => {

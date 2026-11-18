@@ -6,6 +6,7 @@ import Page from "@/app/page";
 import * as api from "@/lib/api";
 import { track } from "@/lib/track";
 import { copy } from "@/lib/copy";
+import { JPEG_PREFIX, readPhoto } from "@/lib/photo";
 import { fixtures } from "@/workspace/fixtures";
 
 vi.mock("@/lib/api", async (importOriginal) => ({
@@ -22,7 +23,10 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   turn: vi.fn(),
 }));
 vi.mock("@/lib/track", () => ({ track: vi.fn() }));
-vi.mock("@/lib/photo", () => ({ readPhoto: vi.fn().mockResolvedValue({ data: "eA==", bytes: 1, width: 1, height: 1, processMs: 1 }) }));
+vi.mock("@/lib/photo", async (original) => ({
+  ...await original<typeof import("@/lib/photo")>(),
+  readPhoto: vi.fn().mockResolvedValue({ data: "eA==", bytes: 1, width: 1, height: 1, processMs: 1 }),
+}));
 
 afterEach(() => {
   cleanup();
@@ -99,19 +103,28 @@ it("does not count entry progress while restoring a workspace", async () => {
   expect(vi.mocked(track).mock.calls.filter(([event]) => event === "progress_opened")).toEqual([]);
 });
 
-it("keeps entry usable while progress loads and counts it only after the photo check closes", async () => {
+it("attaches gallery files in order and keeps the greeting and progress visible", async () => {
   let finish!: (value: { items: api.ProgressItem[] }) => void;
+  let decodeFirst!: (result: Awaited<ReturnType<typeof readPhoto>>) => void;
+  vi.mocked(readPhoto).mockReturnValueOnce(new Promise(resolve => { decodeFirst = resolve; }));
   vi.mocked(api.getProgress).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
   const { container } = render(<Page />);
   await waitFor(() => expect(api.currentSession).toHaveBeenCalledOnce());
   expect(screen.getByText(copy.starter1)).toBeTruthy();
   expect((screen.getByLabelText(copy.inputLabel) as HTMLTextAreaElement).disabled).toBe(false);
-  fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [new File(["x"], "problem.jpg", { type: "image/jpeg" })] } });
-  await screen.findByRole("heading", { name: copy.photoTitle });
+  const gallery = container.querySelector('input[type="file"][multiple]')!;
+  expect(container.querySelector('input[type="file"][capture]:not([multiple])')).not.toBeNull();
+  const files = [new File(["a"], "first.jpg"), new File(["b"], "second.jpg")];
+  fireEvent.change(gallery, { target: { files } });
+  expect(readPhoto).toHaveBeenCalledExactlyOnceWith(files[0]);
+  await act(async () => decodeFirst({ data: "YQ==", bytes: 1, width: 1, height: 1, processMs: 1 }));
+  expect(readPhoto).toHaveBeenNthCalledWith(2, files[1]);
+  expect(screen.getAllByRole("img", { name: copy.photoChip }).map((img) => img.getAttribute("src"))).toEqual([
+    JPEG_PREFIX + "YQ==",
+    JPEG_PREFIX + "eA==",
+  ]);
+  expect(screen.getByRole("heading", { name: copy.entryTitle })).toBeTruthy();
   await act(async () => finish({ items: [progressItem] }));
-  expect(screen.queryByText(copy.entryNext)).toBeNull();
-  expect(vi.mocked(track).mock.calls.filter(([event]) => event === "progress_opened")).toEqual([]);
-  fireEvent.click(screen.getByRole("button", { name: copy.removePhoto }));
   await screen.findByText(copy.entryNext);
   expect(vi.mocked(track).mock.calls.filter(([event]) => event === "progress_opened")).toEqual([
     ["progress_opened", { place: "entry", cards: 1 }],

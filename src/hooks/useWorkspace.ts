@@ -18,8 +18,8 @@ import {
   type WorkspaceEvent,
 } from "@/lib/frame";
 import { isRestate, parse, type Parsed } from "@/lib/parse";
-import { readPhoto as realReadPhoto, type PhotoResult } from "@/lib/photo";
-import { track as realTrack, type TrackFn } from "@/lib/track";
+import { MAX_PHOTOS, readPhoto as realReadPhoto, type PhotoResult } from "@/lib/photo";
+import { track as realTrack, type TrackEvents, type TrackFn } from "@/lib/track";
 import { matchQueued, type QueuedAnswer } from "@/workspace/queued";
 import type { BlockCtx, CheckResponse, Phase, SavedBlockState, Workspace } from "@/workspace/types";
 
@@ -37,7 +37,7 @@ const MAX_PENDING = 20;
 // `turn` numbers the exchanges (a typed message, or a batch of workspace events, and what comes back), so the pet
 // bubble can show only the latest one.
 export type Bubble =
-  | { id: number; turn: number; kind: "student"; text: string; photo: string | null }
+  | { id: number; turn: number; kind: "student"; text: string; photos: string[] }
   | {
       id: number;
       turn: number;
@@ -58,7 +58,7 @@ type NewBubble = Bubble extends infer B ? (B extends Bubble ? Omit<B, "id" | "tu
 // The same words, ignoring case, spacing and end punctuation.
 const norm = (s: string) => s.toLowerCase().replace(/[\s.!?…]+/g, " ").trim();
 
-export type Screen = "workspace" | "building" | "photo" | "empty";
+export type Screen = "workspace" | "building" | "empty";
 
 export type WorkspaceState = {
   ready: boolean;
@@ -67,7 +67,7 @@ export type WorkspaceState = {
   typedTurn: boolean;
   queued: boolean;
   input: string;
-  photo: string | null;
+  photos: string[];
   html: string | null; // legacy iframe workspace, only when there are no structured workspaces
   sessionId: string | null;
   sheet: SheetRef | null;
@@ -112,7 +112,7 @@ export type WorkspaceDeps = {
   sleep?: (ms: number) => Promise<void>;
 };
 
-type Queued = { text: string; photo: string | null; bubbleId: number };
+type Queued = { text: string; photos: string[]; bubbleId: number };
 type Saved = NonNullable<Awaited<ReturnType<typeof realApi.currentSession>>>;
 
 function describeError(e: unknown): { text: string; code: string; status?: number; sessionGone: boolean } {
@@ -155,7 +155,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let handledGesture = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let input = "";
-  let photo: string | null = null;
+  let photos: string[] = [];
   let photoNoteId: number | null = null;
   let html: string | null = null;
   let tabs: WorkspaceState["tabs"] = [];
@@ -231,9 +231,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       ? "workspace"
       : busy && !buildFailed
         ? "building"
-        : photo !== null
-          ? "photo"
-          : "empty";
+        : "empty";
     const inputDisabled = busy && typedTurn;
     return {
       ready,
@@ -242,7 +240,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       typedTurn,
       queued: queued !== null,
       input,
-      photo,
+      photos,
       html,
       sessionId,
       sheet,
@@ -312,6 +310,11 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
   function removeBubble(id: number | null) {
     if (id !== null) bubbles = bubbles.filter((b) => b.id !== id);
+  }
+
+  function setPhotoNote(text: string | null) {
+    removeBubble(photoNoteId);
+    photoNoteId = text === null ? null : addBubble({ kind: "note", text });
   }
 
   const agentBubble = (text: string, view: Parsed, waiting = false): Extract<NewBubble, { kind: "agent" }> => ({
@@ -385,7 +388,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     typed: boolean,
     text: string,
     existingStudentId: number | null,
-    shot: string | null,
+    shots: string[],
     via?: StartedVia,
     keepalive = false,
   ): Promise<void> {
@@ -401,9 +404,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
     if (typed) {
       consumed = pending;
       claim(consumed);
-      content = withPhoto(userMessage(consumed, text), shot);
+      content = withPhoto(userMessage(consumed, text), shots);
       pending = [];
-      studentId ??= addBubble({ kind: "student", text, photo: shot });
+      studentId ??= addBubble({ kind: "student", text, photos: shots });
     } else {
       content = text;
     }
@@ -557,7 +560,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     let failed = false;
     try {
       if (sessionId === null) {
-        const created = await api.createSession(via ?? (shot ? "photo" : "typed"));
+        const created = await api.createSession(via ?? (shots.length ? "photo" : "typed"));
         if (epoch !== mine) return;
         sessionId = created.sessionId;
         sheet = null;
@@ -606,9 +609,13 @@ export function createWorkspace(deps: WorkspaceDeps) {
       failed = true;
       if (typed) {
         removeBubble(studentId);
-        addBubble({ kind: "error", text: info.text });
         if (text) input = input ? text + "\n" + input : text;
-        if (shot && photo === null) photo = shot;
+        if (shots.length) {
+          const restored = [...shots, ...photos];
+          photos = restored.slice(0, MAX_PHOTOS);
+          if (restored.length > MAX_PHOTOS) setPhotoNote(copy.photoLimit(MAX_PHOTOS));
+        }
+        addBubble({ kind: "error", text: info.text });
         // Put the events back so they ride along with the resend; a stale flush timer must not fire them alone.
         if (!pending.length) clearTimer();
         pending = [...consumed, ...pending].slice(-MAX_PENDING);
@@ -670,25 +677,25 @@ export function createWorkspace(deps: WorkspaceDeps) {
     if (queued) {
       const q = queued;
       queued = null;
-      void runTurn(true, q.text, q.bubbleId, q.photo);
+      void runTurn(true, q.text, q.bubbleId, q.photos);
     } else if (shouldTrigger(pending, handledGesture)) {
       const events = pending;
       pending = [];
       claim(events);
-      void runTurn(false, eventMessage(events), null, null, undefined, keepalive);
+      void runTurn(false, eventMessage(events), null, [], undefined, keepalive);
     }
   }
 
   // One typed message: runs now, or waits behind a workspace turn. Ignored while another is waiting.
-  function dispatch(text: string, shot: string | null, via?: StartedVia): Promise<void> {
+  function dispatch(text: string, shots: string[], via?: StartedVia): Promise<void> {
     if (queued || (busy && typedTurn)) return Promise.resolve();
     optsClosedId = lastAgentId();
     if (busy) {
-      queued = { text, photo: shot, bubbleId: addBubble({ kind: "student", text, photo: shot }) };
+      queued = { text, photos: shots, bubbleId: addBubble({ kind: "student", text, photos: shots }) };
       publish();
       return Promise.resolve();
     }
-    return runTurn(true, text, null, shot, via);
+    return runTurn(true, text, null, shots, via);
   }
 
   // Workspace events, from the legacy iframe or from WorkspaceView: batched and flushed 800 ms after the first.
@@ -820,7 +827,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
         said = null;
         addResetDividers(workspaceEvents(m.content));
         const view = studentView(m.content);
-        if (view) addBubble({ kind: "student", text: view.text, photo: view.photo || null });
+        if (view) addBubble({ kind: "student", ...view });
       }
     }
     // A trailing [silent] or workspace batch means something happened after the last visible agent message.
@@ -975,14 +982,15 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
     submit(): Promise<void> {
       const text = input.trim();
-      if ((!text && photo === null) || queued || (busy && typedTurn)) return Promise.resolve();
-      const shot = photo;
+      if ((!text && photos.length === 0) || queued || (busy && typedTurn)) return Promise.resolve();
+      const shots = photos;
       input = "";
-      photo = null;
+      photos = [];
       track(
         "message_sent",
         {
-          has_photo: shot !== null,
+          has_photo: shots.length > 0,
+          photo_count: shots.length,
           has_text: text.length > 0,
           text_len: text.length,
           had_events: pending.length > 0,
@@ -991,37 +999,46 @@ export function createWorkspace(deps: WorkspaceDeps) {
         sid(),
       );
       closeRestate();
-      return dispatch(text, shot);
+      return dispatch(text, shots);
     },
 
-    async pickPhoto(file: Blob, source: "snap_button" | "composer_button" | "retake" | "paste" | "drop") {
-      removeBubble(photoNoteId);
-      photoNoteId = null;
+    async pickPhoto(file: Blob, source: TrackEvents["photo_picked"]["source"]) {
+      if (photos.length >= MAX_PHOTOS) {
+        setPhotoNote(copy.photoLimit(MAX_PHOTOS));
+        publish();
+        return;
+      }
+      const mine = epoch;
+      let result: PhotoResult;
       try {
-        const r = await readPhoto(file);
-        photo = r.data;
-        track(
-          "photo_picked",
-          { source, bytes: r.bytes, width: r.width, height: r.height, process_ms: r.processMs },
-          sid(),
-        );
+        result = await readPhoto(file);
       } catch {
-        photoNoteId = addBubble({ kind: "note", text: copy.photoUnreadable });
+        if (epoch !== mine) return;
+        setPhotoNote(copy.photoUnreadable);
         track("photo_unreadable", {}, sid());
+        publish();
+        return;
+      }
+      if (epoch !== mine) return;
+      // Another picker, paste, or drop may finish while this file decodes.
+      if (photos.length >= MAX_PHOTOS) {
+        setPhotoNote(copy.photoLimit(MAX_PHOTOS));
+      } else {
+        setPhotoNote(null);
+        const { data, bytes, width, height, processMs } = result;
+        photos = [...photos, data];
+        track("photo_picked", { source, bytes, width, height, process_ms: processMs, count: photos.length }, sid());
       }
       publish();
     },
 
-    removePhoto() {
-      photo = null;
+    removePhoto(index: number) {
+      if (!Number.isInteger(index) || index < 0 || index >= photos.length) return;
+      photos = photos.filter((_, i) => i !== index);
+      setPhotoNote(null);
       track("photo_removed", {}, sid());
       publish();
       dom.focusInput();
-    },
-
-    // The component opens the file picker itself and then calls pickPhoto(file, "retake").
-    retake() {
-      track("photo_retake_clicked", {}, sid());
     },
 
     typeProblemClicked() {
@@ -1064,7 +1081,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
           if (!api.openStarter || !api.resumeSession) throw new Error("Starter API unavailable");
           ({ sessionId } = await api.openStarter(starter));
         } catch {
-          return await runTurn(true, copy.starterPrompts[starter], null, null, `starter_${starter}`);
+          return await runTurn(true, copy.starterPrompts[starter], null, [], `starter_${starter}`);
         }
         try {
           await api.resumeSession!(sessionId);
@@ -1095,7 +1112,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       track("similar_offer_answered", { accepted }, sid());
       offerClosedId = lastAgentId();
       publish();
-      return accepted ? dispatch(copy.offerYesMessage, null) : Promise.resolve();
+      return accepted ? dispatch(copy.offerYesMessage, []) : Promise.resolve();
     },
 
     answerOpt(text: string, place: "chat" | "card" = "chat"): Promise<void> {
@@ -1103,7 +1120,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       if (last?.kind === "agent" && last.offer && last.opts) {
         track(last.opts[0] === text ? "next_topic_accepted" : "similar_problem_accepted", { place }, sid());
       }
-      return dispatch(text, null);
+      return dispatch(text, []);
     },
 
     // From WorkspaceView. Same event shape as the iframe bridge; a master completion is not a student gesture.
@@ -1182,7 +1199,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     },
 
     rebuild(): Promise<void> {
-      return dispatch(copy.rebuildMessage, null);
+      return dispatch(copy.rebuildMessage, []);
     },
 
     newProblem() {

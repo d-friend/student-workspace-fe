@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { customFrames } from "@/lib/frame";
 import { ApiError, TurnError, type Preview, type TurnEvent } from "@/lib/api";
 import { copy, copyFor } from "@/lib/copy";
+import { MAX_PHOTOS } from "@/lib/photo";
 import { createWorkspace } from "@/hooks/useWorkspace";
 import { fixtures } from "@/workspace/fixtures";
 import type { Phase, Workspace } from "@/workspace/types";
@@ -320,7 +321,7 @@ describe("workspace turn", () => {
     });
   });
 
-  it("queues one typed message behind a workspace turn and sends it when the turn ends", async () => {
+  it("queues one message with attachments behind a workspace turn and sends it when the turn ends", async () => {
     const t = await withWorkspace();
     const gate = deferred();
     t.api.turn.mockClear();
@@ -333,12 +334,15 @@ describe("workspace turn", () => {
     expect(t.state().busy).toBe(true);
     expect(t.state().typedTurn).toBe(false);
 
+    await t.ws.actions.pickPhoto(new Blob(["x"]), "composer_button");
+    t.readPhoto.mockResolvedValueOnce({ data: "SECOND", bytes: 9, width: 4, height: 3, processMs: 2 });
+    await t.ws.actions.pickPhoto(new Blob(["y"]), "composer_button");
     t.ws.actions.setInput("câu hỏi");
     await t.ws.actions.submit();
     expect(t.state().queued).toBe(true);
     expect(t.state().sendDisabled).toBe(true);
-    expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "student", text: "câu hỏi" });
-    expect(t.track).toHaveBeenCalledWith("message_sent", expect.objectContaining({ queued: true }), "s1");
+    expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "student", text: "câu hỏi", photos: ["PHOTO", "SECOND"] });
+    expect(t.track).toHaveBeenCalledWith("message_sent", expect.objectContaining({ queued: true, photo_count: 2 }), "s1");
 
     // A second message while one is queued is ignored.
     t.ws.actions.setInput("khác");
@@ -348,7 +352,11 @@ describe("workspace turn", () => {
     gate.resolve();
     await vi.advanceTimersByTimeAsync(0);
     expect(t.api.turn).toHaveBeenCalledTimes(2);
-    expect(lastContent(t.api)).toBe("câu hỏi");
+    expect(lastContent(t.api)).toMatchObject([
+      { type: "image", source: { data: "PHOTO" } },
+      { type: "image", source: { data: "SECOND" } },
+      { type: "text", text: "câu hỏi" },
+    ]);
     expect(t.state().queued).toBe(false);
   });
 
@@ -365,12 +373,51 @@ describe("workspace turn", () => {
   });
 });
 
+describe("photo attachments", () => {
+  it("appends up to the limit, drops an extra photo, and removes by index", async () => {
+    const t = await boot();
+    const photos = Array.from({ length: MAX_PHOTOS }, (_, i) => `PHOTO${i}`);
+    for (const data of photos) {
+      t.readPhoto.mockResolvedValueOnce({ data, bytes: 9, width: 4, height: 3, processMs: 2 });
+      await t.ws.actions.pickPhoto(new Blob([data]), "composer_button");
+    }
+    await t.ws.actions.pickPhoto(new Blob(["extra"]), "composer_button");
+    expect(t.readPhoto).toHaveBeenCalledTimes(MAX_PHOTOS);
+    expect(t.state()).toMatchObject({ photos, screen: "empty" });
+    expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "note", text: copy.photoLimit(MAX_PHOTOS) });
+    expect(t.track.mock.calls.filter(([event]) => event === "photo_picked").map(([, props]) => props.count)).toEqual([1, 2, 3, 4]);
+
+    t.ws.actions.removePhoto(1);
+    expect(t.state().photos).toEqual(photos.filter((_, i) => i !== 1));
+  });
+
+  it("sends the images in order followed by the text", async () => {
+    const t = await boot();
+    const photos = ["FIRST", "SECOND", "THIRD"];
+    for (const data of photos) {
+      t.readPhoto.mockResolvedValueOnce({ data, bytes: 9, width: 4, height: 3, processMs: 2 });
+      await t.ws.actions.pickPhoto(new Blob([data]), "composer_button");
+    }
+    t.ws.actions.setInput("ghi chú");
+    await t.ws.actions.submit();
+    expect(lastContent(t.api)).toEqual([
+      ...photos.map((data) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } })),
+      { type: "text", text: "ghi chú" },
+    ]);
+    expect(t.state().photos).toEqual([]);
+    expect(t.state().bubbles[0]).toMatchObject({ kind: "student", photos, text: "ghi chú" });
+    expect(t.track).toHaveBeenCalledWith("message_sent", expect.objectContaining({ has_photo: true, photo_count: 3 }), null);
+  });
+});
+
 describe("failure of a typed turn", () => {
-  it("pops the message, removes the bubbles, restores text, photo and events", async () => {
+  it("pops the message, removes the bubbles, restores text, photos and events", async () => {
     const t = await boot(reply(HTML_REPLY));
     t.ws.actions.setInput("x");
     await t.ws.actions.submit();
     await t.ws.actions.pickPhoto(new Blob(["x"]), "composer_button");
+    t.readPhoto.mockResolvedValueOnce({ data: "SECOND", bytes: 9, width: 4, height: 3, processMs: 2 });
+    await t.ws.actions.pickPhoto(new Blob(["y"]), "composer_button");
     t.ws.actions.setInput("câu hỏi");
     post({ type: "tick", byStudent: false }); // a pending event with its flush timer
     t.api.turn.mockRejectedValueOnce(new TurnError("upstream", "boom"));
@@ -379,7 +426,7 @@ describe("failure of a typed turn", () => {
     const s = t.state();
     expect(s.bubbles.slice(2)).toEqual([expect.objectContaining({ kind: "error", text: copy.errConnect("boom") })]);
     expect(s.input).toBe("câu hỏi");
-    expect(s.photo).toBe("PHOTO");
+    expect(s.photos).toEqual(["PHOTO", "SECOND"]);
     expect(s.hasMessages).toBe(true);
 
     // The stale timer must not fire the restored events alone.
@@ -390,8 +437,11 @@ describe("failure of a typed turn", () => {
     // Resend: the events ride along with the typed text.
     t.api.turn.mockImplementation(reply("ok"));
     await t.ws.actions.submit();
-    const content = lastContent(t.api) as [{ type: string }, { text: string }];
-    expect(content[1].text).toMatch(/^\[workspace\] [\s\S]*"tick"[\s\S]*\n\ncâu hỏi$/);
+    expect(lastContent(t.api)).toMatchObject([
+      { type: "image", source: { data: "PHOTO" } },
+      { type: "image", source: { data: "SECOND" } },
+      { type: "text", text: expect.stringMatching(/^\[workspace\] [\s\S]*"tick"[\s\S]*\n\ncâu hỏi$/) },
+    ]);
   });
 
   it.each([
@@ -438,7 +488,8 @@ describe("focusInput", () => {
     t.ws.actions.typeProblemClicked();
     expect(t.focus).toHaveBeenLastCalledWith(true);
     t.focus.mockClear();
-    t.ws.actions.removePhoto();
+    await t.ws.actions.pickPhoto(new Blob(["x"]), "paste");
+    t.ws.actions.removePhoto(0);
     expect(t.focus.mock.calls[0][0]).toBeFalsy();
   });
 });
@@ -706,10 +757,11 @@ describe("session lifecycle", () => {
 });
 
 describe("restore from the server", () => {
+  const photos = ["PHOTO", "SECOND", "THIRD"];
   const photoMessage = {
     role: "user",
     content: [
-      { type: "image", source: { type: "base64", media_type: "image/jpeg", data: "PHOTO" } },
+      ...photos.map((data) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } })),
       { type: "text", text: "ghi chú" },
     ],
   };
@@ -798,7 +850,7 @@ describe("restore from the server", () => {
     expect(t.api.currentSession).toHaveBeenCalledTimes(1);
     expect(s.ready).toBe(true);
     expect(s.bubbles.map((b) => b.kind)).toEqual(["student", "agent"]);
-    expect(s.bubbles[0]).toMatchObject({ text: "ghi chú", photo: "PHOTO" });
+    expect(s.bubbles[0]).toMatchObject({ text: "ghi chú", photos });
     expect(s.html).toBe("<p>x</p>");
     expect(s.screen).toBe("workspace");
     expect(s.hasMessages).toBe(true);
@@ -903,7 +955,7 @@ describe("restore from the server", () => {
     expect(t.api.currentSession).toHaveBeenCalledTimes(2);
     const s = t.state();
     expect(s.bubbles.map((b) => b.kind)).toEqual(["student", "agent", "error"]);
-    expect(s.bubbles[0]).toMatchObject({ text: "ghi chú", photo: "PHOTO" });
+    expect(s.bubbles[0]).toMatchObject({ text: "ghi chú", photos });
     expect(s.bubbles.at(-1)).toMatchObject({ kind: "error", text: copy.errConnect("history changed") });
     expect(s.input).toBe("y"); // the failed text is still there to resend
     expect(s.html).toBe("<p>x</p>");
@@ -1288,8 +1340,7 @@ describe("tracking", () => {
     const t = await boot();
     t.ws.actions.typeProblemClicked();
     await t.ws.actions.pickPhoto(new Blob(["x"]), "snap_button");
-    t.ws.actions.retake();
-    t.ws.actions.removePhoto();
+    t.ws.actions.removePhoto(0);
     t.readPhoto.mockRejectedValueOnce(new Error("bad"));
     await t.ws.actions.pickPhoto(new Blob(["x"]), "composer_button");
     expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "note", text: copy.photoUnreadable });
@@ -1305,12 +1356,12 @@ describe("tracking", () => {
     const calls = t.track.mock.calls;
     const find = (type: string) => calls.filter((c) => c[0] === type).map((c) => c[1]);
     expect(find("type_problem_clicked")).toHaveLength(1);
-    expect(find("photo_picked")[0]).toEqual({ source: "snap_button", bytes: 9, width: 4, height: 3, process_ms: 2 });
-    expect(find("photo_retake_clicked")).toHaveLength(1);
+    expect(find("photo_picked")[0]).toEqual({ source: "snap_button", bytes: 9, width: 4, height: 3, process_ms: 2, count: 1 });
     expect(find("photo_removed")).toHaveLength(1);
     expect(find("photo_unreadable")).toHaveLength(1);
     expect(find("message_sent")[0]).toEqual({
       has_photo: false,
+      photo_count: 0,
       has_text: true,
       text_len: 3,
       had_events: true,

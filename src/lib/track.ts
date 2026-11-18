@@ -16,16 +16,16 @@ export type TrackEvents = {
   type_problem_clicked: NoProps;
   chat_opened: { unread: boolean };
   photo_picked: {
-    source: "snap_button" | "composer_button" | "retake" | "paste" | "drop";
+    source: "snap_button" | "composer_button" | "paste" | "drop";
     bytes: number;
     width: number;
     height: number;
     process_ms: number;
+    count: number;
   };
   photo_unreadable: NoProps;
   photo_removed: NoProps;
-  photo_retake_clicked: NoProps;
-  message_sent: { has_photo: boolean; has_text: boolean; text_len: number; had_events: boolean; queued: boolean };
+  message_sent: { has_photo: boolean; photo_count: number; has_text: boolean; text_len: number; had_events: boolean; queued: boolean };
   restate_confirmed: NoProps;
   restate_corrected: NoProps;
   workspace_shown: { ms_since_send: number; replaced: boolean };

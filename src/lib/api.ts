@@ -13,7 +13,7 @@ export type ImageBlock = {
 export type TextBlock = { type: "text"; text: string };
 export type Message =
   | { role: "user" | "assistant"; content: string }
-  | { role: "user"; content: [ImageBlock] | [ImageBlock, TextBlock] };
+  | { role: "user"; content: [ImageBlock, ...ImageBlock[]] | [ImageBlock, ...ImageBlock[], TextBlock] };
 
 export type EventPayload = {
   type: string;

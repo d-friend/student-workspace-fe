@@ -29,8 +29,8 @@ describe("useUnfold", () => {
     expect(h.result.current).toBe("settled");
   });
 
-  it("a photo send flies too, and the doc arriving mid-flight does not cut it short", () => {
-    const h = hook("photo");
+  it("a doc arriving mid-flight does not cut it short", () => {
+    const h = hook("empty");
     h.rerender({ screen: "building", exists: false });
     h.rerender({ screen: "workspace", exists: true });
     expect(h.result.current).toBe("flying");
@@ -100,7 +100,7 @@ describe("the pet's flight", () => {
     onAcceptOffer: vi.fn(),
     onOfferLater: vi.fn(),
     onOpt: vi.fn(),
-    composer: { value: "", onChange: vi.fn(), onSend: vi.fn(), onPickPhoto: vi.fn(), placeholder: "", photo: null },
+    composer: { value: "", onChange: vi.fn(), onSend: vi.fn(), onPickPhoto: vi.fn(), placeholder: "", photos: [] },
   };
 
   it("is the same button moving from the entry place to the dock, happy while it flies", () => {

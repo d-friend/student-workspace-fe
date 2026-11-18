@@ -102,10 +102,10 @@ test("a student gesture starts a turn, new problem, photo, tracking rows without
   await expect(page.getByRole("heading", { name: copy.entryTitle })).toBeVisible();
   await expect(page.getByRole("tab")).toHaveCount(0);
 
-  // Photo flow: PhotoCheck, send, the restatement with its chips.
+  // Photo flow: attach in the composer, send, and confirm the restatement.
   await page.locator('input[type="file"]:not([capture])').setInputFiles(path.join(__dirname, "../fixtures/photo.jpg"));
-  await expect(page.getByRole("heading", { name: copy.photoTitle })).toBeVisible();
-  await page.getByRole("button", { name: copy.sendPhoto }).click();
+  await expect(page.getByRole("button", { name: copy.removePhoto })).toBeVisible();
+  await page.getByRole("button", { name: copy.send, exact: true }).click();
   await expect(page.getByText(/Mình đọc đề là/)).toBeVisible();
   await expect(page.getByRole("button", { name: copy.restateYes })).toBeVisible();
 

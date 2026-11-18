@@ -8,7 +8,7 @@ export type UnfoldPhase = "entry" | "flying" | "settled";
 
 export const FLY_MS = 1050;
 
-const atEntry = (s: Screen) => s === "empty" || s === "photo";
+const atEntry = (s: Screen) => s === "empty";
 
 export function useUnfold(screen: Screen, workspaceExists: boolean): UnfoldPhase {
   const [prev, setPrev] = useState(screen);

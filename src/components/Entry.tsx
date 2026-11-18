@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { IconArrowRight, IconArrowsShuffle, IconCheck, IconRefresh } from "@tabler/icons-react";
 import { Composer, type ComposerProps } from "@/components/rail/Composer";
-import { PhotoCheck } from "@/components/work/PhotoCheck";
 import { copy } from "@/lib/copy";
 import { getSurpriseCard, type ProgressItem, type SurpriseCard } from "@/lib/api";
 import { progressDateLabel, stoppedAt } from "@/lib/progress";
@@ -13,7 +12,7 @@ import styles from "./Entry.module.css";
 
 type Starter = "derivative" | "geometry";
 
-// The first screen: greeting, the composer, starter problems. With a photo picked, the photo check takes the greeting's place.
+// The first screen: greeting, composer, and starter problems.
 // The pet is not here: PetLayer owns the one pet element and parks it by this screen's geometry (see PetLayer.module.css).
 export function Entry({
   composer,
@@ -21,7 +20,6 @@ export function Entry({
   onStarter,
   onSurprise,
   onRetry,
-  photoCheck,
   progress,
   leaving = false,
 }: {
@@ -30,7 +28,6 @@ export function Entry({
   onStarter: (starter: Starter) => void;
   onSurprise: (id?: string) => void;
   onRetry?: () => void; // set after a build failed with nothing to show
-  photoCheck?: { src: string; onSend: () => void; onRetake: () => void } | null;
   progress?: { item: ProgressItem; onOpen: () => void } | null;
   leaving?: boolean; // the unfold has started: everything fades out and the fly card takes the composer's place
 }) {
@@ -41,7 +38,6 @@ export function Entry({
   return (
     <section
       className={styles.entry}
-      data-photo={photoCheck ? "" : undefined}
       data-leaving={leaving || undefined}
       inert={leaving}
       aria-hidden={leaving || undefined}
@@ -50,43 +46,38 @@ export function Entry({
         <Image className={styles.mark} src={logoMark} alt="" priority />
         {copy.brand}
       </header>
-      {photoCheck && <PhotoCheck {...photoCheck} />}
       <div className={styles.stack}>
-        {!photoCheck && (
-          <div className={styles.hello}>
-            <h1 className={styles.title}>{copy.entryTitle}</h1>
-            <p className={styles.sub}>{copy.entrySub}</p>
-          </div>
-        )}
+        <div className={styles.hello}>
+          <h1 className={styles.title}>{copy.entryTitle}</h1>
+          <p className={styles.sub}>{copy.entrySub}</p>
+        </div>
         <Composer {...composer} inputRef={inputRef} entry />
-        {!photoCheck && (
-          <div className={styles.try}>
-            {onRetry && (
-              <button type="button" className={styles.retry} onClick={onRetry}>
-                <IconRefresh size={20} aria-hidden="true" />
-                {copy.retry}
-              </button>
-            )}
-            {!progress && <>
-              <p className={styles.label}>{copy.samplesLabel}</p>
-              <div className={styles.cards}>
-                {cards.map((c) => (
-                  <button key={c.id} type="button" className={styles.card} onClick={() => onStarter(c.id)}>
-                    <span className={styles.cardText}>
-                      <span className={styles.cardTitle}>{c.title}</span>
-                      <span className={styles.cardSub}>{c.sub}</span>
-                    </span>
-                    <IconArrowRight size={20} aria-hidden="true" className={styles.arrow} />
-                  </button>
-                ))}
-              </div>
-            </>}
-            <div className={styles.blocks} data-progress={progress ? "" : undefined}>
-              {progress && <NextStep {...progress} />}
-              <Surprise onOpen={onSurprise} />
+        <div className={styles.try}>
+          {onRetry && (
+            <button type="button" className={styles.retry} onClick={onRetry}>
+              <IconRefresh size={20} aria-hidden="true" />
+              {copy.retry}
+            </button>
+          )}
+          {!progress && <>
+            <p className={styles.label}>{copy.samplesLabel}</p>
+            <div className={styles.cards}>
+              {cards.map((c) => (
+                <button key={c.id} type="button" className={styles.card} onClick={() => onStarter(c.id)}>
+                  <span className={styles.cardText}>
+                    <span className={styles.cardTitle}>{c.title}</span>
+                    <span className={styles.cardSub}>{c.sub}</span>
+                  </span>
+                  <IconArrowRight size={20} aria-hidden="true" className={styles.arrow} />
+                </button>
+              ))}
             </div>
+          </>}
+          <div className={styles.blocks} data-progress={progress ? "" : undefined}>
+            {progress && <NextStep {...progress} />}
+            <Surprise onOpen={onSurprise} />
           </div>
-        )}
+        </div>
       </div>
       <p className={styles.foot}>{copy.entryFoot}</p>
     </section>

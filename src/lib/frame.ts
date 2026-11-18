@@ -142,10 +142,13 @@ export function userMessage(events: WorkspaceEvent[], text: string): string {
   return text ? eventMessage(events) + "\n\n" + text : eventMessage(events);
 }
 
-export function withPhoto(content: string, data: string | null): Message["content"] {
-  if (data === null) return content;
-  const image: ImageBlock = { type: "image", source: { type: "base64", media_type: "image/jpeg", data } };
-  return content ? [image, { type: "text", text: content } satisfies TextBlock] : [image];
+export function withPhoto(text: string, photos: string[]): Message["content"] {
+  const [first, ...rest] = photos.map((data): ImageBlock => ({
+    type: "image",
+    source: { type: "base64", media_type: "image/jpeg", data },
+  }));
+  if (!first) return text;
+  return text ? [first, ...rest, { type: "text", text }] : [first, ...rest];
 }
 
 // Read the same leading workspace batch that studentView hides from chat.
@@ -162,20 +165,23 @@ export function workspaceEvents(content: Message["content"]): WorkspaceEvent[] {
 
 export function studentView(
   content: Message["content"],
-): { text: string; photo: string | null } | null {
+): { text: string; photos: string[] } | null {
   const blocks: (ImageBlock | TextBlock)[] = typeof content === "string" ? [] : content;
-  const photo = typeof content === "string" ? null : content[0].source.data;
+  const photos = blocks.filter((b): b is ImageBlock => b.type === "image").map((b) => b.source.data);
   let text = typeof content === "string" ? content : (blocks.find((b): b is TextBlock => b.type === "text")?.text ?? "");
   const workspace = text.startsWith(PREFIX);
   if (workspace) {
     const i = text.indexOf("\n\n");
     text = i === -1 ? "" : text.slice(i + 2);
   }
-  return workspace && !photo && !text ? null : { text, photo };
+  return workspace && photos.length === 0 && !text ? null : { text, photos };
 }
 
 // Skips workspace-only user messages: a code-routed batch is stored with no reply after it.
 export function watching(messages: Message[]): boolean {
-  const last = messages.findLast((m) => m.role === "assistant" || studentView(m.content) !== null);
+  const last = messages.findLast((m) => {
+    if (m.role === "assistant") return true;
+    return studentView(m.content) !== null;
+  });
   return last?.role === "assistant" && typeof last.content === "string" && parse(last.content).chat === "";
 }

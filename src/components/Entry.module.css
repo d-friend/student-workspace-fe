@@ -212,20 +212,6 @@
   .blocks[data-progress] .skeleton { grid-row: 2 / 4; }
 }
 
-/* The photo check is a normal page here, with the composer under it for a note. */
-.entry[data-photo] {
-  padding-top: 0;
-  padding-bottom: 72px;
-}
-
-/* The pet docks bottom-right here, so the composer keeps clear of it. */
-.entry[data-photo] .stack {
-  position: static;
-  transform: none;
-  margin: 0 auto;
-  width: min(640px, calc(100% - 2 * 128px));
-}
-
 /* The unfold (spec §6): the composer goes at once, the fly card takes its place; the rest fades up and out. */
 .entry[data-leaving] .stack > form {
   opacity: 0;
@@ -301,17 +287,5 @@
     order: 4;
     padding-bottom: calc(16px + env(safe-area-inset-bottom));
     font-size: 12px;
-  }
-
-  .entry[data-photo] {
-    padding: 72px 16px 0;
-  }
-
-  .entry[data-photo] .stack {
-    display: contents;
-  }
-
-  .entry[data-photo] .stack > form {
-    margin-bottom: calc(100px + env(safe-area-inset-bottom));
   }
 }

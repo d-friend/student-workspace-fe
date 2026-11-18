@@ -178,7 +178,7 @@ export function PetLayer({
   }, [focusTick, entry, open, entryInputRef, openDrawer]);
 
   // Picking a photo on the entry is something to be glad about.
-  const hasPhoto = Boolean(composer.photo);
+  const hasPhoto = (composer.photos?.length ?? 0) > 0;
   // Shell scrolls its main, while this layer stays over the stage. Keep the CSS entry geometry
   // in step with that scroll; removing the offset hands positioning back to the dock/flight.
   useLayoutEffect(() => {
@@ -423,7 +423,7 @@ export function PetLayer({
   ) : null;
 
   return (
-    // With a photo picked the greeting is gone, so the pet docks; it is still the entry's pet.
+    // With photos attached the pet docks and keeps its entry interactions.
     <div
       ref={layerRef}
       className={styles.layer}

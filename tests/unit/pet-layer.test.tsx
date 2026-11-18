@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PetAnchorProvider, usePetAnchorRef, usePetScrollerRef } from "@/components/pet/PetAnchor";
 import { PetLayer } from "@/components/pet/PetLayer";
+import type { ComposerProps } from "@/components/rail/Composer";
 import type { Rect } from "@/lib/pet-place";
 import type { Bubble, WorkspaceState } from "@/hooks/useWorkspace";
 import { FLY_MS } from "@/hooks/useUnfold";
@@ -56,7 +57,7 @@ function setup(bubbles: Bubble[], extra: Partial<WorkspaceState> = {}, entry = f
       onSend: vi.fn(),
       onPickPhoto: vi.fn(),
       placeholder: "...",
-      photo: null,
+      photos: [] as ComposerProps["photos"],
     },
   };
   return { state, props, ui: <PetLayer state={state} {...props} /> };
@@ -287,7 +288,7 @@ describe("PetLayer", () => {
   });
 
   it("shows every message of the turn, with the dots under the announce while the reply is awaited", () => {
-    const student: Bubble = { id: 1, turn: 1, kind: "student", text: "x", photo: null };
+    const student: Bubble = { id: 1, turn: 1, kind: "student", text: "x", photos: [] };
     render(setup([student, agent(3, "Mình dựng nhé."), agent(2, "đang nghĩ", { waiting: true })], { busy: true }).ui);
     const bubble = screen.getByRole("status");
     expect(within(bubble).getByText("Mình dựng nhé.")).toBeTruthy();
@@ -421,7 +422,7 @@ describe("PetLayer", () => {
         <PetLayer state={s.state} {...s.props}
           entry={destination === "photo" || !docked}
           flying={destination === "workspace" && docked}
-          composer={{ ...s.props.composer, photo: destination === "photo" && docked ? { src: "data:x", onRemove: vi.fn() } : null }}
+          composer={{ ...s.props.composer, photos: destination === "photo" && docked ? [{ src: "data:x", onRemove: vi.fn() }] : [] }}
         />
       </>;
       const { rerender } = render(ui());
@@ -460,7 +461,7 @@ describe("PetLayer", () => {
       const { rerender } = render(s.ui);
       expect(entryPet().querySelector("[data-state]")?.getAttribute("data-state")).toBe("idle");
       const next = withEntry();
-      next.props.composer.photo = { src: "data:x", onRemove: vi.fn() } as never;
+      next.props.composer.photos = [{ src: "data:x", onRemove: vi.fn() }];
       rerender(
         <>
           <textarea aria-label="entry" ref={next.props.entryInputRef as never} />

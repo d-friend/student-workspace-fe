@@ -8,12 +8,11 @@ import { ChatLog } from "@/components/rail/ChatLog";
 import { Composer, type ComposerProps } from "@/components/rail/Composer";
 import { OfferChips } from "@/components/rail/OfferChips";
 import { OptChips } from "@/components/rail/OptChips";
+import { PhotoGrid } from "@/components/rail/PhotoGrid";
 import { RestateChips } from "@/components/rail/RestateChips";
 import { WatchingCue } from "@/components/rail/WatchingCue";
 import { Pet } from "./Pet";
 import styles from "./ChatDrawer.module.css";
-
-export const JPEG_PREFIX = "data:image/jpeg;base64,";
 
 export type ChatState = Pick<WorkspaceState, "bubbles" | "hasMessages" | "watching" | "restateChips" | "offerChips" | "optChips" | "optChipKind" | "optChipSeed">;
 export type ChatActions = {
@@ -97,11 +96,8 @@ export function ChatDrawer({
             if (b.kind === "student") {
               return (
                 <Bubble key={b.id} variant="student">
-                  {b.photo && (
-                    // eslint-disable-next-line @next/next/no-img-element -- base64 data URL, next/image cannot optimize it
-                    <img src={JPEG_PREFIX + b.photo} alt={copy.photoChip} style={{ maxWidth: "100%", borderRadius: 8 }} />
-                  )}
-                  {b.text}
+                  <PhotoGrid photos={b.photos} />
+                  {b.text && <div>{b.text}</div>}
                 </Bubble>
               );
             }

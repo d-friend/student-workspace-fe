@@ -1,0 +1,40 @@
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+}
+
+.grid[data-multiple] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid img {
+  display: block;
+  width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.grid:not([data-compact]) + * {
+  margin-top: 4px;
+}
+
+.grid[data-compact] {
+  flex: none;
+  width: 44px;
+}
+
+.grid[data-compact][data-multiple] {
+  width: 76px;
+}
+
+.grid[data-compact] img {
+  height: 44px;
+  object-fit: cover;
+}
+
+.grid[data-compact][data-multiple] img {
+  height: 20px;
+  border-radius: 4px;
+}

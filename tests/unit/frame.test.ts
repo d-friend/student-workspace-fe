@@ -90,18 +90,23 @@ test("eventMessage drops oversized data", () => {
   expect(list).toEqual([{ type: "big", data: "[omitted: too large]", workspace_id: "w1" }]);
 });
 
-test("withPhoto", () => {
-  expect(withPhoto("hi", null)).toBe("hi");
-  expect(withPhoto("", "AAAA")).toEqual([img]);
-  expect(withPhoto("câu 2", "AAAA")).toEqual([img, { type: "text", text: "câu 2" }]);
-});
+test.each([[], ["AAAA"], ["AAAA", "BBBB", "CCCC"]].map((photos) => ({ photos })))(
+  "withPhoto and studentView preserve $photos in order, with or without text",
+  ({ photos }) => {
+    const images = photos.map((data) => ({ ...img, source: { ...img.source, data } }));
+    expect(withPhoto("", photos)).toEqual(photos.length ? images : "");
+    const content = withPhoto("câu 2", photos);
+    expect(content).toEqual(photos.length ? [...images, { type: "text", text: "câu 2" }] : "câu 2");
+    expect(studentView(content)).toEqual({ text: "câu 2", photos });
+    expect(studentView(withPhoto("", photos))).toEqual({ text: "", photos });
+  },
+);
 
-test("studentView", () => {
-  expect(studentView("hi")).toEqual({ text: "hi", photo: null });
+test("studentView strips workspace prefixes and hides standalone workspace batches", () => {
   expect(studentView('[workspace] [{"type":"x"}]')).toBeNull();
-  expect(studentView('[workspace] [{"type":"x"}]\n\nhi')).toEqual({ text: "hi", photo: null });
-  expect(studentView([img])).toEqual({ text: "", photo: "AAAA" });
-  expect(studentView([img, { type: "text", text: "[workspace] []\n\nhi" }])).toEqual({ text: "hi", photo: "AAAA" });
+  expect(studentView('[workspace] [{"type":"x"}]\n\nhi')).toEqual({ text: "hi", photos: [] });
+  expect(studentView([img, { type: "text", text: "[workspace] []" }])).toEqual({ text: "", photos: ["AAAA"] });
+  expect(studentView([img, { type: "text", text: "[workspace] []\n\nhi" }])).toEqual({ text: "hi", photos: ["AAAA"] });
 });
 
 test("watching", () => {
@@ -113,6 +118,7 @@ test("watching", () => {
   // A code-routed workspace batch has no reply: look past it to the last visible message.
   const batch = { role: "user" as const, content: '[workspace] [{"type":"line_checked"}]' };
   expect(watching([u, { role: "assistant", content: "[silent]" }, batch, batch])).toBe(true);
+  expect(watching([u, { role: "assistant", content: "[silent]" }, { role: "user", content: [img, img] }])).toBe(false);
   expect(watching([u, { role: "assistant", content: "Xem lại dòng 2." }, batch])).toBe(false);
   expect(watching([])).toBe(false);
 });

@@ -131,12 +131,3 @@
   line-clamp: 2;
   overflow: hidden;
 }
-
-.flyPhoto {
-  flex: none;
-  width: 44px;
-  height: 44px;
-  object-fit: cover;
-  border-radius: 8px;
-}
-

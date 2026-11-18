@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { ProfileGate } from "@/components/ProfileGate";
 import { getMe, setFeatureEmails, skipProfile } from "@/lib/api";
@@ -26,7 +26,7 @@ test.each([false, true])("saves the checkbox value %s and closes", async (checke
   renderGate();
   const checkbox = await screen.findByRole("checkbox", { name: copy.featureEmailLabel }) as HTMLInputElement;
   expect(checkbox.checked).toBe(false);
-  expect(document.activeElement).toBe(checkbox);
+  await waitFor(() => expect(document.activeElement).toBe(checkbox)); // focus lands in an effect, a tick after the dialog renders
   if (checked) fireEvent.click(checkbox);
   fireEvent.click(screen.getByRole("button", { name: copy.featureEmailDone }));
   expect(setFeatureEmails).toHaveBeenCalledExactlyOnceWith(checked);
@@ -59,5 +59,5 @@ test("traps Tab within the dialog", async () => {
   fireEvent.keyDown(checkbox, { key: "Tab", shiftKey: true });
   expect(document.activeElement).toBe(done);
   fireEvent.keyDown(done, { key: "Tab" });
-  expect(document.activeElement).toBe(checkbox);
+  await waitFor(() => expect(document.activeElement).toBe(checkbox)); // focus lands in an effect, a tick after the dialog renders
 });

@@ -1,8 +1,10 @@
 import type { Ref } from "react";
-import { IconLoader2, IconX } from "@tabler/icons-react";
+import { IconLayoutSidebarRightCollapse, IconLoader2, IconX } from "@tabler/icons-react";
 import type { Bubble as ChatBubble, WorkspaceState } from "@/hooks/useWorkspace";
 import { copy } from "@/lib/copy";
 import { Pet } from "@/components/pet/Pet";
+import { FeedbackButton } from "@/components/FeedbackButton";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Bubble } from "@/components/rail/Bubble";
 import { ChatLog } from "@/components/rail/ChatLog";
 import { Composer, type ComposerProps } from "@/components/rail/Composer";
@@ -52,7 +54,7 @@ function WorkspaceCard({ card, status, busy, onOpen, onRebuild }: {
 }
 
 export function ChatView({
-  state, actions, composer, composerRef, emptyThread, quote, onDismissQuote, workspaceVisible = false, onOpenLegacyWorkspace, hidden = false, showHeader = true,
+  state, actions, composer, composerRef, emptyThread, quote, onDismissQuote, workspaceVisible = false, onOpenLegacyWorkspace, hidden = false, showHeader = true, onCollapse,
 }: {
   state: ChatState;
   actions: ChatActions;
@@ -65,21 +67,26 @@ export function ChatView({
   onOpenLegacyWorkspace?: () => void;
   hidden?: boolean;
   showHeader?: boolean;
+  onCollapse?: () => void;
 }) {
   const { bubbles } = state;
   const lastAgent = bubbles.findLast((b) => b.kind === "agent");
   const lastStudentId = bubbles.findLast((b) => b.kind === "student")?.id;
   const recap = bubbles.find((b) => b.kind === "agent" && b.restate);
-  const empty = bubbles.length === 0 && !onOpenLegacyWorkspace;
+  const empty = bubbles.length === 0 && !onOpenLegacyWorkspace && !workspaceVisible;
+  const emptyColumn = workspaceVisible && !bubbles.some((b) => b.kind === "student" || b.kind === "agent");
 
   return (
-    <section aria-label={copy.drawerLabel} className={styles.chat} data-testid="chat-view" data-column={(workspaceVisible && !hidden) || undefined} hidden={hidden}>
-      {showHeader && !workspaceVisible && (
-        <header className={styles.head}>
+    <section aria-label={copy.drawerLabel} className={styles.chat} data-shell-panel data-testid="chat-view" data-column={(workspaceVisible && !hidden) || undefined} hidden={hidden}>
+      {showHeader && (
+        <header className={styles.head} data-panel-header>
           <span className={styles.headPet}><Pet mood="idle" /></span>
           <span className={styles.name}>D-Friend</span>
+          <FeedbackButton /><ThemeToggle />
+          {workspaceVisible && <button type="button" className={styles.collapse} aria-label={copy.hideChat} onClick={onCollapse}><IconLayoutSidebarRightCollapse size={22} aria-hidden="true" /></button>}
         </header>
       )}
+      {emptyColumn && <p className={styles.emptyHint}>{copy.chatEmptyHint}</p>}
       {recap?.kind === "agent" && (
         <p className={styles.recap}>
           <b>{copy.problemRecap}</b>

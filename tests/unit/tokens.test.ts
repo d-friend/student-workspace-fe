@@ -19,7 +19,8 @@ function tokens(css: string) {
 }
 
 const app = tokens(appCss);
-const kit = tokens(KIT_CSS);
+// Radius tokens are theme-independent and live in globals.css, not the theme palette.
+const kit = tokens(KIT_CSS.replace(/--radius-(?:sm|md|lg):\s*[^;]+;/g, ""));
 
 describe("tokens", () => {
   test("kit and app tokens match", () => {

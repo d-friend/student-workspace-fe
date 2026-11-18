@@ -21,7 +21,7 @@
   min-height: 44px;
   padding: 0 20px;
   border: 1px solid var(--control-border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--panel);
   color: var(--text);
   font: 600 15px/1.4 var(--font-sans);

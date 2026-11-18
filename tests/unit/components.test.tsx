@@ -17,6 +17,20 @@ const composerProps = () => ({
   placeholder: copy.placeholderEmpty,
 });
 
+test("only enables the composer scrollbar above its maximum height", () => {
+  const props = composerProps();
+  const { rerender } = render(<Composer {...props} />);
+  const field = screen.getByRole("textbox") as HTMLTextAreaElement;
+  Object.defineProperty(field, "scrollHeight", { configurable: true, value: 80 });
+  rerender(<Composer {...props} value="short text" />);
+  expect(field.style.overflowY).toBe("hidden");
+  expect(field.style.scrollbarWidth).toBe("none");
+  Object.defineProperty(field, "scrollHeight", { configurable: true, value: 180 });
+  rerender(<Composer {...props} value="long text" />);
+  expect(field.style.height).toBe("140px");
+  expect(field.style.overflowY).toBe("auto");
+});
+
 test("Enter sends; Shift+Enter and the Enter that ends an IME composition do not", () => {
   const props = composerProps();
   render(<Composer {...props} />);

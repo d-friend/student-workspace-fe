@@ -25,7 +25,7 @@
   gap: 16px;
   background: var(--panel);
   border: 1px solid var(--hairline);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
 }
 
 .entry {
@@ -36,7 +36,7 @@
 
 .block {
   display: block;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: linear-gradient(90deg, var(--hairline), var(--agent), var(--hairline));
   background-size: 200% 100%;
   animation: shimmer 1.6s ease-in-out infinite;
@@ -85,7 +85,7 @@
 .input {
   flex: 1;
   height: 44px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 .title {
@@ -102,7 +102,7 @@
 .box {
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
 }
 
 @keyframes shimmer {

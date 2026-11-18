@@ -90,3 +90,47 @@ test("three photos picked at once show in the tray, in the bubble and in the req
   expect(content.filter((b) => b.type === "image")).toHaveLength(3);
   await expect(chat(page).locator("img")).toHaveCount(3);
 });
+
+// From 800px the thread is a column beside the workspace; it can be hidden, and a pill brings it back.
+test.describe("desktop chat column at 1280x800", () => {
+  test.use({ viewport: { width: 1280, height: 800 }, isMobile: false, hasTouch: false });
+
+  const built = async (page: Page) => {
+    await open(page);
+    await send(page, "__build");
+    await expect(page.getByText("Chọn ẩn là gì?")).toBeVisible();
+    await expect(chat(page).getByText("Xong rồi.")).toBeVisible(); // the build turn has ended, so the composer accepts the next message
+    await expect(chat(page).getByRole("button", { name: copy.send, exact: true })).toBeEnabled();
+    await expect(chat(page)).toBeVisible();
+  };
+
+  test("hiding the column gives the workspace the full width and the Chat pill reopens it", async ({ page }) => {
+    await built(page);
+    await expect(chat(page).getByRole("button", { name: copy.hideChat })).toBeVisible();
+    await chat(page).getByRole("button", { name: copy.hideChat }).click();
+    await expect(chat(page)).toBeHidden();
+    await page.getByRole("button", { name: new RegExp(`^${copy.openChat}`) }).click();
+    await expect(chat(page)).toBeVisible();
+    await expect(page.getByRole("button", { name: new RegExp(`^${copy.openChat}`) })).toHaveCount(0);
+  });
+
+  test("a question asked while the column is hidden shows in the ask strip", async ({ page }) => {
+    await built(page);
+    await send(page, "__opts");
+    await expect(chat(page).getByText("Vì sao bước này đúng?")).toBeVisible();
+    await chat(page).getByRole("button", { name: copy.hideChat }).click();
+    const strip = page.locator("[data-ask-strip]");
+    await expect(strip.getByText("Vì sao bước này đúng?")).toBeVisible();
+    await strip.getByRole("button", { name: "Vì A", exact: true }).click();
+    await expect(strip).toHaveCount(0);
+  });
+
+  test("a reload keeps the column hidden", async ({ page }) => {
+    await built(page);
+    await expect.poll(async () => await (await page.request.get("/api/sessions/current")).text()).toContain("Xong rồi.");
+    await chat(page).getByRole("button", { name: copy.hideChat }).click();
+    await page.reload();
+    await expect(page.getByRole("button", { name: new RegExp(`^${copy.openChat}`) })).toBeVisible();
+    await expect(chat(page)).toBeHidden();
+  });
+});

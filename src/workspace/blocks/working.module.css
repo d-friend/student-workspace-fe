@@ -1,4 +1,4 @@
-.card { --g: 56px; --rule: color-mix(in srgb, var(--pet) 40%, transparent); display: flex; flex-direction: column; gap: 16px; padding: 16px; background: var(--panel); border: 1px solid var(--hairline); border-radius: 14px; }
+.card { --g: 56px; --rule: color-mix(in srgb, var(--pet) 40%, transparent); display: flex; flex-direction: column; gap: 16px; padding: 16px; background: var(--panel); border: 1px solid var(--hairline); border-radius: var(--radius-lg); }
 .label { margin: 0; font: 600 15px/1.4 var(--font-sans); color: var(--muted); }
 .prose { max-width: 65ch; font: 400 17px/1.65 var(--font-sans); color: var(--text); }
 .problem { max-width: 65ch; font: 600 20px/1.5 var(--font-sans); color: var(--text); }
@@ -9,11 +9,11 @@
 .problemToggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .problemToggle p { margin: 0 0 12px; }
 .problemClamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; white-space: pre-line; }
-.problemClamp mark { color: inherit; background: var(--idea-bg); font-weight: 700; border-radius: 4px; padding: 0 2px; }
+.problemClamp mark { color: inherit; background: var(--idea-bg); font-weight: 700; border-radius: var(--radius-sm); padding: 0 2px; }
 .collapseControl { display: block; margin-top: 8px; color: var(--brand); font: 600 14px/1.4 var(--font-sans); }
 .prose p { margin: 0 0 12px; }
 .prose > :last-child { margin-bottom: 0; }
-.img { display: block; max-width: 100%; height: auto; border-radius: 14px; }
+.img { display: block; max-width: 100%; height: auto; border-radius: var(--radius-lg); }
 .small { font: 400 13px/1.4 var(--font-sans); color: var(--muted); margin: 0; }
 
 /* Ruled paper (Desktop .ruled/.margin-rule/.line): --g is where the 2px margin rule sits. */
@@ -43,21 +43,21 @@
 .entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; align-items: center; margin: 0; }
 .entryLabel { grid-column: 1 / -1; font: 600 14px/1.4 var(--font-sans); color: var(--text); }
 .entry .help { grid-column: 1 / -1; }
-.input { box-sizing: border-box; min-width: 0; height: 52px; padding: 0 16px; font: 400 18px/1.4 var(--font-sans); color: var(--text); background: var(--panel); border: 1px solid var(--control-border); border-radius: 10px; }
+.input { box-sizing: border-box; min-width: 0; height: 52px; padding: 0 16px; font: 400 18px/1.4 var(--font-sans); color: var(--text); background: var(--panel); border: 1px solid var(--control-border); border-radius: var(--radius-md); }
 .active { --tint: color-mix(in srgb, var(--pet) 6%, transparent); position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; min-height: 56px; box-sizing: border-box; padding: 8px 0 8px calc(var(--g) + 18px); border-bottom: 1px solid var(--hairline); background: linear-gradient(var(--rule), var(--rule)) var(--g) 0 / 2px 100% no-repeat, linear-gradient(90deg, transparent calc(var(--g) + 2px), var(--tint) calc(var(--g) + 2px)); }
 .active::before { content: attr(data-n); content: attr(data-n) / ""; position: absolute; left: 0; top: 14px; width: calc(var(--g) - 14px); text-align: right; font: 600 13px/1.4 var(--font-sans); color: var(--brand); }
 .active > .entry, .active > .blank { align-self: stretch; }
 .active > .entryLabel { margin: 0; }
 .options { display: grid; grid-template-columns: minmax(0, 1fr); align-self: stretch; gap: 8px; }
 .wrongNote { align-self: stretch; min-width: 0; overflow-wrap: anywhere; color: var(--review-text); }
-.options .option { display: flex; align-items: baseline; gap: 10px; box-sizing: border-box; width: 100%; min-width: 0; min-height: 48px; padding: 10px 14px; font: 500 16px/1.4 var(--font-sans); text-align: left; white-space: normal; overflow-wrap: anywhere; border-radius: 11px; border-color: var(--control-border); background: var(--agent); }
+.options .option { display: flex; align-items: baseline; gap: 10px; box-sizing: border-box; width: 100%; min-width: 0; min-height: 48px; padding: 10px 14px; font: 500 16px/1.4 var(--font-sans); text-align: left; white-space: normal; overflow-wrap: anywhere; border-radius: var(--radius-md); border-color: var(--control-border); background: var(--agent); }
 .optionLabel { flex: none; width: 1.25em; color: var(--brand); font-weight: 600; }
 .optionText { min-width: 0; flex: 1; }
 .optionText > span { display: inline-block; max-width: 100%; overflow-x: auto; vertical-align: middle; }
 .options .btn:hover:not(:disabled) { border-color: var(--control-border); background: var(--panel); }
 .blank { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font: 500 22px/1.4 var(--font-sans); letter-spacing: 0.01em; }
 .gap { width: 12ch; height: 44px; padding: 0 4px; font: inherit; letter-spacing: inherit; background: transparent; border: 0; border-bottom: 2px solid var(--control-border); border-radius: 0; }
-.btn, .primary { min-height: 44px; padding: 0 16px; font: 600 15px/1.4 var(--font-sans); border-radius: 10px; cursor: pointer; white-space: nowrap; }
+.btn, .primary { min-height: 44px; padding: 0 16px; font: 600 15px/1.4 var(--font-sans); border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; }
 .btn { color: var(--text); background: var(--panel); border: 1px solid var(--control-border); }
 .primary { height: 52px; padding: 0 22px; color: var(--accent-text); background: var(--accent); border: 0; }
 .btn:disabled, .primary:disabled { opacity: 0.6; cursor: default; }
@@ -66,12 +66,12 @@
 .btn:focus-visible, .primary:focus-visible, .input:focus-visible, .hint:focus-visible, .idea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .help { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-.hint { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 16px; font: 600 15px/1.4 var(--font-sans); color: var(--text); background: var(--panel); border: 1px solid var(--control-border); border-radius: 10px; cursor: pointer; }
+.hint { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 16px; font: 600 15px/1.4 var(--font-sans); color: var(--text); background: var(--panel); border: 1px solid var(--control-border); border-radius: var(--radius-md); cursor: pointer; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .ladder { display: inline-flex; gap: 3px; margin-left: 4px; }
-.seg { width: 14px; height: 6px; border-radius: 999px; background: var(--border); }
+.seg { width: 14px; height: 6px; border-radius: var(--radius-pill); background: var(--border); }
 .segOn { background: var(--accent); }
-.idea { min-height: 48px; padding: 0 16px; font: 600 15px/1.4 var(--font-sans); color: var(--brand); background: transparent; border: 0; border-radius: 10px; cursor: pointer; }
+.idea { min-height: 48px; padding: 0 16px; font: 600 15px/1.4 var(--font-sans); color: var(--brand); background: transparent; border: 0; border-radius: var(--radius-md); cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) {
   .line, .badge svg { animation: none; }
@@ -89,14 +89,15 @@
 .solveSteps .line > .badge:first-child { margin: 6px 8px 0 0; }
 .solveSteps .line:has(.why) { flex-wrap: wrap; }
 .why { flex-basis: 100%; min-width: 0; padding-left: 28px; }
-.whyToggle { min-height: 44px; padding: 0 8px; margin-left: -8px; color: var(--muted); background: transparent; border: 0; border-radius: 6px; font: 600 13px/1.4 var(--font-sans); cursor: pointer; }
+.whyToggle { min-height: 44px; padding: 0 8px; margin-left: -8px; color: var(--muted); background: transparent; border: 0; border-radius: var(--radius-md); font: 600 13px/1.4 var(--font-sans); cursor: pointer; }
 .whyToggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .whyReason { padding-bottom: 8px; color: var(--muted); font: 400 14px/1.5 var(--font-sans); overflow-wrap: anywhere; }
 @media (max-width: 799px) {
+  /* Keep the mobile solve layout flat. */
   .solveProblem, .solveSteps { padding: 0; border: 0; background: transparent; border-radius: 0; }
 }
 
-.otherWay { min-height: 48px; padding: 0 16px; font: 600 15px/1.4 var(--font-sans); color: var(--text); background: var(--panel); border: 1px solid var(--control-border); border-radius: 10px; cursor: pointer; }
+.otherWay { min-height: 48px; padding: 0 16px; font: 600 15px/1.4 var(--font-sans); color: var(--text); background: var(--panel); border: 1px solid var(--control-border); border-radius: var(--radius-md); cursor: pointer; }
 .otherWay:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .shortLabel { display: none; }
 @media (max-width: 799px) {
@@ -115,7 +116,7 @@
 /* The question belongs to PATCH; both portal targets stay in normal document flow. */
 .patchQuestion { display: flex; align-items: flex-start; gap: 10px; align-self: stretch; min-width: 0; }
 .patchSlot { flex: 0 0 44px; width: 44px; min-height: 44px; }
-.patchPrompt { flex: 1; min-width: 0; margin: 0; padding: 12px 16px; border: 1px solid var(--border); border-radius: 6px 20px 20px 20px; background: var(--panel); font: 600 15px/1.5 var(--font-sans); color: var(--text); overflow-wrap: anywhere; }
+.patchPrompt { flex: 1; min-width: 0; margin: 0; padding: 12px 16px; border: 1px solid var(--border); border-radius: 4px var(--radius-lg) var(--radius-lg) var(--radius-lg); background: var(--panel); font: 600 15px/1.5 var(--font-sans); color: var(--text); overflow-wrap: anywhere; }
 .patchPrompt > span { display: inline-block; max-width: 100%; overflow-x: auto; vertical-align: middle; }
 .patchSpoken { align-self: stretch; min-width: 0; }
 .patchSpoken:empty { display: none; }

@@ -7,7 +7,7 @@
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 6px 20px 20px 20px;
+  border-radius: 4px var(--radius-lg) var(--radius-lg) var(--radius-lg);
   animation: inlineIn 0.2s ease-out;
 }
 
@@ -115,7 +115,7 @@
 .closeDisc {
   width: 36px;
   height: 36px;
-  border-radius: 18px;
+  border-radius: var(--radius-pill);
   display: flex;
   align-items: center;
   justify-content: center;

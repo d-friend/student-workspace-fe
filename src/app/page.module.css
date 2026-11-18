@@ -30,7 +30,7 @@
   min-height: 44px;
   padding: 0 6px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   color: var(--text);
   background: transparent;
   font: 600 14px/1.4 var(--font-sans);
@@ -70,6 +70,20 @@
 }
 
 .bottom:not(:has([data-ask-strip], .actionBarSlot:not([hidden]) > [data-action-bar])) { display: none; }
+
+.stage { position: relative; }
+.desktopBottom { flex: none; display: flex; flex-direction: column; align-items: stretch; }
+/* The pill floats in the panel's corner instead of reserving a row (a grey band) under the doc; the ask strip keeps clear of it. */
+.desktopBottom .chatPill { position: absolute; right: 16px; bottom: 16px; z-index: 3; margin: 0; }
+.desktopBottom [data-ask-strip] { padding-right: 184px; }
+.chatPill { align-self: flex-end; display: flex; align-items: center; gap: 8px; min-height: 48px; margin: 8px 16px 16px; padding: 4px 16px 4px 6px; border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--panel); color: var(--text); font: 600 14px var(--font-sans); cursor: pointer; box-shadow: 0 4px 16px color-mix(in srgb, var(--text) 12%, transparent); }
+.chatPill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pillPet.pillPet { width: 36px; height: 36px; flex: none; }
+
+@media (min-width: 800px) {
+  .stage, .viewWrap[data-shell-panel] { overflow: clip; }
+  .buildScroll { display: flex; flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+}
 
 @media (max-width: 799px) {
   .stage { --workspace-top-space: 12px; }

@@ -32,7 +32,7 @@ export function Custom({ block, ctx }: BlockProps<CustomBlock>) {
   }, [version, block.html, ctx.workspaceId]);
   if (block.html === null) {
     return ctx.simulationPending?.[`${ctx.workspaceId}:${block.id}`] && !ctx.simulationFailures?.[`${ctx.workspaceId}:${block.id}`] ? (
-      <div aria-busy="true" style={{ minHeight: 360, display: "grid", placeItems: "center", color: "var(--muted)" }}>
+      <div className={styles.simLoading} aria-busy="true" style={{ minHeight: 360, display: "grid", placeItems: "center", color: "var(--muted)" }}>
         <span>{copy.simulationBuilding}</span>
       </div>
     ) : <p className={styles.failed}>{copy.simulationFailed}</p>;

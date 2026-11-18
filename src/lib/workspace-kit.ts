@@ -20,6 +20,7 @@ const ICON_BOOK = icon(
 export const KIT_CSS = `
 [data-dfriend-pan] { touch-action: pan-y pinch-zoom !important; }
 :root {
+  --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px;
   --bg: #f3f5f7; --panel: #ffffff; --text: #15171c; --muted: #4a4f5c;
   --border: #d9dee6; --control-border: #7d8696; --hairline: #e3e6ec; --accent: #15171c; --accent-text: #ffffff; --brand: #b4461a; --pet: #f27a3d;
   --student: #15171c; --student-text: #ffffff; --agent: #f1f3f6; --idea-bg: #eef3ff; --review-bg: #fff5ec; --review-border: #f3d3b8;
@@ -41,7 +42,7 @@ body {
 /* Problem: the card with the label and the problem text. */
 .df-problem {
   margin: 0 0 20px; padding: 22px 24px; display: flex; flex-direction: column; gap: 6px;
-  background: var(--panel); border: 1px solid var(--hairline); border-radius: 14px;
+  background: var(--panel); border: 1px solid var(--hairline); border-radius: var(--radius-lg);
 }
 .df-problem h2 { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); }
 .df-problem p { margin: 0; font-size: 20px; line-height: 1.5; font-weight: 600; }
@@ -49,7 +50,7 @@ body {
 /* Steps: one row per line of the student's working. */
 .df-steps {
   list-style: none; margin: 0 0 20px; padding: 4px 24px;
-  background: var(--panel); border: 1px solid var(--hairline); border-radius: 14px;
+  background: var(--panel); border: 1px solid var(--hairline); border-radius: var(--radius-lg);
 }
 .df-step {
   display: flex; align-items: center; gap: 16px; padding: 16px 0;
@@ -83,12 +84,12 @@ body {
 .df-entry input {
   font: inherit; height: 52px; box-sizing: border-box; min-width: 0; padding: 0 16px;
   font-size: 18px; color: var(--text); background: var(--panel);
-  border: 1.5px solid var(--accent); border-radius: 10px;
+  border: 1.5px solid var(--accent); border-radius: var(--radius-md);
 }
 .df-entry button {
   font: inherit; height: 52px; padding: 0 22px; cursor: pointer;
   font-size: 16px; font-weight: 600; color: var(--accent-text); background: var(--accent);
-  border: 0; border-radius: 10px;
+  border: 0; border-radius: var(--radius-md);
 }
 
 /* Actions: help buttons, wrapping. */
@@ -97,7 +98,7 @@ body {
 .df-hint {
   font: inherit; height: 48px; padding: 0 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 10px;
   font-size: 15px; font-weight: 600; color: var(--text); background: var(--panel);
-  border: 1px solid var(--control-border); border-radius: 10px;
+  border: 1px solid var(--control-border); border-radius: var(--radius-md);
 }
 .df-hint::before {
   content: ""; width: 20px; height: 20px; flex: none; background: var(--text);
@@ -119,7 +120,7 @@ body {
 }
 .df-idea {
   font: inherit; height: 48px; padding: 0 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 10px;
-  font-size: 15px; font-weight: 600; color: var(--brand); background: transparent; border: 0; border-radius: 10px;
+  font-size: 15px; font-weight: 600; color: var(--brand); background: transparent; border: 0; border-radius: var(--radius-md);
 }
 .df-idea::before {
   content: ""; width: 20px; height: 20px; flex: none; background: currentColor;
@@ -129,21 +130,21 @@ body {
 /* Done: the result banner. */
 .df-done {
   margin: 0 0 20px; padding: 24px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px;
-  color: var(--accent-text); background: var(--accent); border-radius: 14px;
+  color: var(--accent-text); background: var(--accent); border-radius: var(--radius-lg);
 }
 .df-done small { font-size: 14px; opacity: 0.85; }
 .df-done b { font-size: 20px; }
 
 /* Simulation controls: ready-made so the simulator writes markup, not CSS (fewer tokens, less wait). */
-.sim-stage { display: block; width: 100%; background: var(--panel); border: 1px solid var(--hairline); border-radius: 14px; overflow: hidden; }
+.sim-stage { display: block; width: 100%; background: var(--panel); border: 1px solid var(--hairline); border-radius: var(--radius-lg); overflow: hidden; }
 .sim-stage canvas, .sim-stage svg { display: block; max-width: 100%; }
 .sim-controls {
   display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 12px 0 0; padding: 14px 16px;
-  background: var(--panel); border: 1px solid var(--hairline); border-radius: 14px;
+  background: var(--panel); border: 1px solid var(--hairline); border-radius: var(--radius-lg);
 }
 .sim-btn {
   font: inherit; min-height: 44px; padding: 0 18px; cursor: pointer; font-size: 15px; font-weight: 600;
-  color: var(--text); background: var(--panel); border: 1px solid var(--control-border); border-radius: 10px;
+  color: var(--text); background: var(--panel); border: 1px solid var(--control-border); border-radius: var(--radius-md);
 }
 .sim-btn.primary { color: var(--accent-text); background: var(--accent); border-color: var(--accent); }
 .sim-btn[aria-pressed="true"] { color: var(--accent-text); background: var(--accent); border-color: var(--accent); }

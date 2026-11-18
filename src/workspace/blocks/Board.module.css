@@ -7,7 +7,7 @@
   overflow: hidden;
   background: var(--panel);
   border: 1px solid var(--hairline);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
 }
 .sliders { display: flex; flex-direction: column; gap: 12px; }
 .slider { display: flex; flex-direction: column; gap: 4px; font: 500 15px/1.4 var(--font-sans); color: var(--text); }
@@ -24,7 +24,7 @@
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--control-border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
 .tool[aria-pressed="true"] { border-color: var(--accent); color: var(--brand); }

@@ -28,7 +28,7 @@
   color: var(--muted);
   background: linear-gradient(var(--control-border), var(--control-border)) right center / 1px 20px no-repeat;
   border: 0;
-  border-radius: 10px 10px 0 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -39,14 +39,14 @@
 
 .seg:hover {
   background: var(--bg);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 .seg[aria-selected="true"] {
   z-index: 1;
   color: var(--text);
   background: var(--panel);
-  border-radius: 10px 10px 0 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 
 .seg[aria-selected="true"]::before,
@@ -81,12 +81,15 @@
 }
 
 @media (min-width: 800px) {
-  /* Full sheet width (so the stuck strip covers it edge to edge), inset by the sheet's 20px corner radius. */
   .bar {
-    max-width: none;
-    margin: -72px calc(-1 * clamp(16px, 4vw, 48px)) 24px;
-    padding: 0 20px;
+    top: var(--workspace-sticky-top, 0px);
+    height: var(--workspace-tabs-height, 40px);
+    padding: 0;
+    background: var(--panel);
   }
+
+  .seg[aria-selected="true"] { border-radius: var(--radius-md); background: var(--bg); }
+  .seg[aria-selected="true"]::before, .seg[aria-selected="true"]::after { content: none; }
 }
 
 @media (max-width: 799px) {

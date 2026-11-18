@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { ProfileGate } from "@/components/ProfileGate";
-import { Shell } from "@/components/Shell";
+import { PanelActions, Shell } from "@/components/Shell";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { useSidebar } from "@/components/sidebar/useSidebar";
 import { useDesktop } from "@/hooks/useDesktop";
@@ -65,7 +65,7 @@ function ProgressContent() {
     }
   };
 
-  const work = <div className={styles.page} aria-busy={!progress.ready}>
+  const page = <div className={styles.page} aria-busy={!progress.ready}>
     <div className={styles.content}>
       <header>
         <h1 className={styles.title}>{copy.progressTitle}</h1>
@@ -102,7 +102,12 @@ function ProgressContent() {
     </div>
   </div>;
 
-  return <Shell work={work} layer={null} inert={side.drawerOpen && !desktop}
+  // From 800px the page is one floating panel on the desk (Feedback + Theme in its bar, its own scroller); a phone keeps the full-bleed page.
+  const work = desktop
+    ? <div className={styles.panel} data-shell-panel><PanelActions /><div className={styles.scroll}>{page}</div></div>
+    : page;
+
+  return <Shell work={work} layer={null} floatingPanels showCornerActions={!desktop} inert={side.drawerOpen && !desktop}
     sidebar={<Sidebar side={side} progress={{ active: true }} onNewProblem={() => void newProblem()} refreshKey="progress"
       onOpenSession={sessionId => { void resumeSession(sessionId).then(() => window.location.assign("/"), () => {}); }} />}
     side={desktop ? side.mode : undefined} />;

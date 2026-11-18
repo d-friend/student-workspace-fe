@@ -71,6 +71,7 @@ test.each([false, true])("surprise preview is available with progress=%s", async
   const onSurprise = vi.fn();
   render(setup({ onSurprise, progress: hasProgress ? { item: progressItem, onOpen: vi.fn() } : null }).ui);
   expect(await screen.findByText(surprise.title)).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Bài bất ngờ" })).toBeTruthy();
   expect(screen.getByText(surprise.tag)).toBeTruthy();
   expect(screen.getByText(surprise.teaser)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: copy.surpriseExplore }));
@@ -114,7 +115,7 @@ test.each([new Error("offline"), new ApiError(404, "pool_empty", "")])("a failed
   vi.mocked(getSurpriseCard).mockRejectedValueOnce(error);
   const onSurprise = vi.fn();
   render(setup({ onSurprise }).ui);
-  fireEvent.click(await screen.findByRole("button", { name: copy.surprise }));
+  fireEvent.click(await screen.findByRole("button", { name: "Bài bất ngờ" }));
   expect(onSurprise).toHaveBeenCalledExactlyOnceWith();
   expect(screen.queryByRole("button", { name: copy.surpriseExplore })).toBeNull();
 });

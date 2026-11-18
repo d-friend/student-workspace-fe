@@ -45,8 +45,8 @@ function Doc({ active = true, inline = true, slots = true, done = false }: {
 }
 
 function ui(extra: Partial<State> = {}, bubbles: Bubble[] = [], {
-  offerOnCard, onWriteOwn = vi.fn(), ...doc
-}: Parameters<typeof Doc>[0] & { offerOnCard?: boolean; onWriteOwn?: () => void } = {}) {
+  offerOnCard, questionInStrip, onWriteOwn = vi.fn(), ...doc
+}: Parameters<typeof Doc>[0] & { offerOnCard?: boolean; questionInStrip?: boolean; onWriteOwn?: () => void } = {}) {
   const state: State = {
     bubbles, busy: false, building: false, checking: 0, status: null, verdict: { seq: 0, state: null, done: false },
     taskDone: {}, restateChips: false, offerChips: false, optChips: null, optChipKind: "answer", optChipSeed: 0,
@@ -58,12 +58,18 @@ function ui(extra: Partial<State> = {}, bubbles: Bubble[] = [], {
   return (
     <PetAnchorProvider>
       <Doc {...doc} />
-      <PetLayer state={state} actions={actions} offerOnCard={offerOnCard} onWriteOwn={onWriteOwn} />
+      <PetLayer state={state} actions={actions} offerOnCard={offerOnCard} questionInStrip={questionInStrip} onWriteOwn={onWriteOwn} />
     </PetAnchorProvider>
   );
 }
 
 describe("inline pet", () => {
+  it("leaves a pending question to the ask strip but keeps the pet", () => {
+    const { container } = render(ui({ optChips: ["A", "B"] }, [agent(1, "Chọn một đáp án", { opts: ["A", "B"] })], { questionInStrip: true }));
+    expect(container.querySelector("[data-pet-slot] [data-state]")).toBeTruthy();
+    expect(container.querySelector("[data-bubble]")).toBeNull();
+  });
+
   it.each([{ active: false }, { inline: false }, { slots: false }, { done: true, slots: false }])("is absent without an active inline slot: %j", (doc) => {
     const { container } = render(ui({}, [agent(1, "Thử thay x vào nhé")], doc));
     expect(container.querySelector("[data-state]")).toBeNull();

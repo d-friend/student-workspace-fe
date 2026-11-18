@@ -174,6 +174,8 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
             {ctx.phase === "learn" && <span className={styles.n}>{i + 1}</span>}
             {ctx.phase !== "learn" && effective[i] === "ok" && <span className={styles.badge}><IconCheck size={20} stroke={2} role="img" aria-label={copy.stateOk} /></span>}
             <span className={styles.lineText}>
+              {ctx.phase !== "learn" && effective[i] === "review" && e.item !== undefined && block.scaffold?.[e.item]?.kind === "choice" &&
+                <span className={styles.pickedAnswer}>{copy.pickedAnswer} </span>}
               <MathInline text={e.text} />
             </span>
             {(effective[i] === "review" || ctx.phase === "learn") && <span className={`${styles.badge} ${effective[i] === "review" ? styles.badgeReview : ""}`}>{effective[i] === "review" ? <IconAlertCircle size={20} stroke={2} aria-hidden="true" /> : <IconCheck size={20} stroke={2} aria-hidden="true" />}{effective[i] === "review" ? copy.stateReview : copy.stateOk}</span>}

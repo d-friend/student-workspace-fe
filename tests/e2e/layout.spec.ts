@@ -69,6 +69,10 @@ test("a long unbroken word does not widen the doc at 360px", async ({ page }) =>
     await page.getByRole("tab", { name: tab }).click();
     const s = await scroller(page);
     expect(await s.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    const bar = page.getByRole("banner");
+    await expect(bar.getByRole("heading", { name: tab })).toBeVisible();
+    expect(await bar.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await expect(bar.getByRole("button", { name: copy.workspaceActions })).toBeInViewport();
   }
 });
 

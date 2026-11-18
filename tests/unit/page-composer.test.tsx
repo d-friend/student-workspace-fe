@@ -236,6 +236,82 @@ it("opens the streamed build on mobile, marks unread replies, and reopens the do
   expect(composer()).toBe(field);
 });
 
+it("shows a live question above the mobile action bar and answers with the chat composer or chips", async () => {
+  render(<Page />);
+  const bar = screen.getByRole("banner");
+  expect(within(bar).getByRole("button", { name: copy.historyOpen })).toBeTruthy();
+  expect(within(bar).getByRole("button", { name: copy.feedbackOpen })).toBeTruthy();
+  expect(within(bar).getByRole("button", { name: copy.themeDark })).toBeTruthy();
+  const field = composer();
+  const turn = await beginBuild();
+  await act(async () => {
+    turn.emit({ event: "workspace", workspaceId: "w", phase: "solve", doc: solve });
+    turn.reply("[why] [opts: Vì A | Vì B] Vì sao bước này đúng?");
+    turn.finish();
+  });
+  const strip = screen.getByRole("region", { name: copy.askStripLabel });
+  const chat = screen.getByTestId("chat-view");
+  expect(chat.hidden).toBe(true);
+  expect(within(bar).getByRole("heading", { name: solve.title })).toBeTruthy();
+  expect(within(bar).getByRole("button", { name: copy.workspaceActions })).toBeTruthy();
+  expect(within(strip).getByText("Vì sao bước này đúng?")).toBeTruthy();
+  expect(strip.nextElementSibling?.querySelector("[data-action-bar]")).toBeTruthy();
+  expect(within(back()).queryByRole("img")).toBeNull();
+
+  fireEvent.click(within(strip).getByRole("button", { name: copy.askStripKeyboard }));
+  expect(composer()).toBe(field);
+  expect(document.activeElement).toBe(field);
+  expect(track).toHaveBeenCalledWith("chat_opened", { unread: false }, "s");
+  expect(screen.queryByRole("region", { name: copy.askStripLabel })).toBeNull();
+
+  fireEvent.click(within(chat).getByRole("button", { name: copy.workspaceOpen }));
+  expect(within(back()).queryByRole("img")).toBeNull();
+  vi.mocked(api.turn).mockImplementationOnce(async (_s, _m, onDelta) => {
+    onDelta("Mình hiểu rồi.");
+    return DONE;
+  });
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Vì B" })));
+  expect(vi.mocked(api.turn).mock.calls.at(-1)?.[1]).toEqual({ role: "user", content: "Vì B" });
+  expect(screen.queryByRole("region", { name: copy.askStripLabel })).toBeNull();
+  expect(chat.hidden).toBe(true);
+});
+
+it("opens the document reset confirmation from the mobile header", async () => {
+  vi.mocked(api.currentSession).mockResolvedValueOnce({
+    sessionId: "restored", html: null, activeId: "w", sheet: null, messages: [],
+    tabs: [{ id: "w", phase: "solve", doc: solve, state: {
+      blocks: { s1: { type: "steps", done: false, free: false, entries: [{ text: "x", state: "review" }] } },
+    } }],
+  });
+  render(<Page />);
+  const overflow = await screen.findByRole("button", { name: copy.workspaceActions });
+  expect(screen.queryByRole("button", { name: copy.workspaceReset })).toBeNull();
+  expect(screen.queryByRole("button", { name: copy.workspaceShare })).toBeNull();
+  fireEvent.click(overflow);
+  fireEvent.click(screen.getByRole("menuitem", { name: copy.workspaceReset }));
+  const confirm = within(screen.getByRole("main")).getByRole("group", { name: copy.workspaceResetConfirm });
+  const cancel = within(confirm).getByRole("button", { name: copy.workspaceResetCancel });
+  expect(document.activeElement).toBe(cancel);
+  fireEvent.keyDown(cancel, { key: "Escape" });
+  expect(document.activeElement).toBe(overflow);
+  expect(screen.queryByRole("group", { name: copy.workspaceResetConfirm })).toBeNull();
+});
+
+it("keeps workspace questions in the desktop chat column", async () => {
+  vi.mocked(useDesktop).mockReturnValue(true);
+  vi.mocked(api.currentSession).mockResolvedValueOnce({
+    sessionId: "restored", html: null, activeId: "w", sheet: null,
+    messages: [{ role: "assistant", content: "[why] [opts: Vì A | Vì B] Vì sao bước này đúng?" }],
+    tabs: [{ id: "w", phase: "solve", doc: solve }],
+  });
+  render(<Page />);
+  const chat = within(screen.getByTestId("chat-view"));
+  expect(await chat.findByRole("button", { name: "Vì B" })).toBeTruthy();
+  expect(screen.queryByRole("region", { name: copy.askStripLabel })).toBeNull();
+  expect(screen.queryByRole("button", { name: copy.workspaceActions })).toBeNull();
+  expect(screen.getByRole("main").querySelector("[data-action-bar]")).toBeTruthy();
+});
+
 it("returns to the same mobile thread when the workspace card fails and rebuilds from the card", async () => {
   render(<Page />);
   const turn = await beginBuild();
@@ -333,6 +409,7 @@ it("the restored completion card answers the live offer with place card and lose
   render(<Page />);
   const card = (await screen.findByText(copy.doneLabel)).closest<HTMLElement>('[role="status"]')!;
   expect(within(card).getByText(copy.stageFirst)).toBeTruthy();
+  expect(screen.queryByRole("region", { name: copy.askStripLabel })).toBeNull();
   fireEvent.click(within(card).getByRole("button", { name: "Học tiếp: Hệ phương trình" }));
   await waitFor(() => expect(track).toHaveBeenCalledWith("next_topic_accepted", { place: "card" }, "progress-session"));
   await waitFor(() => expect(within(card).queryByRole("button")).toBeNull());

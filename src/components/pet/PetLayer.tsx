@@ -19,11 +19,12 @@ type ChipActions = Pick<ChatActions, "onConfirmRestate" | "onCorrectRestate" | "
 
 const isSpoken = (b: Bubble): b is SpokenBubble => b.kind === "agent" || b.kind === "error" || b.kind === "note";
 
-export function PetLayer({ state, actions, onWriteOwn, offerOnCard = false }: {
+export function PetLayer({ state, actions, onWriteOwn, offerOnCard = false, questionInStrip = false }: {
   state: PetSignals;
   actions: ChipActions;
   onWriteOwn: () => void;
   offerOnCard?: boolean;
+  questionInStrip?: boolean; // the mobile ask strip already shows the pending question and its chips
 }) {
   const { mood, celebrateKey } = usePet(state);
   const { anchor } = usePetAnchor();
@@ -76,7 +77,7 @@ export function PetLayer({ state, actions, onWriteOwn, offerOnCard = false }: {
   // The done anchor can show the closing reply once the step choices are gone.
   const stale = (key !== null && key === staleSpeech?.key && !doneInline) ||
     (itemId !== null && turn === staleSpeech?.turn && !awaitingAnswer);
-  const showSpeech = (latest !== undefined || status !== null) && !stale && (key === null || key !== dismissedSpeech);
+  const showSpeech = (latest !== undefined || status !== null) && !stale && !(questionInStrip && awaitingAnswer) && (key === null || key !== dismissedSpeech);
   const spoken = latest ? state.bubbles.filter((b): b is SpokenBubble => isSpoken(b) && b.turn === turn).slice(-3) : [];
   const dismiss = () => setDismissedSpeech(key);
 

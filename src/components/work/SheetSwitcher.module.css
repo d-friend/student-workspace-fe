@@ -88,5 +88,5 @@
 
 /* Keep the bar below the floating mobile menu and account controls. */
 @media (max-width: 799px) {
-  .wrap { padding-top: 60px; }
+  .wrap { padding-top: var(--workspace-top-space, 60px); }
 }

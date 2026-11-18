@@ -28,6 +28,25 @@
   overflow: auto;
 }
 
+.topBar {
+  position: relative;
+  z-index: 32;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-sizing: border-box;
+  height: 64px;
+  padding: 0 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.menuSlot { flex: 0 0 calc(var(--menu-clear) - 12px); }
+.menuSlot > button { position: static; background: transparent; }
+.topBar > button { position: static; flex: 0 0 44px; }
+.shell[data-top-bar] .work { overflow: hidden; }
+
 /* The chat column (from 800px) takes its width from the stage, which glides to make room. */
 @media (min-width: 800px) {
   .stage {

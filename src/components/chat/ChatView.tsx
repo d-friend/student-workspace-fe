@@ -52,7 +52,7 @@ function WorkspaceCard({ card, status, busy, onOpen, onRebuild }: {
 }
 
 export function ChatView({
-  state, actions, composer, composerRef, emptyThread, quote, onDismissQuote, workspaceVisible = false, onOpenLegacyWorkspace, hidden = false,
+  state, actions, composer, composerRef, emptyThread, quote, onDismissQuote, workspaceVisible = false, onOpenLegacyWorkspace, hidden = false, showHeader = true,
 }: {
   state: ChatState;
   actions: ChatActions;
@@ -64,6 +64,7 @@ export function ChatView({
   workspaceVisible?: boolean;
   onOpenLegacyWorkspace?: () => void;
   hidden?: boolean;
+  showHeader?: boolean;
 }) {
   const { bubbles } = state;
   const lastAgent = bubbles.findLast((b) => b.kind === "agent");
@@ -73,7 +74,7 @@ export function ChatView({
 
   return (
     <section aria-label={copy.drawerLabel} className={styles.chat} data-testid="chat-view" data-column={(workspaceVisible && !hidden) || undefined} hidden={hidden}>
-      {!workspaceVisible && (
+      {showHeader && !workspaceVisible && (
         <header className={styles.head}>
           <span className={styles.headPet}><Pet mood="idle" /></span>
           <span className={styles.name}>D-Friend</span>

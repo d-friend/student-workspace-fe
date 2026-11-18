@@ -22,10 +22,10 @@ export function EmptyThread({ onStarter, onSurprise, progress }: EmptyThreadProp
   ];
   return (
     <section className={styles.emptyThread}>
-      <header className={styles.hello}>
+      <div className={styles.hello}>
         <h1 className={styles.title}>{copy.entryTitle}</h1>
         <p className={styles.sub}>{copy.entrySub}</p>
-      </header>
+      </div>
       <div className={styles.try}>
         {!progress && <>
           <p className={styles.label}>{copy.samplesLabel}</p>

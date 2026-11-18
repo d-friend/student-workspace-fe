@@ -2,11 +2,13 @@
 
 import { type ChangeEvent, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ProfileGate } from "@/components/ProfileGate";
+import { AskStrip, pendingAsk } from "@/components/chat/AskStrip";
 import { ChatView } from "@/components/chat/ChatView";
 import { Shell } from "@/components/Shell";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { useSidebar } from "@/components/sidebar/useSidebar";
 import { PetAnchorProvider } from "@/components/pet/PetAnchor";
+import { Pet } from "@/components/pet/Pet";
 import { PetLayer } from "@/components/pet/PetLayer";
 import { BuildingSkeleton } from "@/components/work/BuildingSkeleton";
 import { SheetSwitcher } from "@/components/work/SheetSwitcher";
@@ -22,6 +24,7 @@ import { track, type TrackEvents } from "@/lib/track";
 import type { BlockCtx, Workspace } from "@/workspace/types";
 import { WorkspaceView } from "@/workspace/WorkspaceView";
 import type { SelectionQuote } from "@/workspace/SelectionAsk";
+import { MdInline } from "@/workspace/md";
 import styles from "./page.module.css";
 
 type PhotoSource = TrackEvents["photo_picked"]["source"];
@@ -86,6 +89,9 @@ function Home() {
   const srcDoc = useMemo(() => (ws.html === null ? null : frameDoc(ws.html, location.origin)), [ws.html]);
 
   const [view, setView] = useState<"chat" | "workspace">("chat");
+  const [menuTarget, setMenuTarget] = useState<HTMLDivElement | null>(null);
+  const [actionsTarget, setActionsTarget] = useState<HTMLDivElement | null>(null);
+  const [actionBarTarget, setActionBarTarget] = useState<HTMLDivElement | null>(null);
   const [offerOnCard, setOfferOnCard] = useState(false);
   const [skippedBuildId, setSkippedBuildId] = useState<number | null>(null);
   // The quote belongs to the session it was picked in: "Bài mới" bumps newProblemCount, which drops it.
@@ -120,12 +126,14 @@ function Home() {
   const showWorkspace = (desktop || view === "workspace") && (hasWorkspace || buildingId !== null);
   const hideChat = showWorkspace && !desktop;
   const showBuild = buildingId !== null && buildingId !== skippedBuildId;
+  const ask = hideChat && !side.drawerOpen ? pendingAsk(ws, !showBuild && offerOnCard) : null;
   const lastAgentId = ws.bubbles.findLast((b) => b.kind === "agent" && !b.waiting)?.id ?? null;
   const [lastSeenAgentId, setLastSeenAgentId] = useState<number | null>(null);
-  if (!hideChat && lastSeenAgentId !== lastAgentId) setLastSeenAgentId(lastAgentId);
+  const seenAgentId = hideChat ? ask?.id ?? lastSeenAgentId : lastAgentId;
+  if (seenAgentId !== lastSeenAgentId) setLastSeenAgentId(seenAgentId);
   // Removing a failed turn's announce can expose an older message that was already read.
   // A waiting reply may have a lower ID than the announce inserted before it.
-  const unread = lastAgentId !== null && lastAgentId !== lastSeenAgentId &&
+  const unread = lastAgentId !== null && lastAgentId !== seenAgentId &&
     (lastSeenAgentId === null || lastAgentId > lastSeenAgentId || ws.bubbles.some((b) => b.id === lastSeenAgentId));
   const openChat = () => {
     setLastSeenAgentId(lastAgentId);
@@ -210,6 +218,10 @@ function Home() {
           makeCtx={makeCtx}
           taskDone={ws.taskDone}
           onOfferShown={setOfferOnCard}
+          mobile={desktop ? undefined : {
+            actionsTarget: hideChat && !showBuild ? actionsTarget : null,
+            actionBarTarget,
+          }}
           offer={ws.optChipKind === "offer" && ws.optChips ? { opts: ws.optChips, onPick: (t) => void ws.answerOpt(t, "card") } : null}
           brokenTabs={ws.brokenTabs}
           onRebuild={ws.rebuildTab}
@@ -233,12 +245,22 @@ function Home() {
     onOfferLater: () => void ws.answerOffer(false),
     onOpt: (text: string) => void ws.answerOpt(text),
   };
-  const bar = !desktop && showWorkspace && (
-    <div className={styles.chatBar}>
-      <button type="button" onClick={openChat}>
-        {copy.backToChat}
-        {unread && <span className={styles.unread} role="img" aria-label={copy.petUnread} />}
-      </button>
+  const workspaceTitle = showBuild
+    ? ws.preview?.title ?? (buildingCard?.kind === "workspace" ? buildingCard.title : null) ?? ws.status ?? copy.building
+    : ws.tabs.find((tab) => tab.id === ws.activeId)?.doc.title ?? copy.workspaceTitle;
+  const bar = desktop ? undefined : (
+    <div className={styles.barContent}>
+      {hideChat ? <>
+        <button type="button" className={styles.backToChat} onClick={openChat}>
+          {copy.backToChat}
+          {unread && <span className={styles.unread} role="img" aria-label={copy.petUnread} />}
+        </button>
+        <h1 className={styles.workspaceTitle}><MdInline text={workspaceTitle} /></h1>
+        {!showBuild && !legacyWorkspace && <div ref={setActionsTarget} />}
+      </> : <>
+        <Pet mood="idle" className={styles.barPet} />
+        <span className={styles.brand}>{copy.brand}</span>
+      </>}
     </div>
   );
   const openWorkspaceView = () => {
@@ -251,12 +273,20 @@ function Home() {
         {/* Keep the current doc mounted across chat visits and while another workspace builds. */}
         {workspace && <div className={styles.viewWrap} data-visible={!showBuild} inert={showBuild} aria-hidden={showBuild || undefined}>{workspace}</div>}
         {showBuild && (
-          <BuildingSkeleton
-            variant={ws.buildingPhase === "learn" ? "learn" : "solve"}
-            preview={ws.preview}
-            onQueue={ws.queueAnswer}
-            problem={problem}
-          />
+          <div className={styles.buildScroll}>
+            <BuildingSkeleton
+              variant={ws.buildingPhase === "learn" ? "learn" : "solve"}
+              preview={ws.preview}
+              onQueue={ws.queueAnswer}
+              problem={problem}
+            />
+          </div>
+        )}
+        {!desktop && (
+          <div className={styles.bottom} data-workspace-footer>
+            <AskStrip key={ask?.id} ask={ask} actions={chipActions} onKeyboard={() => ws.inputRef.current?.focus(true)} />
+            <div ref={setActionBarTarget} className={styles.actionBarSlot} hidden={showBuild} />
+          </div>
         )}
       </div>
       <ChatView
@@ -280,6 +310,7 @@ function Home() {
         workspaceVisible={showWorkspace}
         onOpenLegacyWorkspace={legacyWorkspace ? openWorkspaceView : undefined}
         hidden={hideChat}
+        showHeader={desktop}
         quote={quote?.text}
         onDismissQuote={() => setQuote(null)}
       />
@@ -288,9 +319,9 @@ function Home() {
 
   return (
     <PetAnchorProvider>
-      <Shell work={work} bar={bar} chatOpen={desktop && showWorkspace} inert={side.drawerOpen && !desktop}
-        layer={<PetLayer state={ws} actions={chipActions} offerOnCard={offerOnCard} onWriteOwn={() => ws.inputRef.current?.focus(true)} />}
-        sidebar={<Sidebar side={side} busy={ws.busy} onNewProblem={ws.newProblem} progress={cards.length > 0 ? {} : null} refreshKey={`${ws.newProblemCount}|${ws.hasMessages}|${ws.phase}`} />}
+      <Shell work={work} bar={bar} menuRef={setMenuTarget} chatOpen={desktop && showWorkspace} inert={side.drawerOpen && !desktop}
+        layer={<PetLayer state={ws} actions={chipActions} offerOnCard={offerOnCard} questionInStrip={!desktop && ask !== null} onWriteOwn={() => ws.inputRef.current?.focus(true)} />}
+        sidebar={<Sidebar side={side} menuTarget={desktop ? undefined : menuTarget} busy={ws.busy} onNewProblem={ws.newProblem} progress={cards.length > 0 ? {} : null} refreshKey={`${ws.newProblemCount}|${ws.hasMessages}|${ws.phase}`} />}
         side={desktop ? side.mode : undefined} />
       <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={onFile} />
       <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={onFile} />

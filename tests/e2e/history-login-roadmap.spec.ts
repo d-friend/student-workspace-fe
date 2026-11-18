@@ -78,7 +78,7 @@ test("two solve tabs and one learn tab keep distinct identities and local work w
   for (const [index, draft] of ["first solve draft", "second solve draft"].entries()) {
     await solves.nth(index).click();
     await expect(solves.nth(index)).toHaveAttribute("aria-selected", "true");
-    await page.getByRole("tabpanel").locator("[data-action-bar]").getByRole("button", { name: copy.otherWay }).click();
+    await page.locator("[data-action-bar]:visible").getByRole("button", { name: copy.otherWay }).click();
     await page.getByRole("tabpanel").getByLabel(copy.lineLabel(1)).fill(draft);
     await expect.poll(async () => (await current(page)).active_workspace_id).toBe(saved.tabs[index].workspace_id);
   }

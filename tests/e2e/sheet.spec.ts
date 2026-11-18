@@ -81,7 +81,7 @@ for (const width of [1280, 360]) {
     const nav = page.getByRole("navigation", { name: copy.sheetNav });
     await expect(nav.getByRole("button", { name: copy.sheetPosition(1, COUNT) })).toBeVisible();
     await expect(page.getByText("Giải phương trình số 1.")).toBeVisible();
-    await expect(page.getByRole("main").getByRole("textbox")).toBeVisible();
+    await expect(page.locator('section[id^="panel-"]:not([hidden])').first().getByRole("textbox")).toBeVisible();
     await expect(nav.getByRole("button", { name: copy.sheetPrev })).toBeDisabled();
     expect(names).toEqual([{ name: "Nguyễn An" }]);
     expect(await fits()).toBe(true);
@@ -165,7 +165,7 @@ test("a step answered right before 'next' reaches the server before the switch",
   await page.goto("/");
   const nav = page.getByRole("navigation", { name: copy.sheetNav });
   await expect(nav.getByRole("button", { name: copy.sheetPosition(1, COUNT) })).toBeVisible();
-  const main = page.getByRole("main");
+  const main = page.locator('section[id^="panel-"]:not([hidden])').first();
   await main.getByRole("textbox").fill("x = 1");
   await main.getByRole("button", { name: copy.check, exact: true }).click();
   await expect.poll(() => calls).toEqual(["check"]);

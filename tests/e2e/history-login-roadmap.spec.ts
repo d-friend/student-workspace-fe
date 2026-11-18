@@ -28,16 +28,17 @@ async function send(page: Page, text: string) {
   await turnComplete(page);
 }
 
-async function chat(page: Page) {
-  await page.getByRole("button", { name: copy.petOpen }).click();
-  await expect(page.getByRole("dialog", { name: copy.drawerLabel })).toBeVisible();
-}
-
-async function closeChat(page: Page) {
-  // The drawer only handles Escape with focus inside it: press on its composer, which waits until the turn lets it take input.
-  await composer(page).press("Escape");
-  await expect(page.getByRole("dialog", { name: copy.drawerLabel })).toHaveCount(0);
-}
+// The chat is a column beside the workspace from 800px; below it, "← Chat" brings it back.
+const chatView = (page: Page) => page.getByTestId("chat-view");
+const chat = async (page: Page) => {
+  const back = page.getByRole("button", { name: copy.backToChat });
+  if (await back.isVisible()) await back.click();
+  await expect(chatView(page)).toBeVisible();
+};
+// The desktop chat column never closes; the workspace stays beside it.
+const closeChat = async (page: Page) => {
+  await expect(page.locator('section[id^="panel-"]:not([hidden])').first()).toBeVisible();
+};
 
 async function current(page: Page) {
   const response = await page.request.get("/api/sessions/current");
@@ -102,7 +103,7 @@ test("finishing a solve offers next-topic chips and the lesson chip builds a lea
   await page.getByRole("button", { name: copy.check, exact: true }).click();
   await expect(page.getByText(copy.doneLabel, { exact: true })).toBeVisible();
   await chat(page);
-  const drawer = page.getByRole("dialog", { name: copy.drawerLabel });
+  const drawer = chatView(page);
   await expect(drawer.getByRole("button", { name: NEXT, exact: true })).toBeVisible();
   await expect(drawer.getByRole("button", { name: "Bài tương tự", exact: true })).toBeVisible();
   await drawer.getByRole("button", { name: NEXT, exact: true }).click();
@@ -136,7 +137,7 @@ for (const width of [1440, 360]) {
     await expect.poll(async () => (await current(page)).tabs.map((tab: { workspace_id: string }) => tab.workspace_id))
       .toEqual(past.tabs.map((tab: { workspace_id: string }) => tab.workspace_id));
     await chat(page);
-    const drawer = page.getByRole("dialog", { name: copy.drawerLabel });
+    const drawer = chatView(page);
     await expect(drawer.getByText("__build", { exact: true })).toBeVisible();
     await expect(drawer.getByText("__build second solve", { exact: true })).toBeVisible();
     await expect(drawer.getByText("__learn", { exact: true })).toBeVisible();

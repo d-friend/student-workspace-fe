@@ -19,13 +19,16 @@ function psql(sql: string): string {
 }
 
 const composer = (page: Page) => page.getByLabel(copy.inputLabel);
+// The chat is a column beside the workspace from 800px; below it, "← Chat" brings it back.
+const chatView = (page: Page) => page.getByTestId("chat-view");
 const chat = async (page: Page) => {
-  await page.getByRole("button", { name: copy.petOpen }).click();
-  await expect(page.getByRole("dialog", { name: copy.drawerLabel })).toBeVisible();
+  const back = page.getByRole("button", { name: copy.backToChat });
+  if (await back.isVisible()) await back.click();
+  await expect(chatView(page)).toBeVisible();
 };
+// The desktop chat column never closes; the workspace stays beside it.
 const closeChat = async (page: Page) => {
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog", { name: copy.drawerLabel })).toHaveCount(0);
+  await expect(page.locator('section[id^="panel-"]:not([hidden])').first()).toBeVisible();
 };
 const send = async (page: Page, text: string) => {
   await composer(page).fill(text);
@@ -80,7 +83,7 @@ test("a student gesture starts a turn, new problem, photo, tracking rows without
   await page.getByLabel(copy.lineLabel(1)).fill(LINE);
   await page.getByRole("button", { name: copy.check }).click();
   await expect(page.getByText(copy.stateReview, { exact: true })).toBeVisible();
-  await expect(page.getByText(/I saw this from the workspace/)).toBeVisible();
+  await expect(chatView(page).getByText(/I saw this from the workspace/)).toBeVisible();
 
   // A quiz answer in the learn phase.
   await chat(page);

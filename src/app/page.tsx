@@ -105,6 +105,7 @@ function Home() {
   const [menuTarget, setMenuTarget] = useState<HTMLDivElement | null>(null);
   const [actionsTarget, setActionsTarget] = useState<HTMLDivElement | null>(null);
   const [actionBarTarget, setActionBarTarget] = useState<HTMLDivElement | null>(null);
+  const [tabsTarget, setTabsTarget] = useState<HTMLDivElement | null>(null);
   const [offerOnCard, setOfferOnCard] = useState(false);
   const [skippedBuildId, setSkippedBuildId] = useState<number | null>(null);
   // The quote belongs to the session it was picked in: "Bài mới" bumps newProblemCount, which drops it.
@@ -240,6 +241,7 @@ function Home() {
           makeCtx={makeCtx}
           taskDone={ws.taskDone}
           onOfferShown={setOfferOnCard}
+          tabsTarget={desktopCollapsed ? tabsTarget : null}
           mobile={desktop ? undefined : {
             actionsTarget: hideChat && !showBuild ? actionsTarget : null,
             actionBarTarget,
@@ -292,7 +294,7 @@ function Home() {
   const work = (
     <>
       <div className={styles.stage} data-shell-panel data-visible={showWorkspace} inert={!showWorkspace} aria-hidden={!showWorkspace || undefined}>
-        {desktopCollapsed && <PanelActions />}
+        {desktopCollapsed && <PanelActions tabsRef={setTabsTarget} />}
         {/* Keep the current doc mounted across chat visits and while another workspace builds. */}
         {workspace && <div className={styles.viewWrap} data-visible={!showBuild} inert={showBuild} aria-hidden={showBuild || undefined}>{workspace}</div>}
         {showBuild && (

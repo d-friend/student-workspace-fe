@@ -13,3 +13,8 @@
 .log:not([data-empty]) > :first-child {
   margin-top: auto;
 }
+
+@media (min-width: 800px) {
+  /* The wide chat panel keeps its messages in a 720px column; the scrollbar stays at the panel's edge. */
+  :global([data-chat-wide]) > .log { padding-inline: calc(max(0px, (100% - 720px) / 2) + 20px); }
+}

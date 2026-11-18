@@ -4,8 +4,9 @@ import { FeedbackButton } from "./FeedbackButton";
 import { ThemeToggle } from "./ThemeToggle";
 import styles from "./Shell.module.css";
 
-export function PanelActions() {
-  return <div className={styles.panelActions} data-panel-header><FeedbackButton /><ThemeToggle /></div>;
+// `tabsRef` receives the slot where the workspace's tab strip is rendered, so tabs and buttons share one bar.
+export function PanelActions({ tabsRef }: { tabsRef?: Ref<HTMLDivElement> }) {
+  return <div className={styles.panelActions} data-panel-header><div ref={tabsRef} className={styles.tabsSlot} /><FeedbackButton /><ThemeToggle /></div>;
 }
 
 // The main content is inert while the mobile sidebar is open.

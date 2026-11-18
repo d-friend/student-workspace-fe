@@ -43,6 +43,7 @@ type Props = {
   onRebuild?: (id: string) => void;
   onSelectionAsk?: (quote: SelectionQuote) => void;
   mobile?: MobileWorkspace;
+  tabsTarget?: HTMLElement | null; // desktop with the chat hidden: the top bar slot that holds the tabs
 };
 
 function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onRebuild, sessionId, workspaceCount, sessionUnready, tabs, onActive, onReset, resetDisabled, offer, onOfferShown, mobile }: {
@@ -306,7 +307,7 @@ function LocalizedDoc(props: Parameters<typeof Doc>[0]) {
   return <WorkspaceCopy.Provider value={copyFor(lang)}><Doc {...props} /></WorkspaceCopy.Provider>;
 }
 
-export function WorkspaceView({ sessionId, tabs, activeId, onActive, onReset, resets = {}, resetDisabled = false, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild, onSelectionAsk, offer, onOfferShown, mobile }: Props) {
+export function WorkspaceView({ sessionId, tabs, activeId, onActive, onReset, resets = {}, resetDisabled = false, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild, onSelectionAsk, offer, onOfferShown, mobile, tabsTarget }: Props) {
   const lastWorkingId = tabs.findLast(tab => tab.phase !== "learn")?.id;
   const activeDoc = tabs.find((tab) => tab.id === activeId)?.doc;
   const activeCopy = useMemo(() => activeDoc ? copyFor(workspaceLocale(activeDoc)) : copy, [activeDoc]);
@@ -328,7 +329,7 @@ export function WorkspaceView({ sessionId, tabs, activeId, onActive, onReset, re
         </WorkspaceCopy.Provider>
       )}
       <div className={styles.view} data-pet-column>
-        <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} />
+        <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} barTarget={tabsTarget} />
         {tabs.map((w) => (
           <LocalizedDoc key={`${w.id}:${resets[w.id] ?? 0}`} sessionId={sessionId} workspaceCount={tabs.length} sessionUnready={tabs.some((tab) => tab.doc.blocks.some((block) => block.type === "custom" && block.html == null))} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} tabs={tabs} onActive={onActive} onReset={onReset} resetDisabled={resetDisabled} offer={w.id === lastWorkingId ? offer : null} onOfferShown={w.id === lastWorkingId ? onOfferShown : undefined} mobile={mobile} />
         ))}

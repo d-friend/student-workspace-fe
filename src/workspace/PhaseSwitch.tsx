@@ -1,14 +1,17 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { IconBook, IconPencil, IconSchool } from "@tabler/icons-react";
 import type { Phase, Workspace } from "./types";
 import styles from "./PhaseSwitch.module.css";
 
 const icons = { learn: IconBook, solve: IconPencil, practice: IconSchool };
 
-export function PhaseSwitch({ tabs, activeId, onActive }: {
+export function PhaseSwitch({ tabs, activeId, onActive, barTarget }: {
   tabs: (Workspace & { phase: Phase })[];
   activeId: string;
   onActive: (id: string) => void;
+  // Desktop with the chat hidden: the tabs live in the panel's top bar instead of above the doc.
+  barTarget?: HTMLElement | null;
 }) {
   const row = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -27,8 +30,8 @@ export function PhaseSwitch({ tabs, activeId, onActive }: {
   }, [activeId, tabs.length]);
 
   if (tabs.length <= 1) return null;
-  return (
-    <div ref={row} className={styles.bar} role="tablist">
+  const strip = (
+    <div ref={row} className={styles.bar} role="tablist" data-in-bar={barTarget ? "" : undefined}>
       {tabs.map((w) => {
         const Icon = icons[w.phase];
         return (
@@ -50,4 +53,5 @@ export function PhaseSwitch({ tabs, activeId, onActive }: {
       })}
     </div>
   );
+  return barTarget ? createPortal(strip, barTarget) : strip;
 }

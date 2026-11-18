@@ -89,6 +89,19 @@ function Home() {
   const srcDoc = useMemo(() => (ws.html === null ? null : frameDoc(ws.html, location.origin)), [ws.html]);
 
   const [view, setView] = useState<"chat" | "workspace">("chat");
+  const [chatCollapsed, setChatCollapsed] = useState(false);
+  const pillRef = useRef<HTMLButtonElement>(null);
+  const focusPill = useRef(false);
+  const focusOnReveal = useRef(false);
+  useEffect(() => {
+    // Read after mount so the server and first client render agree (default open).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    try { setChatCollapsed(localStorage.getItem("dfriend.chatCollapsed") === "true"); } catch { /* Storage is optional. */ }
+  }, []);
+  const collapseChat = (collapsed: boolean) => {
+    setChatCollapsed(collapsed);
+    try { localStorage.setItem("dfriend.chatCollapsed", String(collapsed)); } catch { /* Storage is optional. */ }
+  };
   const [menuTarget, setMenuTarget] = useState<HTMLDivElement | null>(null);
   const [actionsTarget, setActionsTarget] = useState<HTMLDivElement | null>(null);
   const [actionBarTarget, setActionBarTarget] = useState<HTMLDivElement | null>(null);
@@ -124,7 +137,8 @@ function Home() {
   }
 
   const showWorkspace = (desktop || view === "workspace") && (hasWorkspace || buildingId !== null);
-  const hideChat = showWorkspace && !desktop;
+  const hideChat = showWorkspace && (!desktop || chatCollapsed);
+  const desktopCollapsed = desktop && showWorkspace && chatCollapsed;
   const showBuild = buildingId !== null && buildingId !== skippedBuildId;
   const ask = hideChat && !side.drawerOpen ? pendingAsk(ws, !showBuild && offerOnCard) : null;
   const lastAgentId = ws.bubbles.findLast((b) => b.kind === "agent" && !b.waiting)?.id ?? null;
@@ -138,10 +152,18 @@ function Home() {
   const openChat = () => {
     setLastSeenAgentId(lastAgentId);
     setView("chat");
+    if (desktopCollapsed) {
+      focusOnReveal.current = true;
+      collapseChat(false);
+    }
     ws.chatOpened(unread);
   };
 
-  const focusOnReveal = useRef(false);
+  useLayoutEffect(() => {
+    if (!desktopCollapsed || !focusPill.current) return;
+    focusPill.current = false;
+    pillRef.current?.focus({ preventScroll: true });
+  }, [desktopCollapsed]);
   useImperativeHandle(ws.inputRef, () => ({
     focus(reveal = false) {
       if (!hideChat) composerRef.current?.focus({ preventScroll: true });
@@ -288,6 +310,13 @@ function Home() {
             <div ref={setActionBarTarget} className={styles.actionBarSlot} hidden={showBuild} />
           </div>
         )}
+        {desktopCollapsed && <div className={styles.desktopBottom}>
+          <AskStrip key={ask?.id} ask={ask} actions={chipActions} onKeyboard={() => ws.inputRef.current?.focus(true)} />
+          <button ref={pillRef} type="button" className={styles.chatPill} onClick={openChat}>
+            <Pet mood="idle" className={styles.pillPet} />{copy.openChat}
+            {unread && <span className={styles.unread} role="img" aria-label={copy.petUnread} />}
+          </button>
+        </div>}
       </div>
       <ChatView
         state={ws}
@@ -311,6 +340,7 @@ function Home() {
         onOpenLegacyWorkspace={legacyWorkspace ? openWorkspaceView : undefined}
         hidden={hideChat}
         showHeader={desktop}
+        onCollapse={() => { focusPill.current = true; collapseChat(true); }}
         quote={quote?.text}
         onDismissQuote={() => setQuote(null)}
       />
@@ -319,8 +349,8 @@ function Home() {
 
   return (
     <PetAnchorProvider>
-      <Shell work={work} bar={bar} menuRef={setMenuTarget} chatOpen={desktop && showWorkspace} inert={side.drawerOpen && !desktop}
-        layer={<PetLayer state={ws} actions={chipActions} offerOnCard={offerOnCard} questionInStrip={!desktop && ask !== null} onWriteOwn={() => ws.inputRef.current?.focus(true)} />}
+      <Shell work={work} bar={bar} menuRef={setMenuTarget} chatOpen={desktop && showWorkspace && !chatCollapsed} inert={side.drawerOpen && !desktop}
+        layer={<PetLayer state={ws} actions={chipActions} offerOnCard={offerOnCard} questionInStrip={ask !== null} onWriteOwn={() => ws.inputRef.current?.focus(true)} />}
         sidebar={<Sidebar side={side} menuTarget={desktop ? undefined : menuTarget} busy={ws.busy} onNewProblem={ws.newProblem} progress={cards.length > 0 ? {} : null} refreshKey={`${ws.newProblemCount}|${ws.hasMessages}|${ws.phase}`} />}
         side={desktop ? side.mode : undefined} />
       <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={onFile} />

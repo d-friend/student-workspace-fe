@@ -114,6 +114,8 @@ export function Composer({
     el.style.height = "auto";
     const natural = value === "" ? MIN_HEIGHT : el.scrollHeight;
     el.style.height = `${Math.min(Math.max(natural, MIN_HEIGHT), MAX_HEIGHT)}px`;
+    el.style.overflowY = natural > MAX_HEIGHT ? "auto" : "hidden";
+    el.style.scrollbarWidth = natural > MAX_HEIGHT ? "auto" : "none";
   }, [value, canAddPhoto]);
 
   // Enter sends; Shift+Enter is a newline; Enter that finishes an IME composition does nothing.

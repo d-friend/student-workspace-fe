@@ -36,6 +36,8 @@
   min-height: 44px;
   max-height: 140px;
   resize: none;
+  overflow-y: hidden;
+  scrollbar-width: none;
   box-sizing: border-box;
   padding: 11px 12px;
   font-size: 15px;

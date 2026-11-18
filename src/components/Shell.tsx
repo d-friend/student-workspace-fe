@@ -37,7 +37,7 @@ export function Shell({
         <main aria-label={copy.workLabel} className={styles.work}>
           {work}
         </main>
-        {!bar && <><FeedbackButton /><ThemeToggle /></>}
+        {!bar && !chatOpen && <><FeedbackButton /><ThemeToggle /></>}
       </div>
       {layer}
     </div>

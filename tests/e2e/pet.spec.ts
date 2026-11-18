@@ -97,6 +97,8 @@ test("fill then Enter posts a turn before and after a build", async ({ page }) =
   await send(page, "__build");
   await first;
   await expect(page.getByText("Chọn ẩn là gì?")).toBeVisible();
+  // The composer drops a message sent while the build turn is still ending.
+  await expect(page.getByRole("button", { name: copy.send, exact: true })).toBeEnabled();
 
   const second = turn(page);
   await send(page, "__learn");

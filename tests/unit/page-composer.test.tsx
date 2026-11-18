@@ -31,7 +31,7 @@ vi.mock("@/lib/photo", async (original) => ({
   readPhoto: vi.fn().mockResolvedValue({ data: "eA==", bytes: 1, width: 1, height: 1, processMs: 1 }),
 }));
 
-beforeEach(() => { vi.mocked(useDesktop).mockReturnValue(false); });
+beforeEach(() => { localStorage.removeItem("dfriend.chatCollapsed"); vi.mocked(useDesktop).mockReturnValue(false); });
 
 afterEach(() => {
   cleanup();
@@ -312,6 +312,86 @@ it("keeps workspace questions in the desktop chat column", async () => {
   expect(screen.getByRole("main").querySelector("[data-action-bar]")).toBeTruthy();
 });
 
+it("collapses the desktop column, marks unread replies and reopens with focus", async () => {
+  vi.mocked(useDesktop).mockReturnValue(true);
+  render(<Page />);
+  const turn = await beginBuild();
+  const chat = screen.getByTestId("chat-view");
+  const header = within(chat.querySelector("header")!);
+  expect(header.getByRole("button", { name: copy.feedbackOpen })).toBeTruthy();
+  expect(header.getByRole("button", { name: copy.themeDark })).toBeTruthy();
+  fireEvent.click(header.getByRole("button", { name: copy.hideChat }));
+  expect(chat.hidden).toBe(true);
+  const pill = screen.getByRole("button", { name: copy.openChat });
+  expect(document.activeElement).toBe(pill);
+  expect(chat.closest("[data-chat]")).toBeNull();
+  expect(localStorage.getItem("dfriend.chatCollapsed")).toBe("true");
+  await act(async () => {
+    turn.emit({ event: "workspace", workspaceId: "w", phase: "solve", doc: solve });
+    turn.reply("Mình dựng xong rồi.");
+    turn.finish();
+  });
+  expect(within(pill).getByRole("img", { name: copy.petUnread })).toBeTruthy();
+  fireEvent.click(pill);
+  expect(chat.hidden).toBe(false);
+  expect(document.activeElement).toBe(composer());
+  expect(track).toHaveBeenCalledWith("chat_opened", { unread: true }, "s");
+  expect(localStorage.getItem("dfriend.chatCollapsed")).toBe("false");
+  fireEvent.click(within(chat).getByRole("button", { name: copy.hideChat }));
+  expect(within(screen.getByRole("button", { name: copy.openChat })).queryByRole("img", { name: copy.petUnread })).toBeNull();
+});
+
+it("shows a pending question in the collapsed desktop footer and opens its keyboard", async () => {
+  vi.mocked(useDesktop).mockReturnValue(true);
+  localStorage.setItem("dfriend.chatCollapsed", "true");
+  vi.mocked(api.currentSession).mockResolvedValueOnce({
+    sessionId: "restored", html: null, activeId: "w", sheet: null,
+    messages: [{ role: "assistant", content: "[why] [opts: Vì A | Vì B] Vì sao bước này đúng?" }],
+    tabs: [{ id: "w", phase: "solve", doc: solve }],
+  });
+  render(<Page />);
+  const strip = await screen.findByRole("region", { name: copy.askStripLabel });
+  expect(screen.getByTestId("chat-view").hidden).toBe(true);
+  fireEvent.click(within(strip).getByRole("button", { name: copy.askStripKeyboard }));
+  expect(document.activeElement).toBe(composer());
+  expect(screen.queryByRole("region", { name: copy.askStripLabel })).toBeNull();
+});
+
+it("restores the desktop collapse preference after remount", async () => {
+  vi.mocked(useDesktop).mockReturnValue(true);
+  const restored = {
+    sessionId: "restored", html: null, activeId: "w", sheet: null, messages: [],
+    tabs: [{ id: "w", phase: "solve" as const, doc: solve }],
+  };
+  vi.mocked(api.currentSession).mockResolvedValue(restored);
+  const first = render(<Page />);
+  fireEvent.click(await screen.findByRole("button", { name: copy.hideChat }));
+  first.unmount();
+  render(<Page />);
+  expect(await screen.findByRole("button", { name: copy.openChat })).toBeTruthy();
+  expect(screen.getByTestId("chat-view").hidden).toBe(true);
+  vi.mocked(api.currentSession).mockResolvedValue(null);
+});
+
+it("continues to collapse and reopen when chat preference storage throws", async () => {
+  vi.mocked(useDesktop).mockReturnValue(true);
+  vi.spyOn(Storage.prototype, "getItem").mockImplementation((key) => {
+    if (key === "dfriend.chatCollapsed") throw Error("unavailable");
+    return null;
+  });
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation((key) => {
+    if (key === "dfriend.chatCollapsed") throw Error("unavailable");
+  });
+  vi.mocked(api.currentSession).mockResolvedValueOnce({
+    sessionId: "restored", html: null, activeId: "w", sheet: null, messages: [],
+    tabs: [{ id: "w", phase: "solve", doc: solve }],
+  });
+  render(<Page />);
+  fireEvent.click(await screen.findByRole("button", { name: copy.hideChat }));
+  fireEvent.click(screen.getByRole("button", { name: copy.openChat }));
+  expect(document.activeElement).toBe(composer());
+});
+
 it("returns to the same mobile thread when the workspace card fails and rebuilds from the card", async () => {
   render(<Page />);
   const turn = await beginBuild();
@@ -365,7 +445,9 @@ it.each([false, true])("opens the restored workspace once and focuses chat after
   if (desktop) {
     expect(composer()).toBe(field);
     expect(screen.queryByRole("button", { name: copy.backToChat })).toBeNull();
-    expect(chat.querySelector("header")).toBeNull();
+    expect(within(chat.querySelector("header")!).getByRole("button", { name: copy.hideChat })).toBeTruthy();
+    fireEvent.click(within(chat).getByRole("button", { name: copy.hideChat }));
+    expect(chat.hidden).toBe(true);
   } else {
     expect(within(back()).queryByRole("img")).toBeNull();
   }

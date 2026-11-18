@@ -30,14 +30,24 @@ function setup() {
     emptyThread: { onStarter: vi.fn(), onSurprise: vi.fn() },
     onDismissQuote: vi.fn(),
   };
-  const ui = (bubbles: Bubble[], extra: Partial<ChatState> = {}, quote?: string) => (
-    <ChatView {...props} quote={quote} state={{
+  const ui = (bubbles: Bubble[], extra: Partial<ChatState> = {}, quote?: string, workspaceVisible = false) => (
+    <ChatView {...props} quote={quote} workspaceVisible={workspaceVisible} state={{
       bubbles, busy: false, status: null, watching: false, restateChips: false, offerChips: false,
       optChips: null, optChipKind: "answer", optChipSeed: 0, ...extra,
     }} />
   );
   return { actions, ui, onDismissQuote: props.onDismissQuote };
 }
+
+it("shows a hint for a column containing only workspace cards", () => {
+  const { ui } = setup();
+  const card: Bubble = { kind: "workspace", id: 1, turn: 1, workspaceId: "w", title: "Bài toán", state: "ready" };
+  const { rerender } = render(ui([card], {}, undefined, true));
+  expect(screen.getByText(copy.chatEmptyHint)).toBeTruthy();
+  expect(screen.queryByText(copy.entryTitle)).toBeNull();
+  rerender(ui([card, agent(2, "Chào bạn")], {}, undefined, true));
+  expect(screen.queryByText(copy.chatEmptyHint)).toBeNull();
+});
 
 it("shows starters, Surprise and the footer inside the empty log until the first message", async () => {
   const { ui } = setup();

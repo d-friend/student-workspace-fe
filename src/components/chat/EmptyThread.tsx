@@ -3,7 +3,7 @@ import Link from "next/link";
 import { IconArrowRight, IconArrowsShuffle, IconCheck } from "@tabler/icons-react";
 import { copy } from "@/lib/copy";
 import { getSurpriseCard, type ProgressItem, type SurpriseCard } from "@/lib/api";
-import { progressDateLabel, stoppedAt } from "@/lib/progress";
+import { progressDateLabel } from "@/lib/progress";
 import { MdInline } from "@/workspace/md";
 import styles from "./EmptyThread.module.css";
 
@@ -54,7 +54,6 @@ export function EmptyThread({ onStarter, onSurprise, progress }: EmptyThreadProp
 function NextStep({ item, onOpen }: { item: ProgressItem; onOpen: () => void }) {
   const next = item.next?.[0];
   const continuing = !next && item.steps && !item.steps.done;
-  const stopped = continuing ? stoppedAt(item) : null;
   // Some existing next labels already include "Học tiếp:". Keep their wording once.
   const main = next ? (/^(học tiếp|learn next|next)\s*:/i.test(next) ? next : copy.entryLearn + next)
     : continuing ? copy.entryContinue + item.title : item.title;
@@ -63,18 +62,17 @@ function NextStep({ item, onOpen }: { item: ProgressItem; onOpen: () => void }) 
       <h2>{copy.entryNext}</h2>
       <Link className={styles.seeAll} href="/progress">{copy.progressSeeAll}</Link>
     </div>
-    <div className={styles.nextBody}>
-      {next && <span className={styles.nextTitle}><MdInline text={item.title} /></span>}
-      <span className={styles.nextMain}>
-        {!next && !continuing && <IconCheck size={22} className={styles.done} aria-hidden="true" />}
-        <span><MdInline text={main} /></span>
+    <button type="button" className={`${styles.card} ${styles.compactRow}`} onClick={onOpen}>
+      <span className={styles.rowText}>
+        <span className={styles.nextMain}>
+          {!next && !continuing && <IconCheck size={18} className={styles.done} aria-hidden="true" />}
+          <span className={styles.ellipsis}><MdInline text={main} /></span>
+        </span>
+        {next && <span className={`${styles.cardSub} ${styles.ellipsis}`}><MdInline text={item.title} /></span>}
       </span>
-      {stopped && <span className={styles.nextTitle}>{copy.progressStopped}{stopped}</span>}
       <time className={styles.nextDate} dateTime={item.created_at}>{progressDateLabel(item.created_at)}</time>
-    </div>
-    <div className={`${styles.actions} ${styles.nextActions}`}>
-      <button type="button" className={styles.primary} onClick={onOpen}>{copy.entryResume}<IconArrowRight size={18} aria-hidden="true" /></button>
-    </div>
+      <IconArrowRight size={20} aria-hidden="true" className={styles.arrow} />
+    </button>
   </section>;
 }
 
@@ -110,22 +108,21 @@ function Surprise({ onOpen }: { onOpen: (id?: string) => void }) {
   if (!state.loading && !state.card) return <button type="button" className={styles.surprise} onClick={() => onOpen()}>{copy.surprise}</button>;
   return <section className={styles.block} aria-label={copy.surpriseHeading} aria-busy={state.loading}>
     <div className={styles.blockHead}>
-      <h2><IconArrowsShuffle size={20} aria-hidden="true" />{copy.surpriseHeading}</h2>
-      {!state.loading && <span className={styles.tag}>{state.card?.tag}</span>}
+      <h2>{copy.surpriseHeading}</h2>
     </div>
-    {state.loading ? <div className={styles.skeleton} role="status" aria-label={copy.surpriseLoading}>
-      <span /><span /><span />
-    </div> : <>
-      <div className={styles.lesson}>
+    {state.loading ? <div className={`${styles.card} ${styles.skeleton}`} role="status" aria-label={copy.surpriseLoading}>
+      <span /><span />
+    </div> : <div className={styles.surpriseRow}>
+      <button type="button" className={`${styles.card} ${styles.compactRow} ${styles.surpriseOpen}`}
+        title={state.card!.teaser} onClick={() => onOpen(state.card!.id)}>
         <span className={styles.emoji} aria-hidden="true">{state.card!.emoji}</span>
-        <h3><MdInline text={state.card!.title} /></h3>
-        <p title={state.card!.teaser}>{state.card!.teaser}</p>
-      </div>
-      <div className={`${styles.actions} ${styles.surpriseActions}`}>
-        <button type="button" onClick={() => void shuffle()}><IconArrowsShuffle size={18} aria-hidden="true" />{copy.surpriseShuffle}</button>
-        <button type="button" className={styles.primary} onClick={() => onOpen(state.card!.id)}>{copy.surpriseExplore}<IconArrowRight size={18} aria-hidden="true" /></button>
-      </div>
-    </>}
-    <p className={styles.surpriseFoot}>{copy.surpriseFoot}</p>
+        <span className={styles.surpriseTitle}><MdInline text={state.card!.title} /></span>
+        <IconArrowRight size={20} aria-hidden="true" className={styles.arrow} />
+      </button>
+      <button type="button" className={styles.shuffle} aria-label={copy.surpriseShuffle}
+        onClick={(event) => { event.stopPropagation(); void shuffle(); }}>
+        <IconArrowsShuffle size={18} aria-hidden="true" />
+      </button>
+    </div>}
   </section>;
 }

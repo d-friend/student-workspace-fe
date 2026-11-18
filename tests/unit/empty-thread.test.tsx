@@ -4,7 +4,6 @@ import { EmptyThread, type EmptyThreadProps } from "@/components/chat/EmptyThrea
 import { copy } from "@/lib/copy";
 import { ApiError, getSurpriseCard, type ProgressItem } from "@/lib/api";
 import { setLocale } from "@/lib/copy";
-import { stoppedAt } from "@/lib/progress";
 
 vi.mock("@/lib/api", async original => ({
   ...await original<typeof import("@/lib/api")>(), getSurpriseCard: vi.fn(),
@@ -56,7 +55,7 @@ test("progress shows the next-step card and its resume link", () => {
   expect(screen.queryByText(copy.starter1)).toBeNull();
   expect(screen.queryByText(copy.starter2)).toBeNull();
   expect(screen.getByRole("link", { name: copy.progressSeeAll }).getAttribute("href")).toBe("/progress");
-  fireEvent.click(screen.getByRole("button", { name: copy.entryResume }));
+  fireEvent.click(within(screen.getByRole("region", { name: copy.entryNext })).getByRole("button"));
   expect(onOpen).toHaveBeenCalledOnce();
 });
 
@@ -72,9 +71,11 @@ test.each([false, true])("surprise preview is available with progress=%s", async
   render(setup({ onSurprise, progress: hasProgress ? { item: progressItem, onOpen: vi.fn() } : null }).ui);
   expect(await screen.findByText(surprise.title)).toBeTruthy();
   expect(screen.getByRole("heading", { name: "Bài bất ngờ" })).toBeTruthy();
-  expect(screen.getByText(surprise.tag)).toBeTruthy();
-  expect(screen.getByText(surprise.teaser)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: copy.surpriseExplore }));
+  expect(screen.queryByText(surprise.tag)).toBeNull();
+  expect(screen.queryByText(surprise.teaser)).toBeNull();
+  const row = screen.getByRole("button", { name: surprise.title });
+  expect(row.getAttribute("title")).toBe(surprise.teaser);
+  fireEvent.click(row);
   expect(onSurprise).toHaveBeenCalledExactlyOnceWith(surprise.id);
 });
 
@@ -86,22 +87,21 @@ test.each(["vi", "en"] as const)("next-step variants in %s", locale => {
   expect(screen.getByText(progressItem.title)).toBeTruthy();
   expect(screen.getByText(copy.entryLearn + next)).toBeTruthy();
   const card = screen.getByRole("region", { name: copy.entryNext });
-  const button = within(card).getByRole("button", { name: copy.entryResume });
+  const button = within(card).getByRole("button");
   expect(within(card).getAllByRole("button")).toHaveLength(1);
   expect(button.querySelector("a, button, [role=button]")).toBeNull();
   expect(within(card).getByRole("link", { name: copy.progressSeeAll }).closest("button")).toBeNull();
-  expect(screen.getByText(copy.entryLearn + next).closest("button, [role=button]")).toBeNull();
+  expect(screen.getByText(copy.entryLearn + next).closest("button")).toBe(button);
   fireEvent.click(button);
   expect(onOpen).toHaveBeenCalledOnce();
   expect(screen.queryByText("Ignored")).toBeNull();
   rerender(setup({ progress: { item: progressItem, onOpen } }).ui);
   expect(screen.getByText(copy.entryContinue + progressItem.title)).toBeTruthy();
-  expect(screen.getByText(copy.progressStopped + stoppedAt(progressItem))).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: copy.entryResume }));
+  fireEvent.click(within(screen.getByRole("region", { name: copy.entryNext })).getByRole("button"));
   expect(onOpen).toHaveBeenCalledTimes(2);
   rerender(setup({ progress: { item: { ...progressItem, steps: { ...progressItem.steps!, done: true } }, onOpen } }).ui);
-  expect(screen.getByText(progressItem.title).parentElement!.querySelector("svg")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: copy.entryResume }));
+  expect(within(screen.getByRole("region", { name: copy.entryNext })).getByRole("button").querySelector("svg")).toBeTruthy();
+  fireEvent.click(within(screen.getByRole("region", { name: copy.entryNext })).getByRole("button"));
   expect(onOpen).toHaveBeenCalledTimes(3);
   expect(container.textContent).not.toContain(copy.entryContinue);
 });
@@ -117,7 +117,16 @@ test.each([new Error("offline"), new ApiError(404, "pool_empty", "")])("a failed
   render(setup({ onSurprise }).ui);
   fireEvent.click(await screen.findByRole("button", { name: "Bài bất ngờ" }));
   expect(onSurprise).toHaveBeenCalledExactlyOnceWith();
-  expect(screen.queryByRole("button", { name: copy.surpriseExplore })).toBeNull();
+  expect(screen.queryByRole("button", { name: surprise.title })).toBeNull();
+});
+
+test("shows a single skeleton row while loading", () => {
+  vi.mocked(getSurpriseCard).mockReturnValueOnce(new Promise(() => {}));
+  render(setup().ui);
+  const region = screen.getByRole("region", { name: copy.surpriseHeading });
+  expect(region.getAttribute("aria-busy")).toBe("true");
+  expect(within(region).getAllByRole("status", { name: copy.surpriseLoading })).toHaveLength(1);
+  expect(within(region).queryByRole("button")).toBeNull();
 });
 
 test("shuffle excludes this card without opening; explore opens the replacement", async () => {
@@ -130,10 +139,10 @@ test("shuffle excludes this card without opening; explore opens the replacement"
   expect(getSurpriseCard).toHaveBeenLastCalledWith(surprise.id);
   expect(onSurprise).not.toHaveBeenCalled();
   expect(screen.getByRole("status", { name: copy.surpriseLoading })).toBeTruthy();
-  expect(screen.queryByRole("button", { name: copy.surpriseExplore })).toBeNull();
+  expect(screen.queryByRole("button", { name: surprise.title })).toBeNull();
   resolve({ ...surprise, id: "lesson-2", title: "Bài khác" });
   await screen.findByText("Bài khác");
-  fireEvent.click(screen.getByRole("button", { name: copy.surpriseExplore }));
+  fireEvent.click(screen.getByRole("button", { name: "Bài khác" }));
   expect(onSurprise).toHaveBeenCalledExactlyOnceWith("lesson-2");
 });
 

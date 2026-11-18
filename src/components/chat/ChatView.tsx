@@ -77,7 +77,7 @@ export function ChatView({
   const emptyColumn = workspaceVisible && !bubbles.some((b) => b.kind === "student" || b.kind === "agent");
 
   return (
-    <section aria-label={copy.drawerLabel} className={styles.chat} data-shell-panel data-testid="chat-view" data-column={(workspaceVisible && !hidden) || undefined} hidden={hidden}>
+    <section aria-label={copy.drawerLabel} className={styles.chat} data-shell-panel data-testid="chat-view" data-column={(workspaceVisible && !hidden) || undefined} data-chat-wide={!workspaceVisible || undefined} hidden={hidden}>
       {showHeader && (
         <header className={styles.head} data-panel-header>
           <span className={styles.headPet}><Pet mood="idle" /></span>

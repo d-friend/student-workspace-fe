@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-// The 800px breakpoint every pet/chat stylesheet switches on: docked chat column above it, bottom sheet below.
+// From 800px the chat can sit beside the workspace.
 const QUERY = "(min-width: 800px)";
 
 const subscribe = (cb: () => void) => {

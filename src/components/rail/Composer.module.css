@@ -213,73 +213,13 @@
   cursor: default;
 }
 
-/* On the entry: a floating pill instead of the drawer's footer. */
-.entry {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 28px;
-  padding: 0;
-  box-shadow: 0 10px 30px color-mix(in srgb, var(--text) 8%, transparent);
-}
-
-.entry:focus-within {
-  border-color: var(--text);
-}
-
-.entry .row {
-  padding: 8px;
-  align-items: center;
-}
-
-.entry .noteLabel {
-  padding: 12px 20px 0;
-}
-
-.entry .field {
-  background: transparent;
-  border: 0;
-  outline: 0;
-  font-size: 17px;
-  padding: 11px 12px;
-}
-
-.entry .add {
-  border-radius: 50%;
-  background: transparent;
-}
-
-.entry .add:hover {
-  background: var(--agent);
-}
-
-.entry .send {
-  height: 46px;
-  border-radius: 23px;
-}
-
-/* A textarea would wrap a long placeholder onto a hidden second line. */
-.entry .field::placeholder {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 @media (max-width: 390px) {
   .row {
     gap: 4px;
   }
 
-  .field,
-  .entry .field {
+  .field {
     padding-inline: 8px;
-  }
-
-  .entry .row {
-    padding-inline: 4px;
-  }
-
-  .entry .field {
-    padding-inline-end: 2px;
   }
 
   .field::placeholder {

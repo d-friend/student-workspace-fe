@@ -98,7 +98,7 @@ export type WorkspaceState = {
   optChipKind: "why" | "offer" | "answer";
   optChipSeed: number;
   hasMessages: boolean;
-  newProblemCount: number; // bumps on each "Bài mới" that reset the session, so the pet can jump back to the entry
+  newProblemCount: number; // bumps when the session is reset
   inputDisabled: boolean;
   sendDisabled: boolean;
   verdict: { seq: number; state: "ok" | "review" | null; done: boolean }; // latest line verdict; seq never resets
@@ -486,14 +486,20 @@ export function createWorkspace(deps: WorkspaceDeps) {
         announceId = agentId === null ? addBubble(b) : insertBubbleBefore(agentId, b);
       } else if (e.event === "status") {
         buildFailed = e.stage === "failed";
-        if (buildFailed) failBuildingCard();
-        else showBuildingCard();
+        if (buildFailed) {
+          if (buildingCardId === null && !gotWorkspace) showBuildingCard();
+          failBuildingCard();
+        } else showBuildingCard();
         if (buildFailed) { preview = null; queuedAnswer = null; }
         status = e.stage === "failed" ? null : statusLabel(e.stage);
         building = e.stage !== "failed";
         buildingPhase = e.stage === "failed" ? null : (e.phase ?? buildingPhase);
       } else if (e.event === "workspace_partial") {
         showBuildingCard(e.title);
+        if (buildingCardId !== null) {
+          building = true;
+          buildingPhase = e.phase;
+        }
         if (queuedAnswer) {
           const answer = queuedAnswer;
           const steps = e.blocks.find((b) => b.id === answer.blockId);
@@ -604,7 +610,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
         raw += delta;
         const view = parse(raw);
         show(view, false);
-        building = view.building || status !== null;
+        building = view.building || buildingCardId !== null || status !== null;
         publish();
       }, onEvent, keepalive);
       if (epoch !== mine) return;
@@ -623,6 +629,10 @@ export function createWorkspace(deps: WorkspaceDeps) {
         if (view.offer && view.opts) track("next_topic_offered", {}, sid());
       }
       if (view.html !== null) {
+        if (activeId === null) {
+          removeBubble(buildingCardId);
+          buildingCardId = null;
+        }
         pending = [];
         install(view.html, sentAt);
       }
@@ -1277,7 +1287,7 @@ export function useWorkspace(deps: Partial<WorkspaceDeps> = {}) {
   const state = useSyncExternalStore(ws.subscribe, ws.getState, ws.getState);
 
   const frameRef = useRef<HTMLIFrameElement>(null);
-  // Set by PetLayer, which knows which composer is on screen.
+  // The page can reveal the chat and focus its composer.
   const inputRef = useRef<{ focus: (reveal?: boolean) => void } | null>(null);
 
   useEffect(() => {

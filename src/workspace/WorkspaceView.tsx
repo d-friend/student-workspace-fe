@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { IconRefresh } from "@tabler/icons-react";
-import { usePetAnchorRef, usePetScrollerRef } from "@/components/pet/PetAnchor";
+import { usePetAnchorRef } from "@/components/pet/PetAnchor";
 import { copy, copyFor } from "@/lib/copy";
 import { WorkspaceCopy, useCopy } from "./WorkspaceCopy";
 import { workspaceLocale } from "./workspaceLocale";
@@ -294,19 +294,19 @@ export function WorkspaceView({ sessionId, tabs, activeId, onActive, onReset, re
   const scroller = useRef<HTMLDivElement>(null);
   const tops = useRef<Record<string, number>>({});
   const shown = useRef(activeId);
-  const petScroller = usePetScrollerRef();
   useLayoutEffect(() => {
     shown.current = activeId;
     if (scroller.current) scroller.current.scrollTop = tops.current[activeId] ?? 0;
   }, [activeId]);
   return (
     <div
-      ref={(el) => {
-        scroller.current = el;
-        petScroller?.(el);
-      }}
+      ref={scroller}
       className={styles.scroll} data-flat={tabs.find((tab) => tab.id === activeId)?.phase !== "learn" || undefined} onScroll={(e) => (tops.current[shown.current] = e.currentTarget.scrollTop)}>
-      <WorkspaceCopy.Provider value={activeCopy}><SelectionAsk scroller={scroller} activeId={activeId} onAsk={onSelectionAsk} /></WorkspaceCopy.Provider>
+      {onSelectionAsk && (
+        <WorkspaceCopy.Provider value={activeCopy}>
+          <SelectionAsk scroller={scroller} activeId={activeId} onAsk={onSelectionAsk} />
+        </WorkspaceCopy.Provider>
+      )}
       <div className={styles.view} data-pet-column>
         <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} />
         {tabs.map((w) => (

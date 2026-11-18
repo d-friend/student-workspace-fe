@@ -22,7 +22,7 @@ const mk = (done = false): BlockCtx => ({
   help: null,
 });
 
-const seen: ReturnType<typeof usePetAnchor> = { anchor: null, scroller: null };
+const seen: ReturnType<typeof usePetAnchor> = { anchor: null };
 function Probe() {
   const v = usePetAnchor();
   useEffect(() => void Object.assign(seen, v));
@@ -70,7 +70,7 @@ const ws = (phase: Phase): Workspace => ({
   doc: { v: 1, phase, title: phase, blocks: [{ ...steps, id: `s-${phase}` }], sources: [] } as unknown as Workspace["doc"],
 });
 
-test("switching phases moves the anchor to the visible doc; the column and scroller are exposed", () => {
+test("switching phases moves the anchor to the visible doc", () => {
   const ws2 = { learn: ws("learn"), solve: ws("solve") };
   const view = (phase: Phase) =>
     within(<WorkspaceView tabs={Object.values(ws2).map((w) => ({ ...w, phase: w.doc.phase }))} activeId={phase} onActive={() => {}} makeCtx={(w) => ({ ...mk(), workspaceId: w.id })} />);
@@ -82,5 +82,4 @@ test("switching phases moves the anchor to the visible doc; the column and scrol
   rerender(view("learn"));
   expect(seen.anchor).toBe(owner("learn"));
   expect(container.querySelector("[data-pet-column]")).toBeTruthy();
-  expect(seen.scroller).toBe(container.querySelector("[data-pet-column]")!.parentElement);
 });

@@ -14,7 +14,7 @@
   box-sizing: border-box;
   max-width: calc(720px + 2 * clamp(16px, 4vw, 48px));
   margin: 0 auto;
-  padding: 0 clamp(16px, 4vw, 48px) max(clamp(16px, 4vw, 48px), var(--pet-clear, 0px));
+  padding: 0 clamp(16px, 4vw, 48px) clamp(16px, 4vw, 48px);
   color: var(--text);
   font-family: var(--font-sans);
   overflow-wrap: anywhere; /* a long URL or term wraps instead of widening the column */
@@ -27,7 +27,7 @@
 @media (max-width: 799px) {
   .scroll[data-flat] { background-image: none; }
   .view {
-    padding-top: 60px;
+    padding-top: var(--workspace-top-space, 60px);
   }
 }
 

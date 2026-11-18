@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { StrictMode } from "react";
 
 import Page from "@/app/page";
@@ -7,12 +7,14 @@ import * as api from "@/lib/api";
 import { track } from "@/lib/track";
 import { copy } from "@/lib/copy";
 import { JPEG_PREFIX, readPhoto } from "@/lib/photo";
+import { useDesktop } from "@/hooks/useDesktop";
 import { fixtures } from "@/workspace/fixtures";
 
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
   createGuest: vi.fn().mockResolvedValue({ guestId: "g", created: false }),
   currentSession: vi.fn().mockResolvedValue(null),
+  endSession: vi.fn().mockResolvedValue(undefined),
   createSession: vi.fn().mockResolvedValue({ sessionId: "s" }),
   listSessions: vi.fn().mockResolvedValue({ sessions: [], next_before: null }),
   getSurpriseCard: vi.fn().mockRejectedValue(new Error("empty pool")),
@@ -23,16 +25,20 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   turn: vi.fn(),
 }));
 vi.mock("@/lib/track", () => ({ track: vi.fn() }));
+vi.mock("@/hooks/useDesktop", () => ({ useDesktop: vi.fn() }));
 vi.mock("@/lib/photo", async (original) => ({
   ...await original<typeof import("@/lib/photo")>(),
   readPhoto: vi.fn().mockResolvedValue({ data: "eA==", bytes: 1, width: 1, height: 1, processMs: 1 }),
 }));
+
+beforeEach(() => { vi.mocked(useDesktop).mockReturnValue(false); });
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+  vi.useRealTimers();
 });
 
 const progressItem: api.ProgressItem = {
@@ -131,26 +137,21 @@ it("attaches gallery files in order and keeps the greeting and progress visible"
   ]);
 });
 
-it("does not show or track a list arriving while the entry is leaving", async () => {
+it("does not show or track progress arriving after the first message", async () => {
   let finish!: (value: { items: api.ProgressItem[] }) => void;
-  let build!: () => void;
   vi.mocked(api.getProgress).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
-  vi.mocked(api.turn).mockImplementationOnce((_session, _message, onDelta, onEvent) => new Promise(resolve => {
-    build = () => {
-      onEvent!({ event: "workspace", workspaceId: "w", phase: "solve", doc: fixtures["solve-tangent.json"] });
-      onDelta("Xong rồi.");
-      resolve({ turnId: "t", stopReason: "end_turn" });
-    };
-  }));
-  const { container } = render(<Page />);
+  vi.mocked(api.turn).mockImplementationOnce(async (_session, _message, onDelta) => {
+    onDelta("Mình cần thêm chi tiết.");
+    return { turnId: "t", stopReason: "end_turn" };
+  });
+  render(<Page />);
   await waitFor(() => expect(api.currentSession).toHaveBeenCalledOnce());
-  fireEvent.change(screen.getByLabelText(copy.inputLabel), { target: { value: "Build" } });
-  fireEvent.keyDown(screen.getByLabelText(copy.inputLabel), { key: "Enter" });
-  await waitFor(() => expect(build).toBeTypeOf("function"));
-  await act(async () => { build(); });
-  expect(container.querySelector('[data-unfold="flying"]')).toBeTruthy();
+  send("Một câu hỏi");
+  expect(await screen.findByText("Mình cần thêm chi tiết.")).toBeTruthy();
   await act(async () => finish({ items: [progressItem] }));
   expect(screen.queryByText(copy.entryNext)).toBeNull();
+  expect(screen.queryByText(copy.entryTitle)).toBeNull();
+  expect(screen.queryByRole("button", { name: copy.backToChat })).toBeNull();
   expect(vi.mocked(track).mock.calls.filter(([event]) => event === "progress_opened")).toEqual([]);
 });
 
@@ -173,38 +174,143 @@ it("a failed resume keeps the entry card without reloading or showing an error",
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
-it.each([false, true])("hands the only composer to chat during unfold and back on close (desktop=%s)", async (desktop) => {
-  vi.spyOn(window, "matchMedia").mockImplementation(query => ({
-    matches: desktop && query === "(min-width: 800px)",
-    media: query,
-    addEventListener() {},
-    removeEventListener() {},
-  }) as unknown as MediaQueryList);
-  let build!: () => void;
+const DONE = { turnId: "t", stopReason: "end_turn" };
+const solve = fixtures["solve-tangent.json"];
+const composer = () => screen.getByRole("textbox", { name: copy.inputLabel }) as HTMLTextAreaElement;
+const back = () => screen.getByRole("button", { name: new RegExp(copy.backToChat) });
+const send = (text: string) => {
+  fireEvent.change(composer(), { target: { value: text } });
+  fireEvent.keyDown(composer(), { key: "Enter" });
+};
+
+async function beginBuild() {
+  let emit!: (event: api.TurnEvent) => void;
+  let reply!: (text: string) => void;
+  let finish!: () => void;
   vi.mocked(api.turn).mockImplementationOnce((_session, _message, onDelta, onEvent) => new Promise(resolve => {
-    build = () => {
-      onEvent!({ event: "workspace", workspaceId: "w", phase: "solve", doc: fixtures["solve-tangent.json"] });
-      onDelta("Xong rồi.");
-      resolve({ turnId: "t", stopReason: "end_turn" });
-    };
+    emit = onEvent!;
+    reply = onDelta;
+    finish = () => resolve(DONE);
   }));
+  await waitFor(() => expect(api.currentSession).toHaveBeenCalledOnce());
+  send("Dựng bài giúp mình");
+  await waitFor(() => expect(emit).toBeTypeOf("function"));
+  await act(async () => emit({ event: "status", stage: "planning", phase: "solve" }));
+  return { emit, reply, finish };
+}
+
+it("opens the streamed build on mobile, marks unread replies, and reopens the doc from its card", async () => {
   const { container } = render(<Page />);
-  await waitFor(() => expect(api.currentSession).toHaveBeenCalled());
-  fireEvent.change(screen.getByLabelText(copy.inputLabel), { target: { value: "__build" } });
-  fireEvent.keyDown(screen.getByLabelText(copy.inputLabel), { key: "Enter" });
-  await waitFor(() => expect(build).toBeTypeOf("function"));
-  await act(async () => { build(); });
-  expect(container.querySelector('[data-unfold="flying"]')).not.toBeNull();
+  const field = composer();
+  const turn = await beginBuild();
+  const chat = screen.getByTestId("chat-view");
+  expect(chat.hidden).toBe(true);
+  expect(screen.queryByRole("textbox", { name: copy.inputLabel })).toBeNull();
+  expect(container.querySelector('[data-variant="solve"][aria-busy="true"]')).toBeTruthy();
+  expect(within(back()).queryByRole("img")).toBeNull();
 
-  fireEvent.click(screen.getByRole("button", { name: copy.petOpen }));
-  expect(screen.getByRole("dialog", { name: copy.drawerLabel })).toBeDefined();
-  // getAllByLabelText deliberately includes hidden/inert nodes, like Playwright getByLabel.
-  expect(screen.getAllByLabelText(copy.inputLabel)).toHaveLength(1);
-  expect(container.querySelector("main textarea")).toBeNull();
+  await act(async () => {
+    turn.emit({ event: "workspace", workspaceId: "w", phase: "solve", doc: solve });
+    turn.reply("Mình dựng xong rồi.");
+    turn.finish();
+  });
+  expect(container.querySelector('[data-variant="solve"]')).toBeNull();
+  expect(within(back()).getByRole("img", { name: copy.petUnread })).toBeTruthy();
 
-  fireEvent.keyDown(screen.getByRole("dialog", { name: copy.drawerLabel }), { key: "Escape" });
-  expect(screen.getAllByLabelText(copy.inputLabel)).toHaveLength(1);
-  expect(container.querySelector('[role="dialog"][data-leaving] textarea')).toBeNull();
+  fireEvent.click(back());
+  expect(chat.hidden).toBe(false);
+  expect(composer()).toBe(field);
+  expect(track).toHaveBeenCalledWith("chat_opened", { unread: true }, "s");
+  expect(screen.queryByRole("textbox", { name: copy.lineLabel(1) })).toBeNull();
+  expect(within(chat).getByText("Mình dựng xong rồi.")).toBeTruthy();
+
+  fireEvent.click(within(chat).getByRole("button", { name: copy.workspaceOpen }));
+  expect(chat.hidden).toBe(true);
+  expect(within(back()).queryByRole("img")).toBeNull();
+  expect(screen.getByRole("textbox", { name: copy.lineLabel(1) })).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("button", { name: copy.historyOpen }));
+  fireEvent.click(screen.getByRole("button", { name: copy.newProblem }));
+  expect(chat.hidden).toBe(false);
+  expect(screen.getByRole("heading", { name: copy.entryTitle })).toBeTruthy();
+  expect(composer()).toBe(field);
+});
+
+it("returns to the same mobile thread when the workspace card fails and rebuilds from the card", async () => {
+  render(<Page />);
+  const turn = await beginBuild();
+  expect(back()).toBeTruthy();
+  await act(async () => {
+    turn.emit({ event: "status", stage: "failed" });
+    turn.reply("Mình chưa dựng được.");
+    turn.finish();
+  });
+  const chat = screen.getByTestId("chat-view");
+  expect(chat.hidden).toBe(false);
+  expect(screen.queryByRole("button", { name: copy.backToChat })).toBeNull();
+  expect(within(chat).getByText("Dựng bài giúp mình")).toBeTruthy();
+  expect(within(chat).getByText(copy.workspaceBuildFailed)).toBeTruthy();
+  vi.mocked(api.turn).mockImplementationOnce(async (_s, _m, onDelta) => {
+    onDelta("Để mình thử lại.");
+    return DONE;
+  });
+  await act(async () => fireEvent.click(within(chat).getByRole("button", { name: copy.retry })));
+  expect(vi.mocked(api.turn).mock.calls.at(-1)?.[1]).toEqual({ role: "user", content: copy.rebuildMessage });
+});
+
+it("leaves mobile chat visible if the student returns while the build is still streaming", async () => {
+  render(<Page />);
+  const turn = await beginBuild();
+  fireEvent.click(back());
+  await act(async () => {
+    turn.emit({ event: "workspace", workspaceId: "w", phase: "solve", doc: solve });
+    turn.reply("Bài của bạn đây.");
+    turn.finish();
+  });
+  expect(screen.getByTestId("chat-view").hidden).toBe(false);
+  expect(screen.getByRole("button", { name: copy.workspaceOpen })).toBeTruthy();
+  expect(track).toHaveBeenCalledWith("chat_opened", { unread: false }, "s");
+});
+
+it.each([false, true])("opens the restored workspace once and focuses chat after a selection (desktop=%s)", async (desktop) => {
+  vi.mocked(useDesktop).mockReturnValue(desktop);
+  vi.mocked(api.currentSession).mockResolvedValueOnce({
+    sessionId: "restored", html: null, activeId: "w", sheet: null,
+    messages: [{ role: "assistant", content: "A previous reply." }],
+    tabs: [{ id: "w", phase: "solve", doc: solve }],
+  });
+  const { container } = render(<Page />);
+  const chat = screen.getByTestId("chat-view");
+  const field = composer();
+  await screen.findByRole("textbox", { name: copy.lineLabel(1) });
+
+  expect(chat.hidden).toBe(!desktop);
+  expect(chat.closest("[data-chat]") !== null).toBe(desktop);
+  if (desktop) {
+    expect(composer()).toBe(field);
+    expect(screen.queryByRole("button", { name: copy.backToChat })).toBeNull();
+    expect(chat.querySelector("header")).toBeNull();
+  } else {
+    expect(within(back()).queryByRole("img")).toBeNull();
+  }
+
+  vi.useFakeTimers();
+  const selected = "Viết phương trình tiếp tuyến";
+  const target = container.querySelector<HTMLElement>('#panel-w [data-sel="problem"]')!;
+  vi.spyOn(window, "getSelection").mockReturnValue({
+    isCollapsed: false, rangeCount: 1, toString: () => selected,
+    getRangeAt: () => ({ startContainer: target, endContainer: target, getClientRects: () => [{ left: 20, bottom: 40 }] }),
+  } as unknown as Selection);
+  act(() => { document.dispatchEvent(new Event("selectionchange")); vi.advanceTimersByTime(250); });
+  fireEvent.click(screen.getByRole("button", { name: copy.selectionAsk }));
+
+  expect(chat.hidden).toBe(false);
+  expect(within(chat).getByText(selected).closest("blockquote")).toBeTruthy();
+  expect(composer()).toBe(field);
+  expect(field.value).toBe(copy.selectionQuestion);
+  expect(document.activeElement).toBe(field);
+  expect(screen.getAllByRole("textbox", { name: copy.inputLabel })).toHaveLength(1);
+  expect(chat.closest("[data-chat]") !== null).toBe(desktop);
 });
 
 it("the restored completion card answers the live offer with place card and loses its buttons", async () => {

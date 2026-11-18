@@ -1,19 +1,17 @@
 "use client";
 
-import { type ChangeEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ProfileGate } from "@/components/ProfileGate";
-import { Entry } from "@/components/Entry";
+import { ChatView } from "@/components/chat/ChatView";
 import { Shell } from "@/components/Shell";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { useSidebar } from "@/components/sidebar/useSidebar";
 import { PetAnchorProvider } from "@/components/pet/PetAnchor";
 import { PetLayer } from "@/components/pet/PetLayer";
-import { PhotoGrid } from "@/components/rail/PhotoGrid";
 import { BuildingSkeleton } from "@/components/work/BuildingSkeleton";
 import { SheetSwitcher } from "@/components/work/SheetSwitcher";
 import { WorkspaceFrame } from "@/components/work/WorkspaceFrame";
 import { useDesktop } from "@/hooks/useDesktop";
-import { useUnfold } from "@/hooks/useUnfold";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useProgress } from "@/hooks/useProgress";
 import { copy } from "@/lib/copy";
@@ -39,7 +37,7 @@ function Home() {
   const progressTracked = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
-  const entryInput = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const { pickPhoto } = ws;
   const addPhotos = useCallback(async (files: File[], source: PhotoSource) => {
     for (const file of files) await pickPhoto(file, source);
@@ -87,15 +85,76 @@ function Home() {
   // html is null on the server and on the first client render, so location is only read in the browser.
   const srcDoc = useMemo(() => (ws.html === null ? null : frameDoc(ws.html, location.origin)), [ws.html]);
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [view, setView] = useState<"chat" | "workspace">("chat");
   const [offerOnCard, setOfferOnCard] = useState(false);
+  const [skippedBuildId, setSkippedBuildId] = useState<number | null>(null);
   // The quote belongs to the session it was picked in: "Bài mới" bumps newProblemCount, which drops it.
   const [picked, setPicked] = useState<{ quote: SelectionQuote; session: number } | null>(null);
   const quote = picked && picked.session === ws.newProblemCount ? picked.quote : null;
   const setQuote = (q: SelectionQuote | null) => setPicked(q && { quote: q, session: ws.newProblemCount });
-  const [selectionOpen, setSelectionOpen] = useState(0);
   const desktop = useDesktop();
   const side = useSidebar();
+
+  const legacyWorkspace = ws.activeId === null && srcDoc !== null;
+  const hasWorkspace = ws.activeId !== null || legacyWorkspace;
+  const buildingCard = ws.building ? ws.bubbles.findLast((b) => b.kind === "workspace" && b.state === "building") : undefined;
+  const buildingId = buildingCard?.id ?? null;
+  const failedId = ws.bubbles.findLast((b) => b.kind === "workspace" && b.state === "failed")?.id ?? null;
+  const [previous, setPrevious] = useState({
+    hasWorkspace: false, buildingId: null as number | null, failedId: null as number | null,
+    buildFailed: false, session: ws.newProblemCount,
+  });
+  if (previous.hasWorkspace !== hasWorkspace || previous.buildingId !== buildingId ||
+      previous.failedId !== failedId || previous.buildFailed !== ws.buildFailed || previous.session !== ws.newProblemCount) {
+    setPrevious({ hasWorkspace, buildingId, failedId, buildFailed: ws.buildFailed, session: ws.newProblemCount });
+    if (previous.session !== ws.newProblemCount || (failedId !== null && previous.failedId !== failedId) ||
+        (ws.buildFailed && !previous.buildFailed && !hasWorkspace)) {
+      setView("chat");
+    } else if ((buildingId !== null && previous.buildingId !== buildingId) ||
+        // A restored workspace or fast build can arrive without a preceding building snapshot.
+        (hasWorkspace && !previous.hasWorkspace && previous.buildingId === null)) {
+      setView("workspace");
+    }
+  }
+
+  const showWorkspace = (desktop || view === "workspace") && (hasWorkspace || buildingId !== null);
+  const hideChat = showWorkspace && !desktop;
+  const showBuild = buildingId !== null && buildingId !== skippedBuildId;
+  const lastAgentId = ws.bubbles.findLast((b) => b.kind === "agent" && !b.waiting)?.id ?? null;
+  const [lastSeenAgentId, setLastSeenAgentId] = useState<number | null>(null);
+  if (!hideChat && lastSeenAgentId !== lastAgentId) setLastSeenAgentId(lastAgentId);
+  // Removing a failed turn's announce can expose an older message that was already read.
+  // A waiting reply may have a lower ID than the announce inserted before it.
+  const unread = lastAgentId !== null && lastAgentId !== lastSeenAgentId &&
+    (lastSeenAgentId === null || lastAgentId > lastSeenAgentId || ws.bubbles.some((b) => b.id === lastSeenAgentId));
+  const openChat = () => {
+    setLastSeenAgentId(lastAgentId);
+    setView("chat");
+    ws.chatOpened(unread);
+  };
+
+  const focusOnReveal = useRef(false);
+  useImperativeHandle(ws.inputRef, () => ({
+    focus(reveal = false) {
+      if (!hideChat) composerRef.current?.focus({ preventScroll: true });
+      else if (reveal) {
+        focusOnReveal.current = true;
+        openChat();
+      }
+    },
+  }));
+  useLayoutEffect(() => {
+    if (hideChat || !focusOnReveal.current) return;
+    focusOnReveal.current = false;
+    composerRef.current?.focus({ preventScroll: true });
+  }, [hideChat]);
+
+  const latest = ws.ready && !showWorkspace && ws.bubbles.length === 0 ? cards[0] : undefined;
+  useEffect(() => {
+    if (!latest || progressTracked.current) return;
+    progressTracked.current = true;
+    track("progress_opened", { place: "entry", cards: cards.length });
+  }, [latest, cards.length]);
 
   // WorkspaceView wraps hintCount and onSolved per doc itself.
   const makeCtx = (w: Workspace): BlockCtx => ({
@@ -117,7 +176,6 @@ function Home() {
     help: null,
   });
 
-  // One composer at a time: the entry's until there is a conversation, then the drawer's.
   const composer = {
     value: ws.input,
     onChange: ws.setInput,
@@ -134,11 +192,12 @@ function Home() {
     photos: ws.photos.map((data, index) => ({ src: JPEG_PREFIX + data, onRemove: () => ws.removePhoto(index) })),
   };
 
-  const sent = ws.bubbles.find((b) => b.kind === "student" && b.failed === null);
-  let stage;
+  const sent = showBuild && ws.typedTurn ? ws.bubbles.findLast((b) => b.kind === "student" && b.turn === buildingCard?.turn) : undefined;
+  const problem = sent?.kind === "student" ? sent.text : undefined;
+  let workspace;
   if (ws.activeId !== null) {
-    stage = (
-      <div className={styles.viewWrap}>
+    workspace = (
+      <>
         {ws.sheet && <SheetSwitcher sheet={ws.sheet} busy={ws.busy || ws.checking > 0} beforeSwitch={ws.flushEvents} onSwitched={() => window.location.reload()} />}
         <WorkspaceView
           sessionId={ws.sessionId}
@@ -155,137 +214,82 @@ function Home() {
           brokenTabs={ws.brokenTabs}
           onRebuild={ws.rebuildTab}
           busy={ws.busy}
-          onSelectionAsk={(selection) => { setQuote(selection); ws.setInput(copy.selectionQuestion); setSelectionOpen((n) => n + 1); }}
+          onSelectionAsk={showWorkspace && !showBuild && !side.drawerOpen ? (selection) => {
+            setQuote(selection);
+            ws.setInput(copy.selectionQuestion);
+            ws.inputRef.current?.focus(true);
+          } : undefined}
         />
-      </div>
+      </>
     );
   } else if (srcDoc !== null) {
-    stage = <WorkspaceFrame srcDoc={srcDoc} iframeRef={ws.frameRef} />;
-  } else if (ws.screen === "building") {
-    stage = (
-      <BuildingSkeleton
-        variant={ws.buildingPhase === "learn" ? "learn" : "solve"}
-        preview={ws.preview}
-        onQueue={ws.queueAnswer}
-        problem={sent?.kind === "student" ? sent.text : undefined}
-      />
-    );
+    workspace = <WorkspaceFrame srcDoc={srcDoc} iframeRef={ws.frameRef} />;
   }
-  const entry = stage === undefined;
 
-  // The unfold (spec §6): for about a second after the first send the entry stays under the stage, fading out, while
-  // the stage opens over it from the composer and a card carries the problem to the top of the doc column.
-  const unfold = useUnfold(ws.screen, ws.phase !== null || ws.html !== null);
-  const flying = unfold === "flying";
-  const unfoldRef = useRef<HTMLDivElement>(null);
-
-  // A restored workspace must not count the entry screen's initial, temporary render.
-  const latest = ws.ready && entry && !drawerOpen && !flying ? cards[0] : undefined;
-  useEffect(() => {
-    if (!latest || progressTracked.current) return;
-    progressTracked.current = true;
-    track("progress_opened", { place: "entry", cards: cards.length });
-  }, [latest, cards.length]);
-
-  // The fly card's start and end and the reveal's origin are measured, not taken from the design's one viewport.
-  // Before paint: the entry is still laid out under the stage, and the skeleton has just mounted.
-  useLayoutEffect(() => {
-    const box = unfoldRef.current;
-    if (!flying || !box) return;
-    const o = box.getBoundingClientRect();
-    const field = entryInput.current;
-    const form = field?.closest("form");
-    const from = form?.getBoundingClientRect() ?? new DOMRect(o.left + o.width / 2 - 160, o.top + o.height / 2, 320, 64);
-    const stack = box.querySelector("[data-unfold-target]");
-    const first = stack?.querySelector("[data-variant='solve'] [data-unfold-target] > :first-child");
-    let to: DOMRect;
-    if (stack) {
-      const r = stack.getBoundingClientRect();
-      to = new DOMRect(r.left, r.top, r.width, first?.getBoundingClientRect().height ?? 104);
-    } else {
-      const w = Math.min(624, o.width - 32);
-      to = new DOMRect(o.left + (o.width - w) / 2, o.top + 72, w, 104);
-    }
-    const f = field?.getBoundingClientRect();
-    const fieldStyle = field ? getComputedStyle(field) : null;
-    const px = (n: number) => `${Math.round(n)}px`;
-    const vars: Record<string, string> = {
-      "--from-x": px(from.left - o.left),
-      "--from-y": px(from.top - o.top),
-      "--from-w": px(from.width),
-      "--from-h": px(from.height),
-      "--from-r": form ? getComputedStyle(form).borderRadius : "32px",
-      // The card's text starts where the composer's text was.
-      "--from-px": f && fieldStyle ? px(f.left - from.left + parseFloat(fieldStyle.paddingLeft)) : "28px",
-      "--from-py": f && fieldStyle ? px(f.top - from.top + parseFloat(fieldStyle.paddingTop)) : "20px",
-      "--to-x": px(to.left - o.left),
-      "--to-y": px(to.top - o.top),
-      "--to-w": px(to.width),
-      "--to-h": px(to.height),
-      "--reveal-x": px(from.left - o.left + from.width / 2),
-      "--reveal-y": px(from.top - o.top + from.height / 2),
-    };
-    for (const [k, v] of Object.entries(vars)) box.style.setProperty(k, v);
-  }, [flying]);
-
-  const work = (
-    <div ref={unfoldRef} className={styles.unfold} data-unfold={unfold}>
-      {!drawerOpen && (entry || flying) && (
-        <Entry
-          composer={composer}
-          inputRef={entryInput}
-          onStarter={(s) => void ws.startStarter(s)}
-          onSurprise={(id) => void ws.startSurprise(id)}
-          onRetry={ws.buildFailed ? () => void ws.rebuild() : undefined}
-          progress={latest ? { item: latest, onOpen: () => void openProgressSession(latest, "reload") } : null}
-          leaving={flying}
-        />
-      )}
-      {/* The same element before, during and after the flight, so a doc that arrives mid-flight is not remounted. */}
-      {stage !== undefined && (
-        <div className={styles.stage}>
-          {stage}
-        </div>
-      )}
-      {flying && sent?.kind === "student" && (
-        <div className={styles.fly} aria-hidden="true">
-          <div className={styles.flyIn}>
-            <span className={styles.flyLabel}>{copy.problemLabel}</span>
-            <PhotoGrid photos={sent.photos} compact />
-            {sent.text && <p className={styles.flyText}>{sent.text}</p>}
-          </div>
-        </div>
-      )}
+  const chipActions = {
+    onConfirmRestate: ws.confirmRestate,
+    onCorrectRestate: ws.correctRestate,
+    onAcceptOffer: () => void ws.answerOffer(true),
+    onOfferLater: () => void ws.answerOffer(false),
+    onOpt: (text: string) => void ws.answerOpt(text),
+  };
+  const bar = !desktop && showWorkspace && (
+    <div className={styles.chatBar}>
+      <button type="button" onClick={openChat}>
+        {copy.backToChat}
+        {unread && <span className={styles.unread} role="img" aria-label={copy.petUnread} />}
+      </button>
     </div>
   );
-
-  const layer = (
-    <PetLayer
-      state={ws}
-      offerOnCard={offerOnCard}
-      inputRef={ws.inputRef}
-      entry={entry}
-      flying={flying}
-      entryInputRef={entryInput}
-      onOpenChange={setDrawerOpen}
-      onChatOpened={ws.chatOpened}
-      onConfirmRestate={ws.confirmRestate}
-      onCorrectRestate={ws.correctRestate}
-      onAcceptOffer={() => void ws.answerOffer(true)}
-      onOfferLater={() => void ws.answerOffer(false)}
-      onOpt={(t) => void ws.answerOpt(t)}
-      onRetry={(id) => void ws.retry(id)}
-      onRebuild={() => void ws.rebuild()}
-      onOpenWorkspace={ws.openWorkspace}
-      composer={composer}
-      selectionOpen={selectionOpen}
-      quote={quote?.text}
-      onDismissQuote={() => setQuote(null)}
-    />
+  const openWorkspaceView = () => {
+    setSkippedBuildId(buildingId);
+    setView("workspace");
+  };
+  const work = (
+    <>
+      <div className={styles.stage} data-visible={showWorkspace} inert={!showWorkspace} aria-hidden={!showWorkspace || undefined}>
+        {/* Keep the current doc mounted across chat visits and while another workspace builds. */}
+        {workspace && <div className={styles.viewWrap} data-visible={!showBuild} inert={showBuild} aria-hidden={showBuild || undefined}>{workspace}</div>}
+        {showBuild && (
+          <BuildingSkeleton
+            variant={ws.buildingPhase === "learn" ? "learn" : "solve"}
+            preview={ws.preview}
+            onQueue={ws.queueAnswer}
+            problem={problem}
+          />
+        )}
+      </div>
+      <ChatView
+        state={ws}
+        actions={{
+          ...chipActions,
+          onRetry: (id) => void ws.retry(id),
+          onRebuild: () => void ws.rebuild(),
+          onOpenWorkspace: (id) => {
+            ws.openWorkspace(id);
+            openWorkspaceView();
+          },
+        }}
+        composer={composer}
+        composerRef={composerRef}
+        emptyThread={{
+          onStarter: (starter) => void ws.startStarter(starter),
+          onSurprise: (id) => void ws.startSurprise(id),
+          progress: latest ? { item: latest, onOpen: () => void openProgressSession(latest, "reload") } : null,
+        }}
+        workspaceVisible={showWorkspace}
+        onOpenLegacyWorkspace={legacyWorkspace ? openWorkspaceView : undefined}
+        hidden={hideChat}
+        quote={quote?.text}
+        onDismissQuote={() => setQuote(null)}
+      />
+    </>
   );
+
   return (
     <PetAnchorProvider>
-      <Shell work={work} layer={layer} chatOpen={drawerOpen} inert={(drawerOpen || side.drawerOpen) && !desktop}
+      <Shell work={work} bar={bar} chatOpen={desktop && showWorkspace} inert={side.drawerOpen && !desktop}
+        layer={<PetLayer state={ws} actions={chipActions} offerOnCard={offerOnCard} onWriteOwn={() => ws.inputRef.current?.focus(true)} />}
         sidebar={<Sidebar side={side} busy={ws.busy} onNewProblem={ws.newProblem} progress={cards.length > 0 ? {} : null} refreshKey={`${ws.newProblemCount}|${ws.hasMessages}|${ws.phase}`} />}
         side={desktop ? side.mode : undefined} />
       <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={onFile} />

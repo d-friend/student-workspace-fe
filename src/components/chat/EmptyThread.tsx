@@ -1,82 +1,49 @@
-import { type Ref, useEffect, useRef, useState } from "react";
-import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { IconArrowRight, IconArrowsShuffle, IconCheck, IconRefresh } from "@tabler/icons-react";
-import { Composer, type ComposerProps } from "@/components/rail/Composer";
+import { IconArrowRight, IconArrowsShuffle, IconCheck } from "@tabler/icons-react";
 import { copy } from "@/lib/copy";
 import { getSurpriseCard, type ProgressItem, type SurpriseCard } from "@/lib/api";
 import { progressDateLabel, stoppedAt } from "@/lib/progress";
 import { MdInline } from "@/workspace/md";
-import logoMark from "../../assets/logo-mark.png";
-import styles from "./Entry.module.css";
+import styles from "./EmptyThread.module.css";
 
 type Starter = "derivative" | "geometry";
 
-// The first screen: greeting, composer, and starter problems.
-// The pet is not here: PetLayer owns the one pet element and parks it by this screen's geometry (see PetLayer.module.css).
-export function Entry({
-  composer,
-  inputRef,
-  onStarter,
-  onSurprise,
-  onRetry,
-  progress,
-  leaving = false,
-}: {
-  composer: Omit<ComposerProps, "inputRef" | "entry">;
-  inputRef?: Ref<HTMLTextAreaElement>;
+export type EmptyThreadProps = {
   onStarter: (starter: Starter) => void;
   onSurprise: (id?: string) => void;
-  onRetry?: () => void; // set after a build failed with nothing to show
   progress?: { item: ProgressItem; onOpen: () => void } | null;
-  leaving?: boolean; // the unfold has started: everything fades out and the fly card takes the composer's place
-}) {
+};
+
+export function EmptyThread({ onStarter, onSurprise, progress }: EmptyThreadProps) {
   const cards: { id: Starter; title: string; sub: string }[] = [
     { id: "derivative", title: copy.starter1, sub: copy.starter1Sub },
     { id: "geometry", title: copy.starter2, sub: copy.starter2Sub },
   ];
   return (
-    <section
-      className={styles.entry}
-      data-leaving={leaving || undefined}
-      inert={leaving}
-      aria-hidden={leaving || undefined}
-    >
-      <header className={styles.head}>
-        <Image className={styles.mark} src={logoMark} alt="" priority />
-        {copy.brand}
+    <section className={styles.emptyThread}>
+      <header className={styles.hello}>
+        <h1 className={styles.title}>{copy.entryTitle}</h1>
+        <p className={styles.sub}>{copy.entrySub}</p>
       </header>
-      <div className={styles.stack}>
-        <div className={styles.hello}>
-          <h1 className={styles.title}>{copy.entryTitle}</h1>
-          <p className={styles.sub}>{copy.entrySub}</p>
-        </div>
-        <Composer {...composer} inputRef={inputRef} entry />
-        <div className={styles.try}>
-          {onRetry && (
-            <button type="button" className={styles.retry} onClick={onRetry}>
-              <IconRefresh size={20} aria-hidden="true" />
-              {copy.retry}
-            </button>
-          )}
-          {!progress && <>
-            <p className={styles.label}>{copy.samplesLabel}</p>
-            <div className={styles.cards}>
-              {cards.map((c) => (
-                <button key={c.id} type="button" className={styles.card} onClick={() => onStarter(c.id)}>
-                  <span className={styles.cardText}>
-                    <span className={styles.cardTitle}>{c.title}</span>
-                    <span className={styles.cardSub}>{c.sub}</span>
-                  </span>
-                  <IconArrowRight size={20} aria-hidden="true" className={styles.arrow} />
-                </button>
-              ))}
-            </div>
-          </>}
-          <div className={styles.blocks} data-progress={progress ? "" : undefined}>
-            {progress && <NextStep {...progress} />}
-            <Surprise onOpen={onSurprise} />
+      <div className={styles.try}>
+        {!progress && <>
+          <p className={styles.label}>{copy.samplesLabel}</p>
+          <div className={styles.cards}>
+            {cards.map((c) => (
+              <button key={c.id} type="button" className={styles.card} onClick={() => onStarter(c.id)}>
+                <span className={styles.cardText}>
+                  <span className={styles.cardTitle}>{c.title}</span>
+                  <span className={styles.cardSub}>{c.sub}</span>
+                </span>
+                <IconArrowRight size={20} aria-hidden="true" className={styles.arrow} />
+              </button>
+            ))}
           </div>
+        </>}
+        <div className={styles.blocks} data-progress={progress ? "" : undefined}>
+          {progress && <NextStep {...progress} />}
+          <Surprise onOpen={onSurprise} />
         </div>
       </div>
       <p className={styles.foot}>{copy.entryFoot}</p>

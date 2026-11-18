@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { Entry } from "@/components/Entry";
+import { EmptyThread, type EmptyThreadProps } from "@/components/chat/EmptyThread";
 import { copy } from "@/lib/copy";
 import { ApiError, getSurpriseCard, type ProgressItem } from "@/lib/api";
 import { setLocale } from "@/lib/copy";
@@ -17,28 +17,20 @@ beforeEach(() => {
 
 afterEach(() => { cleanup(); setLocale("vi"); });
 
-function setup(extra: Partial<Parameters<typeof Entry>[0]> = {}) {
+function setup(extra: Partial<EmptyThreadProps> = {}) {
   const props = {
-    composer: {
-      value: "",
-      onChange: vi.fn(),
-      onSend: vi.fn(),
-      onPickPhoto: vi.fn(),
-      placeholder: copy.placeholderEmpty,
-      photos: [],
-    },
     onStarter: vi.fn(),
     onSurprise: vi.fn(),
     ...extra,
   };
-  return { props, ui: <Entry {...props} /> };
+  return { props, ui: <EmptyThread {...props} /> };
 }
 
-test("shows the greeting, the composer, Add photo and both starters", () => {
+test("shows the greeting, both starters and the footer", () => {
   render(setup().ui);
   expect(screen.getByRole("heading", { name: copy.entryTitle })).toBeTruthy();
-  expect(screen.getByLabelText(copy.inputLabel)).toBeTruthy();
-  expect(screen.getByRole("button", { name: copy.addPhoto })).toBeTruthy();
+  expect(screen.getByText(copy.entrySub)).toBeTruthy();
+  expect(screen.getByText(copy.entryFoot)).toBeTruthy();
   expect(screen.getByText(copy.starter1)).toBeTruthy();
   expect(screen.getByText(copy.starter2)).toBeTruthy();
 });
@@ -50,41 +42,22 @@ test("a starter starts its sample", () => {
   expect(s.props.onStarter).toHaveBeenCalledWith("geometry");
 });
 
-test("Enter in the composer sends", () => {
-  const s = setup();
-  render(s.ui);
-  fireEvent.keyDown(screen.getByLabelText(copy.inputLabel), { key: "Enter" });
-  expect(s.props.composer.onSend).toHaveBeenCalledTimes(1);
-});
-
-test("Thử lại shows only when a retry is given", () => {
-  const onRetry = vi.fn();
-  const { unmount } = render(setup().ui);
-  expect(screen.queryByRole("button", { name: copy.retry })).toBeNull();
-  unmount();
-  render(setup({ onRetry }).ui);
-  fireEvent.click(screen.getByRole("button", { name: copy.retry }));
-  expect(onRetry).toHaveBeenCalledTimes(1);
-});
-
 const progressItem: ProgressItem = {
   workspace_id: "w", session_id: "s", phase: "solve", title: "Bài vừa làm", created_at: "2026-11-14T05:00:00Z", tabs: 1,
   roadmap: "generic", stages: [0, 1], steps: { entries: [{ state: "ok", tries: 1, hint: 0 }], done: false, free: false },
   quizzes: null, next: null,
 };
 
-test("progress replaces both starters and keeps the retry action", () => {
-  const onOpen = vi.fn(); const onRetry = vi.fn();
-  render(setup({ progress: { item: progressItem, onOpen }, onRetry }).ui);
+test("progress shows the next-step card and its resume link", () => {
+  const onOpen = vi.fn();
+  render(setup({ progress: { item: progressItem, onOpen } }).ui);
   expect(screen.getByRole("heading", { name: copy.entryNext })).toBeTruthy();
   expect(screen.queryByText(copy.samplesLabel)).toBeNull();
   expect(screen.queryByText(copy.starter1)).toBeNull();
   expect(screen.queryByText(copy.starter2)).toBeNull();
   expect(screen.getByRole("link", { name: copy.progressSeeAll }).getAttribute("href")).toBe("/progress");
   fireEvent.click(screen.getByRole("button", { name: copy.entryResume }));
-  fireEvent.click(screen.getByRole("button", { name: copy.retry }));
   expect(onOpen).toHaveBeenCalledOnce();
-  expect(onRetry).toHaveBeenCalledOnce();
 });
 
 test("null progress keeps both starters", () => {

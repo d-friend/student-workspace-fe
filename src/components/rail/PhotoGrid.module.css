@@ -16,25 +16,6 @@
   border-radius: 8px;
 }
 
-.grid:not([data-compact]) + * {
+.grid + * {
   margin-top: 4px;
-}
-
-.grid[data-compact] {
-  flex: none;
-  width: 44px;
-}
-
-.grid[data-compact][data-multiple] {
-  width: 76px;
-}
-
-.grid[data-compact] img {
-  height: 44px;
-  object-fit: cover;
-}
-
-.grid[data-compact][data-multiple] img {
-  height: 20px;
-  border-radius: 4px;
 }

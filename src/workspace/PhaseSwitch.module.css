@@ -90,6 +90,14 @@
 
   .seg[aria-selected="true"] { border-radius: var(--radius-md); background: var(--bg); }
   .seg[aria-selected="true"]::before, .seg[aria-selected="true"]::after { content: none; }
+
+  /* In the panel's top bar: one row with the buttons, no sticky offset or gap below. */
+  .bar[data-in-bar] {
+    position: static;
+    height: 40px;
+    margin: 0;
+    background: transparent;
+  }
 }
 
 @media (max-width: 799px) {

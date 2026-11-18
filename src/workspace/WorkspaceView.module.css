@@ -44,6 +44,8 @@
   }
 
   .scroll:has(> .view > [role="tablist"]) { --workspace-tabs-height: 40px; }
+  /* Tabs that stay above the doc start at the panel's top edge: no empty band over them (8px keeps the selected tab off the edge). */
+  .view:has(> [role="tablist"]) { padding-top: 8px; }
 
   .view {
     width: calc(100% - clamp(24px, 10%, 96px));

@@ -85,6 +85,15 @@
     flex: none;
   }
 
+  /* Tabs start at the doc column's left edge when there is room, else at the bar's padding. */
+  .tabsSlot {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    padding-left: max(0px, calc((100% - min(720px, 100% - clamp(24px, 10%, 96px))) / 2 - 12px));
+  }
+  .tabsSlot > [role="tablist"] { flex: 0 1 auto; min-width: 0; }
+
   .shell[data-floating-panels] [data-panel-header] > button {
     position: static;
     flex: 0 0 44px;

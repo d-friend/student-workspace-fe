@@ -64,7 +64,7 @@
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--hairline);
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   cursor: pointer;
   transition:
     border-color 0.2s,
@@ -109,7 +109,7 @@
   font-weight: 600;
   background: var(--panel);
   border: 1px solid var(--control-border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   cursor: pointer;
 }
 
@@ -139,11 +139,11 @@
 .emoji { flex: none; font-size: 24px; line-height: 1; }
 .surpriseTitle { flex: 1; min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 15px; line-height: 1.4; font-weight: 500; }
 .surpriseOpen .arrow { margin-left: 44px; }
-.shuffle { position: absolute; right: 48px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--muted); cursor: pointer; }
+.shuffle { position: absolute; right: 48px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--muted); cursor: pointer; }
 .shuffle:hover { color: var(--text); background: var(--bg); }
 .skeleton { min-height: 76px; align-items: center; cursor: default; }
 .skeleton:hover { border-color: var(--hairline); transform: none; }
-.skeleton span { height: 16px; border-radius: 8px; background: var(--hairline); }
+.skeleton span { height: 16px; border-radius: var(--radius-sm); background: var(--hairline); }
 .skeleton span:first-child { width: 32px; height: 32px; flex: none; }
 .skeleton span:last-child { width: 60%; }
 @media (min-width: 800px) { .blocks[data-progress] { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

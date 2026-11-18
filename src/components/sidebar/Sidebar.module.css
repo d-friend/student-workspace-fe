@@ -51,7 +51,7 @@
   gap: 8px;
   background: transparent;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   transition: background-color 150ms;
 }
 .icon { justify-content: center; width: 44px; height: 44px; flex: none; padding: 0; }
@@ -64,7 +64,7 @@
   font-weight: 500;
 }
 .newProblem svg { flex: none; color: var(--accent); }
-.progress { display: flex; flex: none; align-items: center; gap: 8px; min-height: 40px; padding: 0 var(--side-row-inset); border-radius: 10px; color: var(--text); font-size: 14px; font-weight: 500; text-decoration: none; }
+.progress { display: flex; flex: none; align-items: center; gap: 8px; min-height: 40px; padding: 0 var(--side-row-inset); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-weight: 500; text-decoration: none; }
 .progress svg { flex: none; }
 .progress:hover { background: var(--side-hover); }
 .progress[aria-current="page"] { background: var(--side-selected); font-weight: 600; }
@@ -81,7 +81,7 @@
   min-height: 38px;
   padding: 8px var(--side-row-inset);
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: transparent;
   text-align: left;
   font-size: 14px;
@@ -113,7 +113,7 @@
   color: var(--text);
   background: var(--panel);
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: background-color 150ms;
 }
@@ -138,7 +138,7 @@
   position: relative;
   display: flex;
   align-items: center;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   transition: background-color 150ms;
 }
 .sessionRow:hover:has(.session:not(:disabled)) { background: var(--side-hover); }
@@ -156,7 +156,7 @@
   min-height: 44px;
   padding: 0;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--muted);
   opacity: 0;

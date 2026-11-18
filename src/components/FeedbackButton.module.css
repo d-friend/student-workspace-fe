@@ -11,7 +11,7 @@
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
 }
 
@@ -28,7 +28,7 @@
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
 }
 
 .sheet h2 { margin: 0; font-size: 16px; }
@@ -40,7 +40,7 @@
   color: var(--text);
   background: var(--bg);
   border: 1px solid var(--control-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   resize: vertical;
 }
 .actions { display: flex; gap: 8px; justify-content: flex-end; }
@@ -51,7 +51,7 @@
   color: var(--text);
   background: none;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
 .actions button[type="submit"] { color: var(--accent-text); background: var(--accent); border-color: var(--accent); }

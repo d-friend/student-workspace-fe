@@ -27,7 +27,7 @@
 .chat[data-column] .head { padding: 0 8px 0 16px; gap: 4px; }
 .chat[data-column] .name { flex: 1; }
 .chat[data-column] .head > button { position: static; flex: 0 0 44px; }
-.collapse { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 999px; color: var(--text); background: transparent; cursor: pointer; }
+.collapse { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--radius-pill); color: var(--text); background: transparent; cursor: pointer; }
 .collapse:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .emptyHint { flex: none; margin: 16px; color: var(--muted); font-size: 14px; }
 
@@ -60,7 +60,7 @@
   overflow: auto;
   margin: 12px 16px 0;
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--agent);
   font-size: 13px;
   line-height: 1.45;
@@ -113,7 +113,7 @@
   width: min(100%, 420px);
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   background: var(--panel);
   overflow-wrap: anywhere;
 }
@@ -133,7 +133,7 @@
   min-height: 44px;
   padding: 0 12px;
   border: 1px solid var(--control-border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--panel);
   color: var(--text);
   font: inherit;

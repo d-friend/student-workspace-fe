@@ -25,7 +25,7 @@ export function BuildingSkeleton({
   onQueue,
 }: {
   variant?: "learn" | "solve";
-  problem?: string; // what the student sent: the unfold's card lands here, so it must not turn into grey bars
+  problem?: string; // Keep the student's problem visible while the preview loads.
   preview?: Preview | null;
   onQueue?: (answer: QueuedAnswer) => void;
 }) {
@@ -57,7 +57,7 @@ export function BuildingSkeleton({
     <WorkspaceCopy.Provider value={previewCopy}>
       <section className={styles.wrap} aria-busy="true" data-variant={variant}>
         {variant === "learn" && preview && preview.blocks.length > 0 ? (
-          <div className={styles.stack} data-unfold-target="">
+          <div className={styles.stack}>
             {preview.title && (
               <h1 className={styles.previewTitle}>
                 <MdInline text={preview.title} />
@@ -70,7 +70,7 @@ export function BuildingSkeleton({
             {b(styles.lineShort)}
           </div>
         ) : variant === "learn" ? (
-          <div className={styles.stack} data-unfold-target="">
+          <div className={styles.stack}>
             {b(styles.title)}
             <div className={styles.lines}>
               {b(styles.line)}
@@ -81,7 +81,7 @@ export function BuildingSkeleton({
             {b(styles.box)}
           </div>
         ) : (
-          <div className={styles.stack} data-unfold-target="">
+          <div className={styles.stack}>
             {preview?.blocks.some((blk) => blk.type === "problem") ? preview.blocks.filter((blk) => blk.type === "problem").map((blk) =>
               <div key={blk.id}>{renderBlock(blk, ctx)}</div>,
             ) : <div className={styles.card}>

@@ -101,7 +101,7 @@ for (const viewport of viewports) {
       expect(box!.x).toBeGreaterThanOrEqual(columnBox!.x);
       expect(box!.x + box!.width).toBeLessThanOrEqual(columnBox!.x + columnBox!.width);
     }
-    const pet = done.locator("[data-pet-slot]").getByRole("button", { name: copy.petOpen });
+    const pet = done.locator("[data-pet-slot] > *").first();
     await expect(pet).toBeVisible();
     const petBox = await pet.boundingBox();
     expect(petBox).not.toBeNull();
@@ -126,7 +126,7 @@ for (const viewport of viewports) {
     await page.getByLabel(copy.inputLabel).press("Enter");
     const active = page.locator("[data-pet-anchor]");
     const options = active.getByRole("group").getByRole("button");
-    const pet = active.getByRole("button", { name: copy.petOpen });
+    const pet = active.locator("[data-pet-slot] > *").first();
     const prompt = active.locator("p[id]");
     await expect(page.getByLabel(copy.stepProgress(1, 4), { exact: true })).toBeVisible();
     await expect(pet).toBeVisible();

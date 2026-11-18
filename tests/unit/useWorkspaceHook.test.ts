@@ -1,8 +1,9 @@
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import Page from "@/app/page";
+import { useDesktop } from "@/hooks/useDesktop";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import * as api from "@/lib/api";
 import { copy } from "@/lib/copy";
@@ -20,6 +21,8 @@ vi.mock("@/lib/api", async (importOriginal) => ({
 }));
 vi.mock("@/lib/track", () => ({ track: vi.fn() }));
 
+vi.mock("@/hooks/useDesktop", () => ({ useDesktop: vi.fn() }));
+beforeEach(() => { vi.mocked(useDesktop).mockReturnValue(true); });
 afterEach(cleanup);
 
 it("wires the controller into React: input, a typed turn, and the screen", async () => {
@@ -43,14 +46,15 @@ it("wires the controller into React: input, a typed turn, and the screen", async
     await result.current.submit();
   });
   expect(result.current.input).toBe("");
-  expect(result.current.bubbles.map((b) => b.text)).toEqual(["xin chào", "Chào bạn."]);
+  expect(result.current.bubbles).toEqual([
+    expect.objectContaining({ kind: "student", text: "xin chào", failed: null }),
+    expect.objectContaining({ kind: "agent", text: "Chào bạn." }),
+  ]);
   expect(result.current.busy).toBe(false);
 });
 
 const DONE = { turnId: "t", stopReason: "end_turn" };
 const send = async (text: string) => {
-  // The entry has its own composer; once there is a workspace the composer lives in the chat drawer, which opens from the pet.
-  if (!screen.queryByRole("textbox", { name: copy.inputLabel })) fireEvent.click(screen.getByRole("button", { name: copy.petOpen }));
   fireEvent.change(screen.getByRole("textbox", { name: copy.inputLabel }), { target: { value: text } });
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: copy.send }));
@@ -72,17 +76,13 @@ it("keeps input across phase switch", async () => {
 
   const line = screen.getByRole("textbox", { name: copy.lineLabel(1) });
   fireEvent.change(line, { target: { value: "y' = 3x^2" } });
-  // The turn ended with the drawer closed (the reply is in the bubble), so open it to type.
-  fireEvent.click(screen.getByRole("button", { name: copy.petOpen }));
   fireEvent.change(screen.getByRole("textbox", { name: copy.inputLabel }), { target: { value: "đang gõ" } });
-  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
   fireEvent.click(screen.getByRole("tab", { name: learn.title }));
   expect(screen.getByRole("tab", { name: learn.title }).getAttribute("aria-selected")).toBe("true");
   fireEvent.click(screen.getByRole("tab", { name: solve.title }));
 
   expect(screen.getByRole("textbox", { name: copy.lineLabel(1) })).toBe(line);
   expect((line as HTMLInputElement).value).toBe("y' = 3x^2");
-  fireEvent.click(screen.getByRole("button", { name: copy.petOpen }));
   expect((screen.getByRole("textbox", { name: copy.inputLabel }) as HTMLTextAreaElement).value).toBe("đang gõ");
 });
 
@@ -161,9 +161,16 @@ it("a retyped line is judged on its own after the master withdrew an ok", async 
 });
 
 
-it("renders a restored legacy HTML workspace without tabs", async () => {
+it("reopens a restored legacy iframe from its chat card on mobile", async () => {
+  vi.mocked(useDesktop).mockReturnValue(false);
   vi.mocked(api.currentSession).mockResolvedValueOnce({ sessionId: "legacy", messages: [{ role: "assistant", content: "Hello" }], html: "<p>Legacy work</p>", tabs: [], activeId: null, sheet: null });
-  const { container } = render(createElement(Page));
-  await waitFor(() => expect(container.querySelector("iframe")?.getAttribute("srcdoc")).toContain("Legacy work"));
+  render(createElement(Page));
+  const frame = await screen.findByTitle(copy.workspaceTitle);
+  expect(frame.getAttribute("srcdoc")).toContain("Legacy work");
   expect(screen.queryByRole("tablist")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: copy.backToChat }));
+  expect(screen.getByTestId("chat-view").hidden).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: copy.workspaceOpen }));
+  expect(screen.getByTestId("chat-view").hidden).toBe(true);
+  expect(screen.getByTitle(copy.workspaceTitle)).toBe(frame);
 });

@@ -45,7 +45,7 @@ for (const width of [1280, 390]) {
       return route.fulfill({ status: 404, json: { error: { code: "unmocked", message: path } } });
     });
     await page.goto("/");
-    const main = page.getByRole("main");
+    const main = page.locator('section[id^="panel-"]:not([hidden])').first(); // the chat composer is in <main> too
     await expect(main.getByRole("textbox")).toHaveCount(2);
     await main.getByRole("textbox").first().fill("2");
     await main.getByRole("button", { name: en.check, exact: true }).first().click();
@@ -96,7 +96,7 @@ test("a scaffolded proof completes without free input", async ({ page }) => {
     return route.fulfill({ status: 404, json: { error: { code: "unmocked", message: path } } });
   });
   await page.goto("/");
-  const main = page.getByRole("main");
+  const main = page.locator('section[id^="panel-"]:not([hidden])').first(); // the chat composer is in <main> too
   for (const option of ["Cân tại A", "Tính chất tam giác cân", "Góc B bằng góc C"]) {
     await expect(main.getByRole("textbox")).toHaveCount(0);
     await expect(main.getByRole("button", { name: copy.otherWay })).toHaveCount(0);

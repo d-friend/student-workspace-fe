@@ -1,451 +1,102 @@
 "use client";
 
-import { type CSSProperties, type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { useDesktop } from "@/hooks/useDesktop";
-import { usePet } from "@/hooks/usePet";
-import { FLY_MS } from "@/hooks/useUnfold";
-import type { WorkspaceState } from "@/hooks/useWorkspace";
-import { copy } from "@/lib/copy";
-import { placePet, type Place, type Rect } from "@/lib/pet-place";
+import type { ChatActions, ChatState } from "@/components/chat/ChatView";
 import { OfferChips } from "@/components/rail/OfferChips";
 import { OptChips } from "@/components/rail/OptChips";
 import { RestateChips } from "@/components/rail/RestateChips";
-import type { Bubble } from "@/hooks/useWorkspace";
+import { usePet } from "@/hooks/usePet";
+import type { Bubble, WorkspaceState } from "@/hooks/useWorkspace";
+import { copy } from "@/lib/copy";
 import { usePetAnchor } from "./PetAnchor";
-import { ChatDrawer, type ChatActions, type ChatState } from "./ChatDrawer";
-import type { ComposerProps } from "@/components/rail/Composer";
 import { Pet } from "./Pet";
 import { PetBubble, type SpokenBubble } from "./PetBubble";
 import styles from "./PetLayer.module.css";
 
-type PetSignals = Pick<WorkspaceState, "busy" | "building" | "status" | "checking" | "verdict" | "taskDone" | "newProblemCount" | "optChips" | "optChipKind" | "optChipSeed">;
+type PetSignals = Pick<WorkspaceState, "building" | "checking" | "verdict" | "taskDone"> & Omit<ChatState, "watching">;
+type ChipActions = Pick<ChatActions, "onConfirmRestate" | "onCorrectRestate" | "onAcceptOffer" | "onOfferLater" | "onOpt">;
 
-// How long the closing chat column slides out before it unmounts (ChatDrawer.module.css panelOut).
-const CLOSE_MS = 350;
-const MAX_SPOKEN = 3;
-const PET = 88; // --pet-size at the docked place (PetLayer.module.css); the lane only exists on a wide stage
-const SCROLL_MS = 120; // after the last scroll event the pet is no longer "moving with the scroll"
-const BUBBLE_GAP = 12; // pet to bubble, beside it
-const BUBBLE_CLEAR = 12; // between a docked bubble and the doc above it
-const BUBBLE_W = 300; // PetBubble.module.css max-width
-const ZERO: Rect = { left: 0, top: 0, right: 0, bottom: 0 };
-const PAD_REACH = 24; // how far a bubble over the pet reaches into the doc sheet's side padding
-const ABOVE_MIN = 200; // above the pet needs this much room over it, else the bubble opens below
+const isSpoken = (b: Bubble): b is SpokenBubble => b.kind === "agent" || b.kind === "error" || b.kind === "note";
 
-type Lane = Extract<Place, { mode: "lane" }>;
-
-const relTo = (r: DOMRect, o: DOMRect): Rect => ({ left: r.left - o.left, top: r.top - o.top, right: r.right - o.left, bottom: r.bottom - o.top });
-
-// Where the bubble goes in the lane, in the layer's coordinates. Its right edge stays 16px inside the stage. Beside
-// the pet, or over it (below when there is no room above) with its left edge PAD_REACH inside the doc column: that is
-// the sheet's side padding (at least 32px from 800px), so a narrow lane still gets a bubble of 232px or more
-// without covering any text.
-function bubbleStyle(lane: Lane, w: number, h: number): { style: CSSProperties; up: boolean } {
-  const fit = (left: number) => `min(${BUBBLE_W}px, calc(100vw - 32px), ${Math.max(0, w - 16 - left)}px)`;
-  if (lane.side === "right") {
-    const left = lane.left + PET + BUBBLE_GAP;
-    const style: CSSProperties = { left, maxWidth: fit(left) };
-    return lane.flip ? { style: { ...style, bottom: h - lane.top - PET }, up: true } : { style: { ...style, top: lane.top }, up: false };
-  }
-  const left = lane.left - 24 - PAD_REACH; // the lane starts 24px right of the column
-  const style: CSSProperties = { left, maxWidth: fit(left) };
-  const up = lane.flip || lane.top >= ABOVE_MIN;
-  return up ? { style: { ...style, bottom: h - lane.top + 8 }, up } : { style: { ...style, top: lane.top + PET + 8 }, up };
-}
-
-// Always mounted, over the stage. Holds the drawer's open state and which bubble the student has put away.
-// From 800px the drawer is a column beside the stage and the pet moves to the seam between them.
-export function PetLayer({
-  state,
-  inputRef,
-  entry,
-  entryInputRef,
-  composer,
-  onOpenChange,
-  onChatOpened,
-  selectionOpen = 0,
-  quote,
-  onDismissQuote,
-  flying = false,
-  offerOnCard = false,
-  ...actions
-}: {
-  state: ChatState & PetSignals;
-  // The store's focusInput(reveal) calls inputRef.current.focus(reveal). Whichever composer is on screen takes it:
-  // the entry's, else the drawer's. A closed drawer opens only when reveal is set (a failed send, a correction).
-  inputRef: RefObject<{ focus: (reveal?: boolean) => void } | null>;
-  // The entry screen is showing: no conversation yet, so the pet greets instead of opening the drawer.
-  entry: boolean;
-  entryInputRef: RefObject<HTMLTextAreaElement | null>;
-  composer: Omit<ComposerProps, "inputRef" | "entry">;
-  onOpenChange?: (open: boolean) => void;
-  // Called once per closed-to-open, with whether the unread badge was showing.
-  onChatOpened: (unread: boolean) => void;
-  selectionOpen?: number;
-  quote?: string;
-  onDismissQuote?: () => void;
-  // The unfold is carrying the pet from the entry to its dock (spec §6): it travels, hops, and is happy about it.
-  flying?: boolean;
+export function PetLayer({ state, actions, onWriteOwn, offerOnCard = false, questionInStrip = false }: {
+  state: PetSignals;
+  actions: ChipActions;
+  onWriteOwn: () => void;
   offerOnCard?: boolean;
-} & ChatActions) {
-  const { mood, celebrate, celebrateKey } = usePet(state);
-  // "Bài mới": the pet hops from where it is back to its place on the entry, the way the unfold carried it away.
-  // Decided while rendering, so the first frame of the entry already has the flight on (no snap first).
-  const [seenReset, setSeenReset] = useState(state.newProblemCount);
-  const [returning, setReturning] = useState(false);
-  if (state.newProblemCount !== seenReset) {
-    setSeenReset(state.newProblemCount);
-    if (entry && !matchMedia("(prefers-reduced-motion: reduce)").matches) setReturning(true);
-  }
-  useEffect(() => {
-    if (!returning) return;
-    const t = setTimeout(() => setReturning(false), FLY_MS);
-    return () => clearTimeout(t);
-  }, [returning]);
-  const travelling = flying || returning;
-  const desktop = useDesktop();
-  const [open, setOpen] = useState(false);
-  const [leaving, setLeaving] = useState(false); // desktop only: the column is sliding out
-  const [hiddenKey, setHiddenKey] = useState<string | null>(null);
-  const [unread, setUnread] = useState(false);
-  const petRef = useRef<HTMLButtonElement>(null);
-  const layerRef = useRef<HTMLDivElement>(null);
-  const composerRef = useRef<HTMLTextAreaElement>(null);
-  const wasOpen = useRef(false);
-  const wantFocus = useRef<boolean | null>(null); // a focus request waiting for the render that shows the right composer
-  const [focusTick, setFocusTick] = useState(0);
-
-  const isSpoken = (b: Bubble): b is SpokenBubble => b.kind === "agent" || b.kind === "error" || b.kind === "note";
-  const latest = state.bubbles.findLast(isSpoken);
-  // Everything D-Friend said in the latest exchange (an announce, then its reply), newest last. Older turns stay
-  // in the drawer's log, not in the bubble.
-  const spoken = latest ? state.bubbles.filter((b): b is SpokenBubble => isSpoken(b) && b.turn === latest.turn).slice(-MAX_SPOKEN) : [];
-  const turn = latest?.turn ?? 0;
-  const status = state.building ? (state.status ?? copy.building) : null;
-  // A waiting bubble that gets its words is a new key, so it comes back if it was put away while thinking.
-  const key = latest ? `${latest.id}:${latest.kind === "agent" && latest.waiting}` : null;
-
-  const openDrawer = useCallback(() => {
-    onChatOpened(unread);
-    setUnread(false);
-    setLeaving(false);
-    setOpen(true);
-  }, [onChatOpened, unread]);
-  const selectionSeen = useRef(selectionOpen);
-  useEffect(() => {
-    if (selectionSeen.current === selectionOpen) return;
-    selectionSeen.current = selectionOpen;
-    // An event signal from the page (a selection was asked about), not derived state; openDrawer also reports tracking.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!open) openDrawer();
-  }, [selectionOpen, open, openDrawer]);
-  // Whatever was said while the drawer was open has been seen, so it does not pop back as a bubble.
-  // The drawer has no place on the entry (Bài mới from the drawer lands there).
-  if (entry && open) setOpen(false);
-  const closeDrawer = () => {
-    setHiddenKey(key);
-    setOpen(false);
-    setLeaving(desktop);
-  };
-
-  useEffect(() => {
-    if (!leaving) return;
-    const t = setTimeout(() => setLeaving(false), CLOSE_MS);
-    return () => clearTimeout(t);
-  }, [leaving]);
-
-  useEffect(() => {
-    // Deferred to an effect: the store asks right after publishing, before React has rendered the new screen.
-    inputRef.current = {
-      focus: (reveal = false) => {
-        wantFocus.current = reveal;
-        setFocusTick((t) => t + 1);
-      },
-    };
-    return () => {
-      inputRef.current = null;
-    };
-  }, [inputRef]);
-
-  useEffect(() => {
-    const reveal = wantFocus.current;
-    if (reveal === null) return;
-    wantFocus.current = null;
-    if (entry) entryInputRef.current?.focus();
-    else if (open) composerRef.current?.focus({ preventScroll: true });
-    else if (reveal) openDrawer();
-  }, [focusTick, entry, open, entryInputRef, openDrawer]);
-
-  // Picking a photo on the entry is something to be glad about.
-  const hasPhoto = Boolean(composer.photo);
-  // Shell scrolls its main, while this layer stays over the stage. Keep the CSS entry geometry
-  // in step with that scroll; removing the offset hands positioning back to the dock/flight.
-  useLayoutEffect(() => {
-    const layer = layerRef.current;
-    const main = entryInputRef.current?.closest("main");
-    if (!entry || hasPhoto || !layer || !main) return;
-    let raf = 0;
-    const park = () => {
-      raf = 0;
-      layer.style.setProperty("--entry-scroll-y", `${main.scrollTop}px`);
-    };
-    const schedule = () => { raf ||= requestAnimationFrame(park); };
-    park();
-    main.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
-    return () => {
-      main.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
-      cancelAnimationFrame(raf);
-      layer.style.removeProperty("--entry-scroll-y");
-    };
-  }, [entry, hasPhoto, entryInputRef]);
-  const hadPhoto = useRef(hasPhoto);
-  useEffect(() => {
-    if (entry && hasPhoto && !hadPhoto.current) celebrate();
-    hadPhoto.current = hasPhoto;
-  }, [entry, hasPhoto, celebrate]);
-
-  useEffect(() => {
-    if (travelling) celebrate();
-  }, [travelling, celebrate]);
-
-  // Hand the composer over before paint, including when chat opens during the entry's unfold.
-  useLayoutEffect(() => onOpenChange?.(open), [open, onOpenChange]);
-
-  useEffect(() => {
-    if (wasOpen.current && !open) petRef.current?.focus();
-    wasOpen.current = open;
-  }, [open]);
-
-  // The entry is silent until a conversation exists. A text-only reply (an unreadable photo, a clarification) lands
-  // back on the entry, and the student must still see it: the entry has no drawer, the bubble is the only place.
-  const talked = state.bubbles.length > 0;
-  const chips =
-    latest?.kind === "agent" && !latest.waiting && latest.id === state.bubbles.findLast((b) => b.kind === "agent")?.id;
-  const awaitingAnswer = Boolean(
-    (chips && (state.restateChips || state.offerChips || state.optChips)) ||
-    (latest?.kind === "agent" && latest.ask !== null),
-  );
-  const docked = open && desktop && !entry;
-
-  // The lane: beside the active line of the doc, only when nothing else has a claim on the pet.
-  const { anchor, scroller } = usePetAnchor();
-  // The registered anchor belongs to the shown question or finished doc. Both targets are required: older
-  // anchors/previews without slots keep the original lane/dock behaviour.
+  questionInStrip?: boolean; // the mobile ask strip already shows the pending question and its chips
+}) {
+  const { mood, celebrateKey } = usePet(state);
+  const { anchor } = usePetAnchor();
   const inlineSlot = anchor?.hasAttribute("data-pet-inline") ? anchor.querySelector<HTMLElement>("[data-pet-slot]") : null;
   const spokenSlot = anchor?.querySelector<HTMLElement>("[data-pet-spoken-slot]") ?? null;
-  const inlineOn = !entry && !travelling && inlineSlot !== null && spokenSlot !== null;
-  const doneInline = inlineOn && anchor?.hasAttribute("data-pet-done");
-  const itemId = inlineSlot !== null && spokenSlot !== null && anchor?.matches("[data-pet-anchor][data-n]")
-    ? JSON.stringify([anchor?.closest<HTMLElement>("[data-block-id]")?.dataset.blockId, anchor?.dataset.n])
+  const doneInline = anchor?.hasAttribute("data-pet-done");
+  const itemId = inlineSlot && spokenSlot && anchor?.matches("[data-pet-anchor][data-n]")
+    ? JSON.stringify([anchor.closest<HTMLElement>("[data-block-id]")?.dataset.blockId, anchor.dataset.n])
     : null;
-  const [seenItem, setSeenItem] = useState<{ anchor: HTMLElement | null; id: string | null }>({ anchor: null, id: null });
-  const [staleTurn, setStaleTurn] = useState<number | null>(null);
-  const [staleKey, setStaleKey] = useState<string | null>(null);
-  if (seenItem.anchor !== anchor || seenItem.id !== itemId) {
-    setSeenItem({ anchor, id: itemId });
-    // Speech from before this item belongs in the log, not under its choices. Pending questions
-    // remain interactive, using the same exceptions as autoHide below.
-    if (itemId !== null && !awaitingAnswer) {
-      setStaleKey(key);
-      setStaleTurn(turn);
-    }
-  }
-  // Automatic question hiding must not discard a closing reply that preceded the done-anchor handoff.
-  // Manual dismissal (hiddenKey) still applies everywhere; a build with no words still shows progress.
-  const showBubble =
-    !open && !travelling && (latest !== undefined || status !== null) &&
-    (key === null || (key !== hiddenKey && (doneInline || key !== staleKey))) && (!entry || talked);
+
   const [, setAnchorTick] = useState(0);
   useEffect(() => {
     if (!anchor) return;
     const n = anchor.dataset.n;
-    const inlineAttribute = anchor.hasAttribute("data-pet-inline");
-    // Steps can advance using local state after publishing the verdict. Its registered DOM node
-    // stays the same, so observe it rather than depending on a coincidental PetLayer render.
+    const inline = anchor.hasAttribute("data-pet-inline");
+    // The step can advance in place after publishing the verdict.
     const observer = new MutationObserver(() => {
-      if (
-        anchor.dataset.n !== n || anchor.hasAttribute("data-pet-inline") !== inlineAttribute ||
-        anchor.querySelector("[data-pet-slot]") !== inlineSlot ||
-        anchor.querySelector("[data-pet-spoken-slot]") !== spokenSlot
-      ) setAnchorTick((tick) => tick + 1);
-    });
-    observer.observe(anchor, { attributes: true, attributeFilter: ["data-n", "data-pet-inline"], childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [anchor, itemId, inlineSlot, spokenSlot]);
-  const laneOn = !inlineOn && !entry && !open && !leaving && !travelling && anchor !== null && scroller !== null;
-  const [place, setPlace] = useState<Place>({ mode: "dock" });
-  const [stageSize, setStageSize] = useState({ w: 0, h: 0 });
-  const [scrolling, setScrolling] = useState(false);
-  useEffect(() => {
-    const layer = layerRef.current;
-    if (!laneOn || !layer || !anchor || !scroller) return;
-    let raf = 0;
-    let idle: ReturnType<typeof setTimeout> | undefined;
-    const measure = () => {
-      raf = 0;
-      const column = anchor.closest("[data-pet-column]");
-      const L = layer.getBoundingClientRect();
-      // Everything in the layer's own coordinates, so the result is the pet's left/top. The scroller is the box the
-      // pet stays inside: it does not climb over the top bar.
-      const next = column
-        ? placePet({
-            anchor: relTo(anchor.getBoundingClientRect(), L),
-            column: relTo(column.getBoundingClientRect(), L),
-            stage: relTo(scroller.getBoundingClientRect(), L),
-            pet: PET,
-            bubbleW: BUBBLE_W,
-          })
-        : ({ mode: "dock" } as const);
-      setStageSize((s) => (s.w === L.width && s.h === L.height ? s : { w: L.width, h: L.height }));
-      setPlace((p) => (p.mode === "lane" && next.mode === "lane" && p.left === next.left && p.top === next.top && p.side === next.side && p.flip === next.flip ? p : next));
-    };
-    const schedule = () => {
-      raf ||= requestAnimationFrame(measure);
-    };
-    const onScroll = () => {
-      setScrolling(true);
-      clearTimeout(idle);
-      idle = setTimeout(() => setScrolling(false), SCROLL_MS);
-      schedule();
-    };
-    measure();
-    scroller.addEventListener("scroll", onScroll, { passive: true });
-    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
-    for (const el of [layer, scroller, anchor.closest("[data-pet-column]"), anchor]) if (el) ro?.observe(el);
-    return () => {
-      scroller.removeEventListener("scroll", onScroll);
-      ro?.disconnect();
-      cancelAnimationFrame(raf);
-      clearTimeout(idle);
-      setScrolling(false);
-      setPlace({ mode: "dock" }); // re-entry must not start from the old spot
-    };
-  }, [laneOn, anchor, scroller]);
-  // Inline needs no measuring: both slots exist, so the pet is in the flow of the step.
-  const inline = inlineOn && placePet({ inline: true, anchor: ZERO, column: null, stage: ZERO, pet: 44, bubbleW: BUBBLE_W }).mode === "inline";
-  const lane = laneOn && place.mode === "lane" ? place : null;
-  // Only a floating dock needs space reserved under the doc.
-  const inFlow = lane !== null || inline;
-  useEffect(() => {
-    if (!inFlow || !scroller) return;
-    scroller.style.setProperty("--pet-clear", "0px");
-    return () => void scroller.style.removeProperty("--pet-clear");
-  }, [inFlow, scroller]);
-  const laneBubble = lane ? bubbleStyle(lane, stageSize.w, stageSize.h) : null;
-
-  // Docked, the bubble stands over the doc. Reserve its height under the doc and scroll the active line above it, so
-  // the choices and the check button stay reachable (the bubble hides on its own after a few seconds).
-  const dockedBubble = showBubble && !lane && !inline && scroller !== null;
-  useEffect(() => {
-    const bubble = layerRef.current?.querySelector("[data-bubble]");
-    if (!dockedBubble || !scroller || !bubble) return;
-    const fit = () => {
-      const b = bubble.getBoundingClientRect();
-      const s = scroller.getBoundingClientRect();
-      scroller.style.setProperty("--pet-clear", `${Math.max(0, s.bottom - b.top) + BUBBLE_CLEAR}px`);
-      if (!anchor) return;
-      const a = anchor.getBoundingClientRect();
-      // Never push the line's top out of view: a line taller than the room keeps its top.
-      const by = Math.min(a.bottom + BUBBLE_CLEAR - b.top, a.top - s.top - BUBBLE_CLEAR);
-      if (by > 0) scroller.scrollBy({ top: by });
-    };
-    fit();
-    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fit);
-    ro?.observe(bubble);
-    return () => {
-      ro?.disconnect();
-      scroller.style.removeProperty("--pet-clear");
-    };
-  }, [dockedBubble, scroller, anchor, spoken.length, state.optChips, state.offerChips, state.restateChips]);
-
-  const petButton = (
-    <button
-      ref={petRef}
-      data-moving={lane && scrolling ? "scroll" : undefined}
-      // The reduced-motion stylesheet rule covers a change mid-session; this one is what a teleport looks like at once.
-      style={lane ? { top: lane.top, left: lane.left, transition: matchMedia("(prefers-reduced-motion: reduce)").matches ? "none" : undefined } : undefined}
-      type="button"
-      className={inline ? styles.inlinePet : styles.pet}
-      aria-label={entry ? copy.brand : open ? copy.petClose : copy.petOpen}
-      aria-describedby={unread && !entry ? "pet-unread" : undefined}
-      inert={open && !desktop}
-      onClick={
-        entry
-          ? () => {
-              setHiddenKey(null); // a dismissed reply comes back
-              celebrate();
-            }
-          : open
-            ? closeDrawer
-            : openDrawer
+      if (anchor.dataset.n !== n || anchor.hasAttribute("data-pet-inline") !== inline ||
+          anchor.hasAttribute("data-pet-done") !== doneInline ||
+          anchor.querySelector("[data-pet-slot]") !== inlineSlot ||
+          anchor.querySelector("[data-pet-spoken-slot]") !== spokenSlot) {
+        setAnchorTick((tick) => tick + 1);
       }
-    >
-      <Pet mood={travelling ? "happy" : mood} celebrateKey={celebrateKey} />
-      {unread && !open && !entry && (
-        <span id="pet-unread" className={styles.badge}>
-          <span className={styles.srOnly}>{copy.petUnread}</span>
-        </span>
-      )}
-    </button>
+    });
+    observer.observe(anchor, { attributes: true, attributeFilter: ["data-n", "data-pet-inline", "data-pet-done"], childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [anchor, itemId, inlineSlot, spokenSlot, doneInline]);
+
+  const latest = state.bubbles.findLast(isSpoken);
+  const turn = latest?.turn ?? 0;
+  const status = state.building ? state.status ?? copy.building : null;
+  const key = latest ? `${latest.id}:${latest.kind === "agent" && latest.waiting}` : null;
+  const chips = latest?.kind === "agent" && !latest.waiting;
+  const awaitingAnswer = Boolean(
+    (chips && (state.restateChips || state.offerChips || state.optChips)) ||
+    (latest?.kind === "agent" && latest.ask !== null),
   );
-  // An announce and its completion can straddle the item's appearance. Both belong to the
-  // stale turn even when the completion has a new message key. Choices/questions still stay.
-  const showSpoken = showBubble && !(inline && itemId !== null && staleTurn !== null && turn === staleTurn && !awaitingAnswer);
-  const spokenBubble = showSpoken ? (
-    <PetBubble
-      key={turn}
-      inline={inline}
-      bubbles={spoken}
-      status={status}
-      onClose={() => {
-        setHiddenKey(key);
-        if (!entry) setUnread(true);
-      }}
-      // The entry keeps its message: there it can be the only place an instruction (a retake) is shown. So does
-      // a bubble that is asking the student to choose (its chips) or a question: it stays until they answer or close it.
-      autoHide={!entry && !awaitingAnswer}
-      onHide={() => setHiddenKey(key)}
-      side={lane?.side}
-      flip={laneBubble?.up}
-      style={laneBubble?.style}
-    >
-      {chips && state.restateChips && (
-        <RestateChips onConfirm={actions.onConfirmRestate} onCorrect={actions.onCorrectRestate} />
-      )}
-      {chips && state.offerChips && <OfferChips onAccept={actions.onAcceptOffer} onLater={actions.onOfferLater} />}
-      {chips && state.optChips && !(state.optChipKind === "offer" && offerOnCard) && (
-        <OptChips options={state.optChips} kind={state.optChipKind} seed={state.optChipSeed} onPick={actions.onOpt} onWriteOwn={() => inputRef.current?.focus(true)} />
-      )}
-    </PetBubble>
-  ) : null;
+
+  const [seenItem, setSeenItem] = useState<{ anchor: HTMLElement | null; id: string | null }>({ anchor: null, id: null });
+  const [staleSpeech, setStaleSpeech] = useState<{ turn: number; key: string | null } | null>(null);
+  const [dismissedSpeech, setDismissedSpeech] = useState<string | null>(null);
+  if (seenItem.anchor !== anchor || seenItem.id !== itemId) {
+    setSeenItem({ anchor, id: itemId });
+    // Speech from before this item belongs in the chat. Pending questions and choices stay interactive.
+    if (itemId !== null && !awaitingAnswer) setStaleSpeech({ turn, key });
+  }
+  if (!inlineSlot || !spokenSlot) return null;
+
+  // Keep an announce and its completion together, even if they straddle the item's appearance.
+  // The done anchor can show the closing reply once the step choices are gone.
+  const stale = (key !== null && key === staleSpeech?.key && !doneInline) ||
+    (itemId !== null && turn === staleSpeech?.turn && !awaitingAnswer);
+  const showSpeech = (latest !== undefined || status !== null) && !stale && !(questionInStrip && awaitingAnswer) && (key === null || key !== dismissedSpeech);
+  const spoken = latest ? state.bubbles.filter((b): b is SpokenBubble => isSpoken(b) && b.turn === turn).slice(-3) : [];
+  const dismiss = () => setDismissedSpeech(key);
 
   return (
-    // With a photo picked the greeting is gone, so the pet docks; it is still the entry's pet.
-    <div
-      ref={layerRef}
-      className={styles.layer}
-      data-place={inline ? "inline" : entry && !hasPhoto ? "entry" : "dock"}
-      data-fly={travelling || undefined}
-      data-chat={docked || undefined}
-      data-lane={lane ? "" : undefined}
-    >
-      {inline && inlineSlot ? createPortal(petButton, inlineSlot) : petButton}
-      {inline && spokenSlot ? createPortal(spokenBubble, spokenSlot) : spokenBubble}
-      {(open || leaving) && !entry && (
-        <ChatDrawer
-          state={state}
-          actions={actions}
-          composer={composer}
-          quote={quote}
-          onDismissQuote={onDismissQuote}
-          composerRef={composerRef}
-          onClose={closeDrawer}
-          leaving={!open}
-        />
+    <>
+      {createPortal(
+        <span className={styles.inlinePet}><Pet mood={mood} celebrateKey={celebrateKey} /></span>,
+        inlineSlot,
       )}
-    </div>
+      {showSpeech && createPortal(
+        <PetBubble key={turn} bubbles={spoken} status={status} onClose={dismiss} onHide={dismiss} autoHide={!awaitingAnswer}>
+          {chips && state.restateChips && <RestateChips onConfirm={actions.onConfirmRestate} onCorrect={actions.onCorrectRestate} />}
+          {chips && state.offerChips && <OfferChips onAccept={actions.onAcceptOffer} onLater={actions.onOfferLater} />}
+          {chips && state.optChips && !(state.optChipKind === "offer" && offerOnCard) && (
+            <OptChips options={state.optChips} kind={state.optChipKind} seed={state.optChipSeed} onPick={actions.onOpt} onWriteOwn={onWriteOwn} />
+          )}
+        </PetBubble>,
+        spokenSlot,
+      )}
+    </>
   );
 }

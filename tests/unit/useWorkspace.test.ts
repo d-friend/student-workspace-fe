@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { customFrames } from "@/lib/frame";
 import { ApiError, TurnError, type Preview, type TurnEvent } from "@/lib/api";
 import { copy, copyFor } from "@/lib/copy";
+import { MAX_PHOTOS } from "@/lib/photo";
 import { createWorkspace } from "@/hooks/useWorkspace";
 import { fixtures } from "@/workspace/fixtures";
 import type { Phase, Workspace } from "@/workspace/types";
@@ -112,11 +113,11 @@ describe("typed turn", () => {
   it("shows the student bubble and thinking, streams the chat, then the building text", async () => {
     const seen: string[] = [];
     const t = await boot(async (_s, _m, onDelta) => {
-      seen.push(t.state().bubbles.map((b) => b.text).join("|"));
+      seen.push(t.state().bubbles.filter((b) => b.kind !== "workspace").map((b) => b.text).join("|"));
       onDelta("Mình đọc đề");
-      seen.push(t.state().bubbles.at(-1)!.text);
+      seen.push(t.state().bubbles.findLast((b) => b.kind === "agent")!.text);
       onDelta(" là: x.\n```html\n<p>");
-      seen.push(`${t.state().bubbles.at(-1)!.text}/${t.state().building}`);
+      seen.push(`${t.state().bubbles.findLast((b) => b.kind === "agent")!.text}/${t.state().building}`);
       onDelta("x</p>\n```");
       return DONE;
     });
@@ -137,14 +138,14 @@ describe("typed turn", () => {
     const texts: string[] = [];
     const t = await boot(async (_s, _m, onDelta) => {
       onDelta("```html\n<p>x");
-      texts.push(t.state().bubbles.at(-1)!.text);
+      texts.push(t.state().bubbles.findLast((b) => b.kind === "agent")!.text);
       onDelta("</p>\n```");
       return DONE;
     });
     t.ws.actions.setInput("x");
     await t.ws.actions.submit();
     expect(texts).toEqual([copy.thinking]);
-    expect(t.state().bubbles.at(-1)!.text).toBe(copy.built);
+    expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "agent", text: copy.built });
   });
 });
 
@@ -320,7 +321,7 @@ describe("workspace turn", () => {
     });
   });
 
-  it("queues one typed message behind a workspace turn and sends it when the turn ends", async () => {
+  it("queues one message with attachments behind a workspace turn and sends it when the turn ends", async () => {
     const t = await withWorkspace();
     const gate = deferred();
     t.api.turn.mockClear();
@@ -333,12 +334,15 @@ describe("workspace turn", () => {
     expect(t.state().busy).toBe(true);
     expect(t.state().typedTurn).toBe(false);
 
+    await t.ws.actions.pickPhoto(new Blob(["x"]), "composer_button");
+    t.readPhoto.mockResolvedValueOnce({ data: "SECOND", bytes: 9, width: 4, height: 3, processMs: 2 });
+    await t.ws.actions.pickPhoto(new Blob(["y"]), "composer_button");
     t.ws.actions.setInput("câu hỏi");
     await t.ws.actions.submit();
     expect(t.state().queued).toBe(true);
     expect(t.state().sendDisabled).toBe(true);
-    expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "student", text: "câu hỏi" });
-    expect(t.track).toHaveBeenCalledWith("message_sent", expect.objectContaining({ queued: true }), "s1");
+    expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "student", text: "câu hỏi", photos: ["PHOTO", "SECOND"] });
+    expect(t.track).toHaveBeenCalledWith("message_sent", expect.objectContaining({ queued: true, photo_count: 2 }), "s1");
 
     // A second message while one is queued is ignored.
     t.ws.actions.setInput("khác");
@@ -348,7 +352,11 @@ describe("workspace turn", () => {
     gate.resolve();
     await vi.advanceTimersByTimeAsync(0);
     expect(t.api.turn).toHaveBeenCalledTimes(2);
-    expect(lastContent(t.api)).toBe("câu hỏi");
+    expect(lastContent(t.api)).toMatchObject([
+      { type: "image", source: { data: "PHOTO" } },
+      { type: "image", source: { data: "SECOND" } },
+      { type: "text", text: "câu hỏi" },
+    ]);
     expect(t.state().queued).toBe(false);
   });
 
@@ -357,7 +365,7 @@ describe("workspace turn", () => {
     t.api.turn.mockRejectedValueOnce(new TurnError("upstream", "boom"));
     click(1);
     await vi.advanceTimersByTimeAsync(800);
-    expect(t.state().bubbles.at(-1)).toEqual(expect.objectContaining({ kind: "note", text: copy.errConnect("boom") }));
+    expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "note", text: copy.errConnect() });
     expect(t.state().hasMessages).toBe(true);
     // The failed user message was popped: one turn (two messages) remains.
     t.ws.actions.newProblem();
@@ -365,33 +373,121 @@ describe("workspace turn", () => {
   });
 });
 
+describe("photo attachments", () => {
+  it("appends up to the limit, drops an extra photo, and removes by index", async () => {
+    const t = await boot();
+    const photos = Array.from({ length: MAX_PHOTOS }, (_, i) => `PHOTO${i}`);
+    for (const data of photos) {
+      t.readPhoto.mockResolvedValueOnce({ data, bytes: 9, width: 4, height: 3, processMs: 2 });
+      await t.ws.actions.pickPhoto(new Blob([data]), "composer_button");
+    }
+    await t.ws.actions.pickPhoto(new Blob(["extra"]), "composer_button");
+    expect(t.readPhoto).toHaveBeenCalledTimes(MAX_PHOTOS);
+    expect(t.state()).toMatchObject({ photos, screen: "empty" });
+    expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "note", text: copy.photoLimit(MAX_PHOTOS) });
+    expect(t.track.mock.calls.filter(([event]) => event === "photo_picked").map(([, props]) => props.count)).toEqual([1, 2, 3, 4]);
+
+    t.ws.actions.removePhoto(1);
+    expect(t.state().photos).toEqual(photos.filter((_, i) => i !== 1));
+  });
+
+  it("sends the images in order followed by the text", async () => {
+    const t = await boot();
+    const photos = ["FIRST", "SECOND", "THIRD"];
+    for (const data of photos) {
+      t.readPhoto.mockResolvedValueOnce({ data, bytes: 9, width: 4, height: 3, processMs: 2 });
+      await t.ws.actions.pickPhoto(new Blob([data]), "composer_button");
+    }
+    t.ws.actions.setInput("ghi chú");
+    await t.ws.actions.submit();
+    expect(lastContent(t.api)).toEqual([
+      ...photos.map((data) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } })),
+      { type: "text", text: "ghi chú" },
+    ]);
+    expect(t.state().photos).toEqual([]);
+    expect(t.state().bubbles[0]).toMatchObject({ kind: "student", photos, text: "ghi chú" });
+    expect(t.track).toHaveBeenCalledWith("message_sent", expect.objectContaining({ has_photo: true, photo_count: 3 }), null);
+  });
+});
+
 describe("failure of a typed turn", () => {
-  it("pops the message, removes the bubbles, restores text, photo and events", async () => {
+  it("keeps the failed message in the log and retries the same content and pending events", async () => {
     const t = await boot(reply(HTML_REPLY));
     t.ws.actions.setInput("x");
     await t.ws.actions.submit();
     await t.ws.actions.pickPhoto(new Blob(["x"]), "composer_button");
+    t.readPhoto.mockResolvedValueOnce({ data: "SECOND", bytes: 9, width: 4, height: 3, processMs: 2 });
+    await t.ws.actions.pickPhoto(new Blob(["y"]), "composer_button");
     t.ws.actions.setInput("câu hỏi");
     post({ type: "tick", byStudent: false }); // a pending event with its flush timer
     t.api.turn.mockRejectedValueOnce(new TurnError("upstream", "boom"));
 
     await t.ws.actions.submit();
     const s = t.state();
-    expect(s.bubbles.slice(2)).toEqual([expect.objectContaining({ kind: "error", text: copy.errConnect("boom") })]);
-    expect(s.input).toBe("câu hỏi");
-    expect(s.photo).toBe("PHOTO");
+    const failed = s.bubbles.at(-1)!;
+    expect(s.bubbles.slice(2)).toEqual([expect.objectContaining({
+      kind: "student", failed: copy.errConnect(), text: "câu hỏi", photos: ["PHOTO", "SECOND"],
+    })]);
+    expect(s.input).toBe("");
+    expect(s.photos).toEqual([]);
     expect(s.hasMessages).toBe(true);
+    const originalContent = lastContent(t.api);
 
     // The stale timer must not fire the restored events alone.
     t.api.turn.mockClear();
     await vi.advanceTimersByTimeAsync(2000);
     expect(t.api.turn).not.toHaveBeenCalled();
 
-    // Resend: the events ride along with the typed text.
+    // Retry with the same content while a new draft and photo are in the composer.
+    t.ws.actions.setInput("bản nháp");
+    t.readPhoto.mockResolvedValueOnce({ data: "DRAFT", bytes: 9, width: 4, height: 3, processMs: 2 });
+    await t.ws.actions.pickPhoto(new Blob(["draft"]), "composer_button");
+    t.api.turn.mockRejectedValueOnce(new TurnError("upstream", "retry failed"));
+    const retry = t.ws.actions.retry(failed.id);
+    expect(t.state().bubbles.find((b) => b.id === failed.id)).toMatchObject({ failed: null });
+    await retry;
+    expect(t.state().bubbles.find((b) => b.id === failed.id)).toMatchObject({ failed: copy.errConnect() });
+    expect(lastContent(t.api)).toEqual(originalContent);
+    expect(lastContent(t.api)).toMatchObject([
+      { type: "image", source: { data: "PHOTO" } },
+      { type: "image", source: { data: "SECOND" } },
+      { type: "text", text: expect.stringMatching(/^\[workspace\] [\s\S]*"tick"[\s\S]*\n\ncâu hỏi$/) },
+    ]);
+    expect(t.state()).toMatchObject({ input: "bản nháp", photos: ["DRAFT"] });
+    expect(t.track).toHaveBeenCalledWith("turn_retried", {}, "s1");
+
     t.api.turn.mockImplementation(reply("ok"));
+    await t.ws.actions.retry(failed.id);
+    expect(lastContent(t.api)).toEqual(originalContent);
+    expect(t.state().bubbles.filter((b) => b.kind === "student").map((b) => [b.id, b.failed])).toEqual([
+      [s.bubbles[0].id, null], [failed.id, null],
+    ]);
+  });
+
+  it("only retries the latest failed student bubble while idle", async () => {
+    const t = await boot();
+    t.api.turn.mockRejectedValueOnce(new TurnError("upstream", "failed"));
+    t.ws.actions.setInput("first");
     await t.ws.actions.submit();
-    const content = lastContent(t.api) as [{ type: string }, { text: string }];
-    expect(content[1].text).toMatch(/^\[workspace\] [\s\S]*"tick"[\s\S]*\n\ncâu hỏi$/);
+    const firstId = t.state().bubbles[0].id;
+
+    const gate = deferred();
+    t.api.turn.mockImplementationOnce(async () => { await gate.promise; return DONE; });
+    click(1);
+    await vi.advanceTimersByTimeAsync(800);
+    expect(t.state().busy).toBe(true);
+    await t.ws.actions.retry(firstId);
+    expect(t.api.turn).toHaveBeenCalledTimes(2);
+    expect(t.state().bubbles[0]).toMatchObject({ failed: copy.errConnect() });
+    gate.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+
+    t.api.turn.mockRejectedValueOnce(new TurnError("upstream", "failed again"));
+    t.ws.actions.setInput("second");
+    await t.ws.actions.submit();
+    await t.ws.actions.retry(firstId);
+    expect(t.api.turn).toHaveBeenCalledTimes(3);
+    expect(t.track).not.toHaveBeenCalledWith("turn_retried", expect.anything(), expect.anything());
   });
 
   it.each([
@@ -400,15 +496,17 @@ describe("failure of a typed turn", () => {
     ["429 at least a minute", new ApiError(429, "rate_limited", "x", 1), copy.errRateLimited(1), { status: 429, code: "rate_limited" }],
     ["503", new ApiError(503, "budget_exhausted", "x"), copy.errBudget, { status: 503, code: "budget_exhausted" }],
     ["409", new ApiError(409, "session_ended", "x"), copy.errEnded, { status: 409, code: "session_ended" }],
-    ["stream code", new TurnError("model_refusal", "declined"), copy.errConnect("declined"), { code: "model_refusal" }],
-    ["network", new TypeError("Failed to fetch"), copy.errConnect("Failed to fetch"), { code: "network" }],
+    ["API error", new ApiError(502, "upstream", "private server details"), copy.errConnect(), { status: 502, code: "upstream" }],
+    ["stream code", new TurnError("model_refusal", "declined"), copy.errConnect(), { code: "model_refusal" }],
+    ["network", new TypeError("Failed to fetch"), copy.errConnect(), { code: "network" }],
   ])("maps %s to its copy and tracks turn_failed", async (_name, error, text, props) => {
     const t = await boot(async () => {
       throw error;
     });
     t.ws.actions.setInput("x");
     await t.ws.actions.submit();
-    expect(t.state().bubbles.at(-1)).toEqual(expect.objectContaining({ kind: "error", text }));
+    expect(t.state().bubbles).toEqual([expect.objectContaining({ kind: "student", failed: text })]);
+    expect(text).not.toContain(error.message);
     expect(t.track).toHaveBeenCalledWith("turn_failed", props, expect.anything());
   });
 });
@@ -422,12 +520,12 @@ describe("focusInput", () => {
     expect(t.focus.mock.calls[0][0]).toBeFalsy();
   });
 
-  it("a failed typed turn reveals the composer", async () => {
+  it("a failed typed turn asks for focus without revealing the drawer", async () => {
     const t = await boot();
     t.api.turn.mockRejectedValueOnce(new TurnError("upstream", "boom"));
     t.ws.actions.setInput("x");
     await t.ws.actions.submit();
-    expect(t.focus).toHaveBeenLastCalledWith(true);
+    expect(t.focus).toHaveBeenLastCalledWith(false);
   });
 
   it("Sửa lại đề and Gõ đề bài reveal; removing the photo does not", async () => {
@@ -438,7 +536,8 @@ describe("focusInput", () => {
     t.ws.actions.typeProblemClicked();
     expect(t.focus).toHaveBeenLastCalledWith(true);
     t.focus.mockClear();
-    t.ws.actions.removePhoto();
+    await t.ws.actions.pickPhoto(new Blob(["x"]), "paste");
+    t.ws.actions.removePhoto(0);
     expect(t.focus.mock.calls[0][0]).toBeFalsy();
   });
 });
@@ -675,8 +774,8 @@ describe("session lifecycle", () => {
       t.ws.actions.setInput("y");
       await t.ws.actions.submit();
       expect(t.state().busy).toBe(false);
-      expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "error" });
-      expect(t.state().input).toBe("y");
+      expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "student", text: "y", failed: copy.errConnect() });
+      expect(t.state().input).toBe("");
     });
   });
 
@@ -699,17 +798,19 @@ describe("session lifecycle", () => {
     t.ws.actions.setInput("y");
     await t.ws.actions.submit();
     expect(t.api.createSession).toHaveBeenCalledTimes(2);
-    expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "error", text: copy.errEnded });
-    await t.ws.actions.submit();
+    const failed = t.state().bubbles.at(-1)!;
+    expect(failed).toMatchObject({ kind: "student", text: "y", failed: copy.errEnded });
+    await t.ws.actions.retry(failed.id);
     expect(lastCall(t.api)[0]).toBe("s2");
   });
 });
 
 describe("restore from the server", () => {
+  const photos = ["PHOTO", "SECOND", "THIRD"];
   const photoMessage = {
     role: "user",
     content: [
-      { type: "image", source: { type: "base64", media_type: "image/jpeg", data: "PHOTO" } },
+      ...photos.map((data) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } })),
       { type: "text", text: "ghi chú" },
     ],
   };
@@ -798,7 +899,7 @@ describe("restore from the server", () => {
     expect(t.api.currentSession).toHaveBeenCalledTimes(1);
     expect(s.ready).toBe(true);
     expect(s.bubbles.map((b) => b.kind)).toEqual(["student", "agent"]);
-    expect(s.bubbles[0]).toMatchObject({ text: "ghi chú", photo: "PHOTO" });
+    expect(s.bubbles[0]).toMatchObject({ text: "ghi chú", photos });
     expect(s.html).toBe("<p>x</p>");
     expect(s.screen).toBe("workspace");
     expect(s.hasMessages).toBe(true);
@@ -902,15 +1003,16 @@ describe("restore from the server", () => {
 
     expect(t.api.currentSession).toHaveBeenCalledTimes(2);
     const s = t.state();
-    expect(s.bubbles.map((b) => b.kind)).toEqual(["student", "agent", "error"]);
-    expect(s.bubbles[0]).toMatchObject({ text: "ghi chú", photo: "PHOTO" });
-    expect(s.bubbles.at(-1)).toMatchObject({ kind: "error", text: copy.errConnect("history changed") });
-    expect(s.input).toBe("y"); // the failed text is still there to resend
+    expect(s.bubbles.map((b) => b.kind)).toEqual(["student", "agent", "student"]);
+    expect(s.bubbles[0]).toMatchObject({ text: "ghi chú", photos });
+    const failed = s.bubbles.at(-1)!;
+    expect(failed).toMatchObject({ kind: "student", text: "y", failed: copy.errConnect() });
+    expect(s.input).toBe("");
     expect(s.html).toBe("<p>x</p>");
 
     // The resend goes to the restored session.
     t.api.turn.mockImplementation(reply("ok"));
-    await t.ws.actions.submit();
+    await t.ws.actions.retry(failed.id);
     expect(lastCall(t.api)[0]).toBe("srv1");
     expect(lastCall(t.api)[1]).toEqual({ role: "user", content: "y" });
   });
@@ -964,8 +1066,8 @@ describe("a stream lost mid-turn (a locked phone)", () => {
     await t.ws.actions.submit();
 
     const s = t.state();
-    expect(s.bubbles.at(-1)).toMatchObject({ kind: "error", text: copy.errConnect("network error") });
-    expect(s.input).toBe("y");
+    expect(s.bubbles.at(-1)).toMatchObject({ kind: "student", text: "y", failed: copy.errConnect() });
+    expect(s.input).toBe("");
   });
 
   it("gives up when the turn never finishes", async () => {
@@ -978,8 +1080,8 @@ describe("a stream lost mid-turn (a locked phone)", () => {
     t.ws.actions.setInput("y");
     await t.ws.actions.submit();
 
-    expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "error" });
-    expect(t.state().input).toBe("y");
+    expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "student", text: "y", failed: copy.errConnect() });
+    expect(t.state().input).toBe("");
   });
 
   it("gives up after five failed status checks in a row", async () => {
@@ -993,8 +1095,8 @@ describe("a stream lost mid-turn (a locked phone)", () => {
     await t.ws.actions.submit();
 
     expect(t.api.turnStatus).toHaveBeenCalledTimes(5);
-    expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "error" });
-    expect(t.state().input).toBe("y");
+    expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "student", text: "y", failed: copy.errConnect() });
+    expect(t.state().input).toBe("");
   });
 
   it("keeps waiting through a failed status check", async () => {
@@ -1267,8 +1369,8 @@ describe("reset dividers", () => {
     const restored = await boot(undefined, saved());
     const live = await boot(undefined, { ...saved(), messages: [{ role: "assistant", content: "Hello" }] });
     live.ws.actions.resetWorkspace("w1");
-    expect(restored.state().bubbles.map(({ kind }) => kind)).toEqual(["agent", "reset"]);
-    expect(restored.state().bubbles.at(-1)).toMatchObject({ kind: "reset", title: null });
+    expect(restored.state().bubbles.map(({ kind }) => kind)).toEqual(["agent", "reset", "workspace"]);
+    expect(restored.state().bubbles.findLast((b) => b.kind === "reset")).toMatchObject({ title: null });
     expect(live.state().bubbles.at(-1)).toMatchObject({ kind: "reset", title: null });
   });
 
@@ -1288,8 +1390,7 @@ describe("tracking", () => {
     const t = await boot();
     t.ws.actions.typeProblemClicked();
     await t.ws.actions.pickPhoto(new Blob(["x"]), "snap_button");
-    t.ws.actions.retake();
-    t.ws.actions.removePhoto();
+    t.ws.actions.removePhoto(0);
     t.readPhoto.mockRejectedValueOnce(new Error("bad"));
     await t.ws.actions.pickPhoto(new Blob(["x"]), "composer_button");
     expect(t.state().bubbles.at(-1)).toMatchObject({ kind: "note", text: copy.photoUnreadable });
@@ -1305,12 +1406,12 @@ describe("tracking", () => {
     const calls = t.track.mock.calls;
     const find = (type: string) => calls.filter((c) => c[0] === type).map((c) => c[1]);
     expect(find("type_problem_clicked")).toHaveLength(1);
-    expect(find("photo_picked")[0]).toEqual({ source: "snap_button", bytes: 9, width: 4, height: 3, process_ms: 2 });
-    expect(find("photo_retake_clicked")).toHaveLength(1);
+    expect(find("photo_picked")[0]).toEqual({ source: "snap_button", bytes: 9, width: 4, height: 3, process_ms: 2, count: 1 });
     expect(find("photo_removed")).toHaveLength(1);
     expect(find("photo_unreadable")).toHaveLength(1);
     expect(find("message_sent")[0]).toEqual({
       has_photo: false,
+      photo_count: 0,
       has_text: true,
       text_len: 3,
       had_events: true,
@@ -1345,6 +1446,7 @@ describe("structured workspace", () => {
   const SOLVE = fixtures["solve-tangent.json"]; // blocks p1, s1
   const LEARN = fixtures["learn-derivative.json"];
   const shown = (id: string, doc = SOLVE): Extract<TurnEvent, { event: "workspace" }> => ({ event: "workspace", workspaceId: id, phase: doc.phase, doc });
+  const cards = (t: Awaited<ReturnType<typeof boot>>) => t.state().bubbles.filter((b) => b.kind === "workspace");
   // Plays text deltas (strings) and events in order; `at` runs between items, for mid-turn checks.
   const stream =
     (items: (string | TurnEvent | (() => void))[]): Turn =>
@@ -1368,7 +1470,7 @@ describe("structured workspace", () => {
     const t = await boot(
       stream([
         { event: "announce", text: "Ok, mình dựng phần lý thuyết nhé." },
-        () => (mid = t.state().bubbles.map((b) => [b.kind, b.text, b.kind === "agent" && b.waiting])),
+        () => (mid = t.state().bubbles.filter((b) => b.kind !== "workspace").map((b) => [b.kind, b.text, b.kind === "agent" && b.waiting])),
         shown("w1"),
         "Xong rồi.",
       ]),
@@ -1379,7 +1481,7 @@ describe("structured workspace", () => {
       ["agent", "Ok, mình dựng phần lý thuyết nhé.", false],
       ["agent", copy.thinking, true],
     ]);
-    expect(t.state().bubbles.map((b) => [b.kind, b.text])).toEqual([
+    expect(t.state().bubbles.filter((b) => b.kind !== "workspace").map((b) => [b.kind, b.text])).toEqual([
       ["student", "x"],
       ["agent", "Ok, mình dựng phần lý thuyết nhé."],
       ["agent", "Xong rồi."],
@@ -1391,7 +1493,7 @@ describe("structured workspace", () => {
       stream([{ event: "announce", text: "Mình cùng gỡ ý tưởng chính nhé." }, shown("w1"), "Mình cùng gỡ ý tưởng chính nhé"]),
     );
     await typed(t);
-    expect(t.state().bubbles.map((b) => [b.kind, b.text])).toEqual([
+    expect(t.state().bubbles.filter((b) => b.kind !== "workspace").map((b) => [b.kind, b.text])).toEqual([
       ["student", "x"],
       ["agent", "Mình cùng gỡ ý tưởng chính nhé."],
     ]);
@@ -1401,7 +1503,7 @@ describe("structured workspace", () => {
     const restate = "Mình đọc đề là: tìm x.";
     const silent = await boot(stream([{ event: "announce", text: restate }, shown("w1"), "[silent]"]));
     await typed(silent);
-    expect(silent.state().bubbles.map((b) => b.kind === "agent" && b.restate)).toEqual([false, true]);
+    expect(silent.state().bubbles.filter((b) => b.kind === "agent").map((b) => b.restate)).toEqual([true]);
     expect(silent.state().restateChips).toBe(true);
 
     const spoken = await boot(stream([{ event: "announce", text: restate }, shown("w1"), "Bạn tự làm trước nhé."]));
@@ -1421,20 +1523,26 @@ describe("structured workspace", () => {
     expect(turns[3]).toBe(turns[2]);
   });
 
-  it("workspace event shows the view and clears building", async () => {
+  it("streams a workspace card in place and shows the view when ready", async () => {
     const seen: unknown[] = [];
+    const seenCards: ReturnType<typeof cards>[] = [];
     const snap = () => {
       const s = t.state();
       seen.push({ screen: s.screen, building: s.building, status: s.status, phase: s.phase });
+      seenCards.push(cards(t));
     };
     const t = await boot(
       stream([
         { event: "status", stage: "planning", phase: "solve" },
         snap,
         { event: "status", stage: "searching", label: "vi.wikipedia.org" },
+        { event: "workspace_partial", phase: "solve", title: "Draft title", blocks: [] },
+        snap,
+        { event: "workspace_partial", phase: "solve", title: "Updated title", blocks: [] },
         snap,
         shown("w1"),
         snap,
+        { event: "status", stage: "simulating" },
         "Xong.",
       ]),
     );
@@ -1442,11 +1550,39 @@ describe("structured workspace", () => {
     expect(seen).toEqual([
       { screen: "building", building: true, status: copy.statusPlanning, phase: null },
       { screen: "building", building: true, status: copy.statusSearching, phase: null },
+      { screen: "building", building: true, status: copy.statusSearching, phase: null },
       { screen: "workspace", building: false, status: null, phase: "solve" },
     ]);
+    const id = seenCards[0][0].id;
+    expect(seenCards).toEqual([
+      [expect.objectContaining({ id, state: "building", title: null, workspaceId: null })],
+      [expect.objectContaining({ id, state: "building", title: "Draft title", workspaceId: null })],
+      [expect.objectContaining({ id, state: "building", title: "Updated title", workspaceId: null })],
+      [expect.objectContaining({ id, state: "ready", title: SOLVE.title, workspaceId: "w1" })],
+    ]);
+    expect(cards(t)).toEqual(seenCards.at(-1));
     expect(t.state().tabs).toEqual([{ id: "w1", doc: SOLVE, phase: "solve" }]);
     expect(t.state().html).toBeNull();
     expect(t.track).toHaveBeenCalledWith("workspace_shown", { ms_since_send: expect.any(Number), replaced: false }, "s1");
+  });
+
+  it.each(["failed status", "turn error", "missing workspace"])("marks an unfinished card failed after %s", async (reason) => {
+    let firstCard: ReturnType<typeof cards>[number] | undefined;
+    const t = await boot(async (_s, _m, onDelta, onEvent) => {
+      onEvent!({ event: "workspace_partial", phase: "solve", title: "Draft", blocks: [] });
+      firstCard = cards(t)[0];
+      if (reason === "failed status") {
+        onEvent!({ event: "status", stage: "failed" });
+        expect(cards(t)[0]?.state).toBe("failed");
+      }
+      if (reason === "turn error") throw new TurnError("upstream", "private error");
+      onDelta("Mình chưa dựng xong.");
+      return DONE;
+    });
+    await typed(t);
+    expect(firstCard).toMatchObject({ state: "building", title: "Draft", workspaceId: null });
+    expect(cards(t)).toEqual([{ ...firstCard, state: "failed" }]);
+    expect(t.state().building).toBe(false);
   });
 
   it("only marks a learn simulation pending when its custom HTML is null", async () => {
@@ -1508,8 +1644,16 @@ describe("structured workspace", () => {
     await typed(t);
     expect(t.state().overrides).toEqual({ S1: { s1: { 1: "review" } }, L1: { q1: { 1: "ok" } } });
     expect(t.state().taskDone).toEqual({ S1: ["s1"], L1: ["q1"] });
+    const originalIndex = t.state().bubbles.findIndex((b) => b.kind === "workspace" && b.workspaceId === "S1");
+    const originalCard = t.state().bubbles[originalIndex];
 
-    t.api.turn.mockImplementation(stream([{ ...shown("S2"), replaces: "S1" }, { event: "active", workspaceId: "L1" }, "ok"]));
+    const replacement = { ...SOLVE, title: "Rebuilt workspace" };
+    t.api.turn.mockImplementation(stream([
+      { event: "status", stage: "planning" },
+      { ...shown("S2", replacement), replaces: "S1" },
+      { event: "active", workspaceId: "L1" },
+      "ok",
+    ]));
     await typed(t, "dựng lại");
     const s = t.state();
     expect(s.tabs.find((w) => w.id === "L1")?.id).toBe("L1");
@@ -1519,6 +1663,8 @@ describe("structured workspace", () => {
     expect(s.overrides).toEqual({ L1: { q1: { 1: "ok" } } });
     expect(s.taskDone).toEqual({ L1: ["q1"] });
     expect(t.track).toHaveBeenLastCalledWith("workspace_shown", expect.objectContaining({ replaced: true }), "s1");
+    expect(s.bubbles[originalIndex]).toEqual({ ...originalCard, workspaceId: "S2", title: replacement.title });
+    expect(cards(t).map((b) => b.workspaceId)).toEqual(["L1", "S2"]);
   });
 
   it("replacing a workspace drops pending events about blocks only the old doc had", async () => {
@@ -1558,7 +1704,7 @@ describe("structured workspace", () => {
     expect(sentEvents(t.api)).toEqual([{ type: "line_checked", data, byStudent: true, gesture: expect.any(Number) }]);
     // A code-routed turn has no reply: no bubble and no error.
     await vi.advanceTimersByTimeAsync(0);
-    expect(t.state().bubbles.map((b) => b.kind)).toEqual(["student", "agent"]);
+    expect(t.state().bubbles.map((b) => b.kind)).toEqual(["student", "agent", "workspace"]);
     expect(t.track).not.toHaveBeenCalledWith("turn_failed", expect.anything(), expect.anything());
   });
 
@@ -1755,7 +1901,7 @@ describe("structured workspace", () => {
     });
   });
 
-  it("restore prefers tabs over html", async () => {
+  it("restore prefers tabs over html and appends ready cards in tab order", async () => {
     const t = await boot(undefined, {
       sessionId: "srv",
       messages: [
@@ -1763,7 +1909,7 @@ describe("structured workspace", () => {
         { role: "assistant", content: "Ok." },
       ],
       html: "<p>old</p>",
-      tabs: [{ id: "S1", doc: SOLVE, phase: "solve" }],
+      tabs: [{ id: "S1", doc: SOLVE, phase: "solve" }, { id: "L1", doc: LEARN, phase: "learn" }],
       activeId: "S1",
     });
     const s = t.state();
@@ -1772,6 +1918,15 @@ describe("structured workspace", () => {
     expect(s.tabs.find((w) => w.phase === "solve")?.id).toBe("S1");
     expect(s.screen).toBe("workspace");
     expect(t.track).toHaveBeenCalledWith("session_restored", { messages: 2, has_workspace: true });
+    expect(s.bubbles).toEqual([
+      expect.objectContaining({ kind: "student", text: "đề", failed: null }),
+      expect.objectContaining({ kind: "agent", text: "Ok." }),
+      expect.objectContaining({ kind: "workspace", workspaceId: "S1", state: "ready", title: SOLVE.title }),
+      expect.objectContaining({ kind: "workspace", workspaceId: "L1", state: "ready", title: LEARN.title }),
+    ]);
+    t.ws.actions.openWorkspace("L1");
+    expect(t.state().activeId).toBe("L1");
+    expect(t.api.setActiveWorkspace).toHaveBeenCalledWith("srv", "L1");
   });
 
   it("restore handles consecutive user messages", async () => {
@@ -1789,7 +1944,7 @@ describe("structured workspace", () => {
       activeId: "S1",
     });
     const s = t.state();
-    expect(s.bubbles.map((b) => [b.kind, b.text])).toEqual([
+    expect(s.bubbles.filter((b) => b.kind !== "workspace").map((b) => [b.kind, b.text])).toEqual([
       ["student", "đề"],
       ["student", "Giúp mình"],
       ["agent", "Ok, mình dựng nhé."],
@@ -1812,6 +1967,7 @@ describe("structured workspace", () => {
     t.ws.actions.newProblem();
     expect(t.state()).toMatchObject({
       tabs: [],
+      bubbles: [],
       activeId: null,
       overrides: {},
       taskDone: {},

@@ -1,10 +1,9 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { Entry } from "@/components/Entry";
+import { EmptyThread, type EmptyThreadProps } from "@/components/chat/EmptyThread";
 import { copy } from "@/lib/copy";
 import { ApiError, getSurpriseCard, type ProgressItem } from "@/lib/api";
 import { setLocale } from "@/lib/copy";
-import { stoppedAt } from "@/lib/progress";
 
 vi.mock("@/lib/api", async original => ({
   ...await original<typeof import("@/lib/api")>(), getSurpriseCard: vi.fn(),
@@ -17,28 +16,20 @@ beforeEach(() => {
 
 afterEach(() => { cleanup(); setLocale("vi"); });
 
-function setup(extra: Partial<Parameters<typeof Entry>[0]> = {}) {
+function setup(extra: Partial<EmptyThreadProps> = {}) {
   const props = {
-    composer: {
-      value: "",
-      onChange: vi.fn(),
-      onSend: vi.fn(),
-      onPickPhoto: vi.fn(),
-      placeholder: copy.placeholderEmpty,
-      photo: null,
-    },
     onStarter: vi.fn(),
     onSurprise: vi.fn(),
     ...extra,
   };
-  return { props, ui: <Entry {...props} /> };
+  return { props, ui: <EmptyThread {...props} /> };
 }
 
-test("shows the greeting, the composer, the camera and both starters", () => {
+test("shows the greeting, both starters and the footer", () => {
   render(setup().ui);
   expect(screen.getByRole("heading", { name: copy.entryTitle })).toBeTruthy();
-  expect(screen.getByLabelText(copy.inputLabel)).toBeTruthy();
-  expect(screen.getByRole("button", { name: copy.pickPhoto })).toBeTruthy();
+  expect(screen.getByText(copy.entrySub)).toBeTruthy();
+  expect(screen.getByText(copy.entryFoot)).toBeTruthy();
   expect(screen.getByText(copy.starter1)).toBeTruthy();
   expect(screen.getByText(copy.starter2)).toBeTruthy();
 });
@@ -50,74 +41,41 @@ test("a starter starts its sample", () => {
   expect(s.props.onStarter).toHaveBeenCalledWith("geometry");
 });
 
-test("Enter in the composer sends", () => {
-  const s = setup();
-  render(s.ui);
-  fireEvent.keyDown(screen.getByLabelText(copy.inputLabel), { key: "Enter" });
-  expect(s.props.composer.onSend).toHaveBeenCalledTimes(1);
-});
-
-test("Thử lại shows only when a retry is given", () => {
-  const onRetry = vi.fn();
-  const { unmount } = render(setup().ui);
-  expect(screen.queryByRole("button", { name: copy.retry })).toBeNull();
-  unmount();
-  render(setup({ onRetry }).ui);
-  fireEvent.click(screen.getByRole("button", { name: copy.retry }));
-  expect(onRetry).toHaveBeenCalledTimes(1);
-});
-
-test("with a photo, the photo check replaces the greeting and the starters", () => {
-  const onSend = vi.fn();
-  const onRetake = vi.fn();
-  const s = setup({ photoCheck: { src: "data:image/jpeg;base64,x", onSend, onRetake } });
-  render(s.ui);
-  expect(screen.getByRole("heading", { name: copy.photoTitle })).toBeTruthy();
-  expect(screen.queryByText(copy.starter1)).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: copy.sendPhoto }));
-  fireEvent.click(screen.getByRole("button", { name: copy.retake }));
-  expect(onSend).toHaveBeenCalledTimes(1);
-  expect(onRetake).toHaveBeenCalledTimes(1);
-});
-
 const progressItem: ProgressItem = {
   workspace_id: "w", session_id: "s", phase: "solve", title: "Bài vừa làm", created_at: "2026-11-14T05:00:00Z", tabs: 1,
   roadmap: "generic", stages: [0, 1], steps: { entries: [{ state: "ok", tries: 1, hint: 0 }], done: false, free: false },
   quizzes: null, next: null,
 };
 
-test("progress replaces both starters and keeps the retry action", () => {
-  const onOpen = vi.fn(); const onRetry = vi.fn();
-  render(setup({ progress: { item: progressItem, onOpen }, onRetry }).ui);
+test("progress shows the next-step card and its resume link", () => {
+  const onOpen = vi.fn();
+  render(setup({ progress: { item: progressItem, onOpen } }).ui);
   expect(screen.getByRole("heading", { name: copy.entryNext })).toBeTruthy();
   expect(screen.queryByText(copy.samplesLabel)).toBeNull();
   expect(screen.queryByText(copy.starter1)).toBeNull();
   expect(screen.queryByText(copy.starter2)).toBeNull();
   expect(screen.getByRole("link", { name: copy.progressSeeAll }).getAttribute("href")).toBe("/progress");
-  fireEvent.click(screen.getByRole("button", { name: copy.entryResume }));
-  fireEvent.click(screen.getByRole("button", { name: copy.retry }));
+  fireEvent.click(within(screen.getByRole("region", { name: copy.entryNext })).getByRole("button"));
   expect(onOpen).toHaveBeenCalledOnce();
-  expect(onRetry).toHaveBeenCalledOnce();
 });
 
-test("null progress keeps both starters and a photo hides progress", () => {
-  const { rerender } = render(setup({ progress: null }).ui);
+test("null progress keeps both starters", () => {
+  render(setup({ progress: null }).ui);
   expect(screen.getByText(copy.starter1)).toBeTruthy();
   expect(screen.getByText(copy.starter2)).toBeTruthy();
   expect(screen.queryByRole("link", { name: copy.progressSeeAll })).toBeNull();
-  rerender(setup({ progress: { item: progressItem, onOpen: vi.fn() }, photoCheck: { src: "data:image/jpeg;base64,x", onSend: vi.fn(), onRetake: vi.fn() } }).ui);
-  expect(screen.queryByText(copy.progressLatest)).toBeNull();
-  expect(screen.queryByRole("link", { name: copy.progressSeeAll })).toBeNull();
-  expect(screen.queryByRole("button", { name: copy.entryResume })).toBeNull();
 });
 
 test.each([false, true])("surprise preview is available with progress=%s", async (hasProgress) => {
   const onSurprise = vi.fn();
   render(setup({ onSurprise, progress: hasProgress ? { item: progressItem, onOpen: vi.fn() } : null }).ui);
   expect(await screen.findByText(surprise.title)).toBeTruthy();
-  expect(screen.getByText(surprise.tag)).toBeTruthy();
-  expect(screen.getByText(surprise.teaser)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: copy.surpriseExplore }));
+  expect(screen.getByRole("heading", { name: "Bài bất ngờ" })).toBeTruthy();
+  expect(screen.queryByText(surprise.tag)).toBeNull();
+  expect(screen.queryByText(surprise.teaser)).toBeNull();
+  const row = screen.getByRole("button", { name: surprise.title });
+  expect(row.getAttribute("title")).toBe(surprise.teaser);
+  fireEvent.click(row);
   expect(onSurprise).toHaveBeenCalledExactlyOnceWith(surprise.id);
 });
 
@@ -129,22 +87,21 @@ test.each(["vi", "en"] as const)("next-step variants in %s", locale => {
   expect(screen.getByText(progressItem.title)).toBeTruthy();
   expect(screen.getByText(copy.entryLearn + next)).toBeTruthy();
   const card = screen.getByRole("region", { name: copy.entryNext });
-  const button = within(card).getByRole("button", { name: copy.entryResume });
+  const button = within(card).getByRole("button");
   expect(within(card).getAllByRole("button")).toHaveLength(1);
   expect(button.querySelector("a, button, [role=button]")).toBeNull();
   expect(within(card).getByRole("link", { name: copy.progressSeeAll }).closest("button")).toBeNull();
-  expect(screen.getByText(copy.entryLearn + next).closest("button, [role=button]")).toBeNull();
+  expect(screen.getByText(copy.entryLearn + next).closest("button")).toBe(button);
   fireEvent.click(button);
   expect(onOpen).toHaveBeenCalledOnce();
   expect(screen.queryByText("Ignored")).toBeNull();
   rerender(setup({ progress: { item: progressItem, onOpen } }).ui);
   expect(screen.getByText(copy.entryContinue + progressItem.title)).toBeTruthy();
-  expect(screen.getByText(copy.progressStopped + stoppedAt(progressItem))).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: copy.entryResume }));
+  fireEvent.click(within(screen.getByRole("region", { name: copy.entryNext })).getByRole("button"));
   expect(onOpen).toHaveBeenCalledTimes(2);
   rerender(setup({ progress: { item: { ...progressItem, steps: { ...progressItem.steps!, done: true } }, onOpen } }).ui);
-  expect(screen.getByText(progressItem.title).parentElement!.querySelector("svg")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: copy.entryResume }));
+  expect(within(screen.getByRole("region", { name: copy.entryNext })).getByRole("button").querySelector("svg")).toBeTruthy();
+  fireEvent.click(within(screen.getByRole("region", { name: copy.entryNext })).getByRole("button"));
   expect(onOpen).toHaveBeenCalledTimes(3);
   expect(container.textContent).not.toContain(copy.entryContinue);
 });
@@ -158,9 +115,18 @@ test.each([new Error("offline"), new ApiError(404, "pool_empty", "")])("a failed
   vi.mocked(getSurpriseCard).mockRejectedValueOnce(error);
   const onSurprise = vi.fn();
   render(setup({ onSurprise }).ui);
-  fireEvent.click(await screen.findByRole("button", { name: copy.surprise }));
+  fireEvent.click(await screen.findByRole("button", { name: "Bài bất ngờ" }));
   expect(onSurprise).toHaveBeenCalledExactlyOnceWith();
-  expect(screen.queryByRole("button", { name: copy.surpriseExplore })).toBeNull();
+  expect(screen.queryByRole("button", { name: surprise.title })).toBeNull();
+});
+
+test("shows a single skeleton row while loading", () => {
+  vi.mocked(getSurpriseCard).mockReturnValueOnce(new Promise(() => {}));
+  render(setup().ui);
+  const region = screen.getByRole("region", { name: copy.surpriseHeading });
+  expect(region.getAttribute("aria-busy")).toBe("true");
+  expect(within(region).getAllByRole("status", { name: copy.surpriseLoading })).toHaveLength(1);
+  expect(within(region).queryByRole("button")).toBeNull();
 });
 
 test("shuffle excludes this card without opening; explore opens the replacement", async () => {
@@ -173,10 +139,10 @@ test("shuffle excludes this card without opening; explore opens the replacement"
   expect(getSurpriseCard).toHaveBeenLastCalledWith(surprise.id);
   expect(onSurprise).not.toHaveBeenCalled();
   expect(screen.getByRole("status", { name: copy.surpriseLoading })).toBeTruthy();
-  expect(screen.queryByRole("button", { name: copy.surpriseExplore })).toBeNull();
+  expect(screen.queryByRole("button", { name: surprise.title })).toBeNull();
   resolve({ ...surprise, id: "lesson-2", title: "Bài khác" });
   await screen.findByText("Bài khác");
-  fireEvent.click(screen.getByRole("button", { name: copy.surpriseExplore }));
+  fireEvent.click(screen.getByRole("button", { name: "Bài khác" }));
   expect(onSurprise).toHaveBeenCalledExactlyOnceWith("lesson-2");
 });
 

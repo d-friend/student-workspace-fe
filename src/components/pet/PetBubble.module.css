@@ -1,49 +1,18 @@
-/* Docked: up-left of the pet, tail at the bottom-right corner. Sizes come from PetLayer's custom properties. */
+/* Inline replies take space below the active answer, including their chips. */
 .bubble {
-  position: absolute;
-  right: var(--bubble-right, calc(var(--pet-edge) + env(safe-area-inset-right)));
-  bottom: var(--bubble-bottom, calc(var(--pet-edge) + var(--pet-size) + 8px + env(safe-area-inset-bottom)));
-  width: max-content;
-  max-width: min(300px, calc(100vw - 32px));
+  width: 100%;
+  min-width: 0;
   box-sizing: border-box;
   padding: 12px 12px 12px 16px;
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 20px 20px 6px 20px;
-  box-shadow: 0 14px 34px rgba(21, 23, 28, 0.14);
-  transform-origin: 100% 100%;
-  animation: bubbleIn 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.25);
-}
-
-/* In the lane (PetLayer.tsx gives it left/top/bottom inline): beside the pet or over it. The corner nearest the pet
-   is the small one and the entrance grows from it. The entrance is not applied while .leaving, which would
-   otherwise lose the cascade to this more specific selector. */
-.bubble[data-side] {
-  right: auto;
-  bottom: auto;
   border-radius: 6px 20px 20px 20px;
-  transform-origin: 0 0;
+  animation: inlineIn 0.2s ease-out;
 }
 
-.bubble[data-side][data-flip] {
-  border-radius: 20px 20px 20px 6px;
-  transform-origin: 0 100%;
-}
-
-.bubble[data-side]:not(.leaving) {
-  animation-name: bubbleInSide;
-}
-
-@keyframes bubbleInSide {
-  from {
-    opacity: 0;
-    transform: translateX(-10px) scale(0.55);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+@keyframes inlineIn {
+  from { opacity: 0; }
 }
 
 /* Fading away after SHOW_MS (PetBubble.tsx). */
@@ -62,17 +31,6 @@
 .error {
   color: var(--error-text);
   background: var(--error-bg);
-}
-
-@keyframes bubbleIn {
-  from {
-    opacity: 0;
-    transform: translate(8px, 8px) scale(0.55);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
 }
 
 .row {
@@ -204,11 +162,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .bubble {
-    animation: fadeIn 0.15s;
-  }
-
-  .bubble[data-side]:not(.leaving) {
-    animation-name: fadeIn;
+    animation: none;
   }
 
   .text {
@@ -233,25 +187,4 @@
   .spin {
     animation: none;
   }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-  }
-}
-
-/* Inline replies take space below the active answer, including their chips. */
-.bubble[data-inline] {
-  position: static;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-shadow: none;
-  border-radius: 6px 20px 20px 20px;
-}
-.bubble[data-inline]:not(.leaving) { animation: inlineIn 0.2s ease-out; }
-@keyframes inlineIn { from { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) {
-  .bubble[data-inline]:not(.leaving) { animation: none; }
 }

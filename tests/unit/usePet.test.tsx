@@ -14,7 +14,7 @@ const base: S = {
   taskDone: {},
 };
 
-const student = (id: number): Bubble => ({ id, turn: id, kind: "student", text: "x", photo: null });
+const student = (id: number): Bubble => ({ id, turn: id, kind: "student", text: "x", photos: [], failed: null });
 const agent = (id: number, waiting = false, text = "Chào bạn."): Bubble => ({
   id,
   turn: id,

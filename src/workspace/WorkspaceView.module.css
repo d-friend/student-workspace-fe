@@ -1,6 +1,7 @@
 .scroll {
   flex: 1 1 auto;
   min-width: 0;
+  min-height: 0;
   overflow: auto;
   position: relative; /* contains the sr-only spans, which otherwise gave <main> a scroll range of the whole doc */
   /* Under 800px there is no desk: the page is the paper, on the design's square grid. */
@@ -14,7 +15,7 @@
   box-sizing: border-box;
   max-width: calc(720px + 2 * clamp(16px, 4vw, 48px));
   margin: 0 auto;
-  padding: 0 clamp(16px, 4vw, 48px) max(clamp(16px, 4vw, 48px), var(--pet-clear, 0px));
+  padding: 0 clamp(16px, 4vw, 48px) clamp(16px, 4vw, 48px);
   color: var(--text);
   font-family: var(--font-sans);
   overflow-wrap: anywhere; /* a long URL or term wraps instead of widening the column */
@@ -23,11 +24,13 @@
 /* Keep document sticky controls below the tab strip only when it exists. */
 .view:has(> [role="tablist"]) { --workspace-tabs-height: 40px; }
 
-/* Under 800px the menu, feedback and theme buttons float over the page's top 56px: start below them. */
 @media (max-width: 799px) {
   .scroll[data-flat] { background-image: none; }
-  .view {
-    padding-top: 60px;
+  .view { padding-top: var(--workspace-top-space, 60px); }
+  .scroll[data-mobile-workspace] {
+    --workspace-sticky-top: 0px;
+    scroll-padding-top: 44px;
+    overscroll-behavior: contain;
   }
 }
 
@@ -75,6 +78,7 @@
   justify-content: space-between;
   gap: 12px;
 }
+.header[hidden] { display: none; }
 
 .headerActions { display: flex; flex: 0 0 auto; gap: 6px; }
 .headerButton {
@@ -176,7 +180,7 @@
 .stickyProblem { position: sticky; top: var(--workspace-tabs-height, 0px); z-index: 2; background: var(--panel); }
 .stickyProblem .progress { position: static; }
 @media (max-width: 799px) {
-  .stickyProblem, .progress { top: calc(60px + var(--workspace-tabs-height, 0px)); }
+  .stickyProblem, .progress { top: calc(var(--workspace-sticky-top, 60px) + var(--workspace-tabs-height, 0px)); }
 }
 .progressRow { display: flex; align-items: flex-start; gap: 8px; }
 .progressNodes { display: flex; flex: 1; align-items: flex-start; gap: 8px; min-width: 0; }

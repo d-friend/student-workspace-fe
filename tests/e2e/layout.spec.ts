@@ -69,6 +69,10 @@ test("a long unbroken word does not widen the doc at 360px", async ({ page }) =>
     await page.getByRole("tab", { name: tab }).click();
     const s = await scroller(page);
     expect(await s.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    const bar = page.getByRole("banner");
+    await expect(bar.getByRole("heading", { name: tab })).toBeVisible();
+    expect(await bar.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await expect(bar.getByRole("button", { name: copy.workspaceActions })).toBeInViewport();
   }
 });
 
@@ -103,19 +107,18 @@ test("each phase keeps its own scroll position", async ({ page }) => {
 });
 
 for (const width of [1440, 1024, 360]) {
-  test(`the pet does not cover the focused Steps input or Kiểm tra at ${width}px`, async ({ page }) => {
+  test(`the pinned footer does not cover the focused Steps input or Kiểm tra at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width === 360 ? 740 : 800 });
     await restore(page);
     const input = page.getByLabel(copy.lineLabel(1));
     await input.focus(); // scrolls the field into view, at the bottom of the doc
-    const pet = await page.getByRole("button", { name: copy.petOpen }).boundingBox();
-    expect(pet).not.toBeNull();
+    // On a phone the ask strip and action bar are pinned under the doc; the field must stay clear of them.
+    const footer = page.locator("[data-workspace-footer]");
+    const covered = (await footer.count()) > 0 ? await footer.boundingBox() : null;
     for (const target of [input, page.getByRole("button", { name: copy.check })]) {
       await expect(target).toBeInViewport();
       const box = (await target.boundingBox())!;
-      const apart =
-        pet!.x + pet!.width <= box.x || box.x + box.width <= pet!.x || pet!.y + pet!.height <= box.y || box.y + box.height <= pet!.y;
-      expect(apart).toBe(true);
+      if (covered) expect(box.y + box.height).toBeLessThanOrEqual(covered.y + 1);
     }
   });
 }

@@ -1,4 +1,5 @@
-const JPEG_PREFIX = "data:image/jpeg;base64,";
+export const JPEG_PREFIX = "data:image/jpeg;base64,";
+export const MAX_PHOTOS = 4; // Mirrors backend max_photos_per_message.
 const MAX_EDGE = 1568;
 
 export type PhotoResult = { data: string; bytes: number; width: number; height: number; processMs: number };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import logoMark from "../../../assets/logo-mark.png";
@@ -17,13 +18,14 @@ import styles from "./Sidebar.module.css";
 // Once for this page load, even if the sidebar remounts.
 let historyLoaded = false;
 
-export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progress, busy = false }: {
+export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progress, busy = false, menuTarget }: {
   side: ReturnType<typeof useSidebar>;
   onNewProblem: () => void;
   refreshKey: string;
   onOpenSession?: (id: string) => void;
   progress?: { active?: boolean } | null;
   busy?: boolean; // Keep deletion blocked while a turn is streaming.
+  menuTarget?: HTMLElement | null;
 }) {
   const desktop = useDesktop();
   const visible = desktop ? side.mode === "open" : side.drawerOpen;
@@ -154,9 +156,10 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
     }
   };
 
+  const menuButton = <button ref={menu} type="button" className={styles.menu} aria-label={copy.historyOpen} aria-expanded={side.drawerOpen} onClick={side.openDrawer}><IconMenu2 size={20} aria-hidden="true" /></button>;
   return (
     <>
-      {!desktop && <button ref={menu} type="button" className={styles.menu} aria-label={copy.historyOpen} aria-expanded={side.drawerOpen} onClick={side.openDrawer}><IconMenu2 size={20} aria-hidden="true" /></button>}
+      {!desktop && (menuTarget ? createPortal(menuButton, menuTarget) : menuTarget === undefined ? menuButton : null)}
       {!desktop && side.drawerOpen && <button type="button" className={styles.scrim} aria-label={copy.historyClose} tabIndex={-1} onClick={closeDrawer} />}
       <div ref={panel} className={styles.panel} data-rail={rail || undefined} data-drawer={side.drawerOpen || undefined}
         hidden={!desktop && !side.drawerOpen} tabIndex={-1} role={!desktop ? "dialog" : undefined} aria-modal={!desktop && side.drawerOpen ? true : undefined} aria-label={copy.historyLabel}>

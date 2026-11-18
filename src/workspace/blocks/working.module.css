@@ -28,6 +28,11 @@
 .lineText { flex: 1; min-width: 0; padding: 8px 0 8px 32px; overflow-wrap: anywhere; }
 .lineText:first-child { padding-left: calc(var(--g) + 18px); }
 .lineReview .lineText { text-decoration: underline wavy var(--review-text); text-decoration-thickness: 2px; text-underline-offset: 7px; }
+.pickedAnswer { display: none; }
+@media (max-width: 799px) {
+  .lineReview:has(.pickedAnswer) .lineText { text-decoration: none; }
+  .pickedAnswer { display: inline; color: var(--muted); font-weight: 600; }
+}
 .badge { display: inline-flex; align-items: center; gap: 8px; flex: none; margin-left: 12px; font: 600 14px/1.4 var(--font-sans); letter-spacing: 0; color: var(--brand); white-space: nowrap; }
 .badgeReview { color: var(--review-text); }
 /* The mark is the icon as a 30px disc; its text stays beside it, so state is never colour alone. */
@@ -99,6 +104,8 @@
   .actionBar > button { flex: 1 1 0; min-width: 0; min-height: 48px; padding: 4px; font-size: 13px; line-height: 1.2; }
   .actionBar .hint { justify-content: center; gap: 4px; flex-wrap: wrap; }
   .actionBar .ladder { margin-left: 0; }
+  .actionBar .idea { border: 1px solid var(--control-border); }
+  [data-workspace-footer] .actionBar { position: relative; z-index: auto; margin: 0; padding-bottom: 8px; }
 }
 @media (max-width: 399px) {
   .actionBar .longLabel { display: none; }

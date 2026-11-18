@@ -18,8 +18,8 @@ import {
   type WorkspaceEvent,
 } from "@/lib/frame";
 import { isRestate, parse, type Parsed } from "@/lib/parse";
-import { readPhoto as realReadPhoto, type PhotoResult } from "@/lib/photo";
-import { track as realTrack, type TrackFn } from "@/lib/track";
+import { MAX_PHOTOS, readPhoto as realReadPhoto, type PhotoResult } from "@/lib/photo";
+import { track as realTrack, type TrackEvents, type TrackFn } from "@/lib/track";
 import { matchQueued, type QueuedAnswer } from "@/workspace/queued";
 import type { BlockCtx, CheckResponse, Phase, SavedBlockState, Workspace } from "@/workspace/types";
 
@@ -37,7 +37,7 @@ const MAX_PENDING = 20;
 // `turn` numbers the exchanges (a typed message, or a batch of workspace events, and what comes back), so the pet
 // bubble can show only the latest one.
 export type Bubble =
-  | { id: number; turn: number; kind: "student"; text: string; photo: string | null }
+  | { id: number; turn: number; kind: "student"; text: string; photos: string[]; failed: string | null }
   | {
       id: number;
       turn: number;
@@ -51,14 +51,15 @@ export type Bubble =
       ask: "how" | "why" | null;
     }
   | { id: number; turn: number; kind: "error" | "note"; text: string }
-  | { id: number; turn: number; kind: "reset"; text: string; title: string | null };
+  | { id: number; turn: number; kind: "reset"; text: string; title: string | null }
+  | { id: number; turn: number; kind: "workspace"; workspaceId: string | null; title: string | null; state: "building" | "ready" | "failed" };
 
 type NewBubble = Bubble extends infer B ? (B extends Bubble ? Omit<B, "id" | "turn"> : never) : never;
 
 // The same words, ignoring case, spacing and end punctuation.
 const norm = (s: string) => s.toLowerCase().replace(/[\s.!?…]+/g, " ").trim();
 
-export type Screen = "workspace" | "building" | "photo" | "empty";
+export type Screen = "workspace" | "building" | "empty";
 
 export type WorkspaceState = {
   ready: boolean;
@@ -67,7 +68,7 @@ export type WorkspaceState = {
   typedTurn: boolean;
   queued: boolean;
   input: string;
-  photo: string | null;
+  photos: string[];
   html: string | null; // legacy iframe workspace, only when there are no structured workspaces
   sessionId: string | null;
   sheet: SheetRef | null;
@@ -97,7 +98,7 @@ export type WorkspaceState = {
   optChipKind: "why" | "offer" | "answer";
   optChipSeed: number;
   hasMessages: boolean;
-  newProblemCount: number; // bumps on each "Bài mới" that reset the session, so the pet can jump back to the entry
+  newProblemCount: number; // bumps when the session is reset
   inputDisabled: boolean;
   sendDisabled: boolean;
   verdict: { seq: number; state: "ok" | "review" | null; done: boolean }; // latest line verdict; seq never resets
@@ -112,7 +113,7 @@ export type WorkspaceDeps = {
   sleep?: (ms: number) => Promise<void>;
 };
 
-type Queued = { text: string; photo: string | null; bubbleId: number };
+type Queued = { text: string; photos: string[]; bubbleId: number };
 type Saved = NonNullable<Awaited<ReturnType<typeof realApi.currentSession>>>;
 
 function describeError(e: unknown): { text: string; code: string; status?: number; sessionGone: boolean } {
@@ -123,12 +124,11 @@ function describeError(e: unknown): { text: string; code: string; status?: numbe
     else if (e.status === 413) text = copy.errTooLong;
     else if (e.status === 429) text = copy.errRateLimited(Math.max(1, Math.ceil((e.retryAfterS ?? 60) / 60)));
     else if (e.status === 503) text = copy.errBudget;
-    else text = copy.errConnect(e.message);
+    else text = copy.errConnect();
     return { text, code: e.code, status: e.status, sessionGone };
   }
-  if (e instanceof TurnError) return { text: copy.errConnect(e.message), code: e.code, sessionGone: false };
-  const message = e instanceof Error ? e.message : "request failed";
-  return { text: copy.errConnect(message), code: "network", sessionGone: false };
+  if (e instanceof TurnError) return { text: copy.errConnect(), code: e.code, sessionGone: false };
+  return { text: copy.errConnect(), code: "network", sessionGone: false };
 }
 
 export function createWorkspace(deps: WorkspaceDeps) {
@@ -136,7 +136,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   const now = deps.now ?? Date.now;
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   // Set by the hook once the iframe and the composer exist.
-  // reveal: the student must see the composer (a failed send, a correction), so a closed drawer opens for it.
+  // reveal opens a closed drawer when the student needs to write (e.g. a correction).
   const dom = { frameWindow: (): Window | null => null, focusInput: ((): void => {}) as (reveal?: boolean) => void, reload: (): void => {} };
 
   let ready = false;
@@ -155,7 +155,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let handledGesture = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let input = "";
-  let photo: string | null = null;
+  let photos: string[] = [];
   let photoNoteId: number | null = null;
   let html: string | null = null;
   let tabs: WorkspaceState["tabs"] = [];
@@ -231,9 +231,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       ? "workspace"
       : busy && !buildFailed
         ? "building"
-        : photo !== null
-          ? "photo"
-          : "empty";
+        : "empty";
     const inputDisabled = busy && typedTurn;
     return {
       ready,
@@ -242,7 +240,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       typedTurn,
       queued: queued !== null,
       input,
-      photo,
+      photos,
       html,
       sessionId,
       sheet,
@@ -312,6 +310,11 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
   function removeBubble(id: number | null) {
     if (id !== null) bubbles = bubbles.filter((b) => b.id !== id);
+  }
+
+  function setPhotoNote(text: string | null) {
+    removeBubble(photoNoteId);
+    photoNoteId = text === null ? null : addBubble({ kind: "note", text });
   }
 
   const agentBubble = (text: string, view: Parsed, waiting = false): Extract<NewBubble, { kind: "agent" }> => ({
@@ -385,7 +388,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     typed: boolean,
     text: string,
     existingStudentId: number | null,
-    shot: string | null,
+    shots: string[],
     via?: StartedVia,
     keepalive = false,
   ): Promise<void> {
@@ -393,7 +396,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     busy = true;
     typedTurn = typed;
     buildFailed = false;
-    turnNo++;
+    const turn = ++turnNo;
     const sentAt = now();
     let consumed: WorkspaceEvent[] = [];
     let studentId = existingStudentId;
@@ -401,9 +404,14 @@ export function createWorkspace(deps: WorkspaceDeps) {
     if (typed) {
       consumed = pending;
       claim(consumed);
-      content = withPhoto(userMessage(consumed, text), shot);
+      content = withPhoto(userMessage(consumed, text), shots);
       pending = [];
-      studentId ??= addBubble({ kind: "student", text, photo: shot });
+      const student = bubbles.find((b) => b.id === studentId && b.kind === "student");
+      if (student?.kind === "student") {
+        bubbles = bubbles.map((b) => b.id === student.id ? { ...student, turn, failed: null } : b);
+      } else {
+        studentId = addBubble({ kind: "student", text, photos: shots, failed: null });
+      }
     } else {
       content = text;
     }
@@ -430,6 +438,20 @@ export function createWorkspace(deps: WorkspaceDeps) {
     let announceRestate = false; // a photo's restatement travels in the announce, so its reply inherits the chips
     let sawEvent = false;
     let gotWorkspace = false;
+    let buildingCardId: number | null = null;
+
+    const showBuildingCard = (title: string | null = null) => {
+      if (gotWorkspace) return;
+      const card: NewBubble = { kind: "workspace", workspaceId: null, title, state: "building" };
+      if (buildingCardId === null) buildingCardId = addBubble(card);
+      else if (title !== null) updateBubble(buildingCardId, card);
+    };
+
+    const failBuildingCard = () => {
+      if (buildingCardId === null) return;
+      bubbles = bubbles.map((b) => b.id === buildingCardId && b.kind === "workspace" ? { ...b, state: "failed" } : b);
+      buildingCardId = null;
+    };
 
     // The model sometimes says its announce again as the reply; the student reads it once. While streaming, a reply
     // that is still a prefix of the announce is held back too.
@@ -464,11 +486,20 @@ export function createWorkspace(deps: WorkspaceDeps) {
         announceId = agentId === null ? addBubble(b) : insertBubbleBefore(agentId, b);
       } else if (e.event === "status") {
         buildFailed = e.stage === "failed";
+        if (buildFailed) {
+          if (buildingCardId === null && !gotWorkspace) showBuildingCard();
+          failBuildingCard();
+        } else showBuildingCard();
         if (buildFailed) { preview = null; queuedAnswer = null; }
         status = e.stage === "failed" ? null : statusLabel(e.stage);
         building = e.stage !== "failed";
         buildingPhase = e.stage === "failed" ? null : (e.phase ?? buildingPhase);
       } else if (e.event === "workspace_partial") {
+        showBuildingCard(e.title);
+        if (buildingCardId !== null) {
+          building = true;
+          buildingPhase = e.phase;
+        }
         if (queuedAnswer) {
           const answer = queuedAnswer;
           const steps = e.blocks.find((b) => b.id === answer.blockId);
@@ -480,6 +511,17 @@ export function createWorkspace(deps: WorkspaceDeps) {
         }
         preview = { phase: e.phase, title: e.title, blocks: e.blocks };
       } else if (e.event === "workspace") {
+        const previousCard = bubbles.find((b) => b.kind === "workspace" && b.workspaceId === (e.replaces ?? e.workspaceId));
+        const readyCard: NewBubble = { kind: "workspace", workspaceId: e.workspaceId, title: e.doc.title, state: "ready" };
+        if (previousCard) {
+          removeBubble(buildingCardId);
+          updateBubble(previousCard.id, readyCard);
+        } else if (buildingCardId !== null) {
+          updateBubble(buildingCardId, readyCard);
+        } else {
+          addBubble(readyCard);
+        }
+        buildingCardId = null;
         const old = tabs.find((w) => w.id === e.replaces);
         const replaced = old !== undefined;
         const steps = e.doc.blocks.find((b) => b.id === queuedAnswer?.blockId);
@@ -554,10 +596,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
     };
 
     let keepEvents = false;
-    let failed = false;
     try {
       if (sessionId === null) {
-        const created = await api.createSession(via ?? (shot ? "photo" : "typed"));
+        const created = await api.createSession(via ?? (shots.length ? "photo" : "typed"));
         if (epoch !== mine) return;
         sessionId = created.sessionId;
         sheet = null;
@@ -569,7 +610,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
         raw += delta;
         const view = parse(raw);
         show(view, false);
-        building = view.building || status !== null;
+        building = view.building || buildingCardId !== null || status !== null;
         publish();
       }, onEvent, keepalive);
       if (epoch !== mine) return;
@@ -588,6 +629,10 @@ export function createWorkspace(deps: WorkspaceDeps) {
         if (view.offer && view.opts) track("next_topic_offered", {}, sid());
       }
       if (view.html !== null) {
+        if (activeId === null) {
+          removeBubble(buildingCardId);
+          buildingCardId = null;
+        }
         pending = [];
         install(view.html, sentAt);
       }
@@ -603,12 +648,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
       removeBubble(agentId);
       removeBubble(announceId);
       const info = describeError(e);
-      failed = true;
+      failBuildingCard();
       if (typed) {
-        removeBubble(studentId);
-        addBubble({ kind: "error", text: info.text });
-        if (text) input = input ? text + "\n" + input : text;
-        if (shot && photo === null) photo = shot;
+        if (studentId !== null) updateBubble(studentId, { kind: "student", text, photos: shots, failed: info.text });
         // Put the events back so they ride along with the resend; a stale flush timer must not fire them alone.
         if (!pending.length) clearTimer();
         pending = [...consumed, ...pending].slice(-MAX_PENDING);
@@ -635,14 +677,19 @@ export function createWorkspace(deps: WorkspaceDeps) {
           // The next turn creates one.
         }
       } else if (e instanceof TurnError && e.code === "history_conflict") {
-        // Another tab changed the history: take the server's version, and keep the error visible.
+        // Another tab changed the history: restore it and keep the local failed attempt at the end.
         try {
           const saved = await api.currentSession();
           if (epoch !== mine) return;
           if (saved) {
+            const failedBubbles = bubbles.filter((b) => b.id === studentId ||
+              (b.kind === "workspace" && b.turn === turn && b.state === "failed"));
             restore(saved, true);
-            if (epoch !== mine) return;
-            addBubble(typed ? { kind: "error", text: info.text } : { kind: "note", text: info.text });
+            if (failedBubbles.length) {
+              turnNo++;
+              bubbles = [...bubbles, ...failedBubbles.map((b) => ({ ...b, turn: turnNo }))];
+            }
+            if (!typed) addBubble({ kind: "note", text: info.text });
           }
         } catch {
           if (epoch !== mine) return;
@@ -651,6 +698,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       }
     } finally {
       if (epoch === mine) {
+        failBuildingCard();
         busy = false;
         building = false;
         status = null;
@@ -659,7 +707,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
         queuedAnswer = null;
         simulationPending = {};
         publish();
-        if (typed) dom.focusInput(failed);
+        if (typed) dom.focusInput(false);
         if (!keepEvents) flush();
       }
     }
@@ -670,25 +718,25 @@ export function createWorkspace(deps: WorkspaceDeps) {
     if (queued) {
       const q = queued;
       queued = null;
-      void runTurn(true, q.text, q.bubbleId, q.photo);
+      void runTurn(true, q.text, q.bubbleId, q.photos);
     } else if (shouldTrigger(pending, handledGesture)) {
       const events = pending;
       pending = [];
       claim(events);
-      void runTurn(false, eventMessage(events), null, null, undefined, keepalive);
+      void runTurn(false, eventMessage(events), null, [], undefined, keepalive);
     }
   }
 
   // One typed message: runs now, or waits behind a workspace turn. Ignored while another is waiting.
-  function dispatch(text: string, shot: string | null, via?: StartedVia): Promise<void> {
+  function dispatch(text: string, shots: string[], via?: StartedVia): Promise<void> {
     if (queued || (busy && typedTurn)) return Promise.resolve();
     optsClosedId = lastAgentId();
     if (busy) {
-      queued = { text, photo: shot, bubbleId: addBubble({ kind: "student", text, photo: shot }) };
+      queued = { text, photos: shots, bubbleId: addBubble({ kind: "student", text, photos: shots, failed: null }) };
       publish();
       return Promise.resolve();
     }
-    return runTurn(true, text, null, shot, via);
+    return runTurn(true, text, null, shots, via);
   }
 
   // Workspace events, from the legacy iframe or from WorkspaceView: batched and flushed 800 ms after the first.
@@ -820,9 +868,11 @@ export function createWorkspace(deps: WorkspaceDeps) {
         said = null;
         addResetDividers(workspaceEvents(m.content));
         const view = studentView(m.content);
-        if (view) addBubble({ kind: "student", text: view.text, photo: view.photo || null });
+        if (view) addBubble({ kind: "student", ...view, failed: null });
       }
     }
+    // shortcut: the server does not store which message built a tab, so append cards in tab order.
+    for (const tab of tabs) addBubble({ kind: "workspace", workspaceId: tab.id, title: tab.doc.title, state: "ready" });
     // A trailing [silent] or workspace batch means something happened after the last visible agent message.
     const last = saved.messages.at(-1);
     if (last && (last.role === "user" || parse(last.content as string).chat === "")) {
@@ -975,14 +1025,15 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
     submit(): Promise<void> {
       const text = input.trim();
-      if ((!text && photo === null) || queued || (busy && typedTurn)) return Promise.resolve();
-      const shot = photo;
+      if ((!text && photos.length === 0) || queued || (busy && typedTurn)) return Promise.resolve();
+      const shots = photos;
       input = "";
-      photo = null;
+      photos = [];
       track(
         "message_sent",
         {
-          has_photo: shot !== null,
+          has_photo: shots.length > 0,
+          photo_count: shots.length,
           has_text: text.length > 0,
           text_len: text.length,
           had_events: pending.length > 0,
@@ -991,37 +1042,53 @@ export function createWorkspace(deps: WorkspaceDeps) {
         sid(),
       );
       closeRestate();
-      return dispatch(text, shot);
+      return dispatch(text, shots);
     },
 
-    async pickPhoto(file: Blob, source: "snap_button" | "composer_button" | "retake" | "paste" | "drop") {
-      removeBubble(photoNoteId);
-      photoNoteId = null;
+    retry(bubbleId: number): Promise<void> {
+      const student = bubbles.findLast((b) => b.kind === "student");
+      if (busy || student?.id !== bubbleId || student.kind !== "student" || student.failed === null) return Promise.resolve();
+      track("turn_retried", {}, sid());
+      return runTurn(true, student.text, bubbleId, student.photos);
+    },
+
+    async pickPhoto(file: Blob, source: TrackEvents["photo_picked"]["source"]) {
+      if (photos.length >= MAX_PHOTOS) {
+        setPhotoNote(copy.photoLimit(MAX_PHOTOS));
+        publish();
+        return;
+      }
+      const mine = epoch;
+      let result: PhotoResult;
       try {
-        const r = await readPhoto(file);
-        photo = r.data;
-        track(
-          "photo_picked",
-          { source, bytes: r.bytes, width: r.width, height: r.height, process_ms: r.processMs },
-          sid(),
-        );
+        result = await readPhoto(file);
       } catch {
-        photoNoteId = addBubble({ kind: "note", text: copy.photoUnreadable });
+        if (epoch !== mine) return;
+        setPhotoNote(copy.photoUnreadable);
         track("photo_unreadable", {}, sid());
+        publish();
+        return;
+      }
+      if (epoch !== mine) return;
+      // Another picker, paste, or drop may finish while this file decodes.
+      if (photos.length >= MAX_PHOTOS) {
+        setPhotoNote(copy.photoLimit(MAX_PHOTOS));
+      } else {
+        setPhotoNote(null);
+        const { data, bytes, width, height, processMs } = result;
+        photos = [...photos, data];
+        track("photo_picked", { source, bytes, width, height, process_ms: processMs, count: photos.length }, sid());
       }
       publish();
     },
 
-    removePhoto() {
-      photo = null;
+    removePhoto(index: number) {
+      if (!Number.isInteger(index) || index < 0 || index >= photos.length) return;
+      photos = photos.filter((_, i) => i !== index);
+      setPhotoNote(null);
       track("photo_removed", {}, sid());
       publish();
       dom.focusInput();
-    },
-
-    // The component opens the file picker itself and then calls pickPhoto(file, "retake").
-    retake() {
-      track("photo_retake_clicked", {}, sid());
     },
 
     typeProblemClicked() {
@@ -1064,7 +1131,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
           if (!api.openStarter || !api.resumeSession) throw new Error("Starter API unavailable");
           ({ sessionId } = await api.openStarter(starter));
         } catch {
-          return await runTurn(true, copy.starterPrompts[starter], null, null, `starter_${starter}`);
+          return await runTurn(true, copy.starterPrompts[starter], null, [], `starter_${starter}`);
         }
         try {
           await api.resumeSession!(sessionId);
@@ -1095,7 +1162,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       track("similar_offer_answered", { accepted }, sid());
       offerClosedId = lastAgentId();
       publish();
-      return accepted ? dispatch(copy.offerYesMessage, null) : Promise.resolve();
+      return accepted ? dispatch(copy.offerYesMessage, []) : Promise.resolve();
     },
 
     answerOpt(text: string, place: "chat" | "card" = "chat"): Promise<void> {
@@ -1103,7 +1170,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
       if (last?.kind === "agent" && last.offer && last.opts) {
         track(last.opts[0] === text ? "next_topic_accepted" : "similar_problem_accepted", { place }, sid());
       }
-      return dispatch(text, null);
+      return dispatch(text, []);
     },
 
     // From WorkspaceView. Same event shape as the iframe bridge; a master completion is not a student gesture.
@@ -1128,6 +1195,10 @@ export function createWorkspace(deps: WorkspaceDeps) {
       if (sessionId !== null) api.setActiveWorkspace(sessionId, id).catch(() => {}); // best effort: the turn then sees the older tab
       if (from) track("tab_switched", { from_phase: from, to_phase: tab.phase }, sid());
       actions.report("phase_viewed", { phase: tab.phase, workspace_id: id }, true, id);
+    },
+
+    openWorkspace(workspaceId: string) {
+      actions.setActive(workspaceId);
     },
 
     resetWorkspace(id: string) {
@@ -1182,7 +1253,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     },
 
     rebuild(): Promise<void> {
-      return dispatch(copy.rebuildMessage, null);
+      return dispatch(copy.rebuildMessage, []);
     },
 
     newProblem() {
@@ -1216,7 +1287,7 @@ export function useWorkspace(deps: Partial<WorkspaceDeps> = {}) {
   const state = useSyncExternalStore(ws.subscribe, ws.getState, ws.getState);
 
   const frameRef = useRef<HTMLIFrameElement>(null);
-  // Set by PetLayer, which knows which composer is on screen.
+  // The page can reveal the chat and focus its composer.
   const inputRef = useRef<{ focus: (reveal?: boolean) => void } | null>(null);
 
   useEffect(() => {

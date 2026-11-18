@@ -5,6 +5,7 @@ import { Composer } from "@/components/rail/Composer";
 import { RestateChips } from "@/components/rail/RestateChips";
 import { BuildingSkeleton } from "@/components/work/BuildingSkeleton";
 import { copy } from "@/lib/copy";
+import { MAX_PHOTOS } from "@/lib/photo";
 
 afterEach(cleanup);
 
@@ -27,13 +28,54 @@ test("Enter sends; Shift+Enter and the Enter that ends an IME composition do not
   expect(props.onSend).toHaveBeenCalledTimes(1);
 });
 
-test("with a photo: the note label shows, the camera hides, and remove calls onRemove", () => {
-  const onRemove = vi.fn();
-  render(<Composer {...composerProps()} photo={{ src: "data:,", onRemove }} />);
+test("renders each photo with a remove button and hides Add photo at the limit", () => {
+  const photos = Array.from({ length: MAX_PHOTOS }, (_, i) => ({ src: `data:,${i}`, onRemove: vi.fn() }));
+  render(<Composer {...composerProps()} photos={photos} />);
   expect(screen.getByLabelText(copy.noteLabel)).toBeTruthy();
+  expect(screen.getAllByRole("img", { name: copy.photoChip }).map((img) => img.getAttribute("src"))).toEqual(photos.map(({ src }) => src));
+  const remove = screen.getAllByRole("button", { name: copy.removePhoto });
+  expect(remove).toHaveLength(MAX_PHOTOS);
+  expect(screen.queryByRole("button", { name: copy.addPhoto })).toBeNull();
+  fireEvent.click(remove[1]);
+  expect(photos[1].onRemove).toHaveBeenCalledOnce();
+  expect(photos[0].onRemove).not.toHaveBeenCalled();
+});
+
+test("Add photo actions close on Escape, outside tap, and selection", () => {
+  const props = { ...composerProps(), onSnapPhoto: vi.fn() };
+  render(<Composer {...props} />);
+  const add = screen.getByRole("button", { name: copy.addPhoto });
+  fireEvent.click(add);
+  const snap = screen.getByRole("button", { name: copy.snapPhoto });
+  snap.focus();
+  fireEvent.keyDown(snap, { key: "Escape" });
+  expect(screen.queryByRole("button", { name: copy.snapPhoto })).toBeNull();
+  expect(document.activeElement).toBe(add);
+
+  fireEvent.click(add);
+  fireEvent.pointerDown(screen.getByRole("textbox"));
   expect(screen.queryByRole("button", { name: copy.pickPhoto })).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: copy.removePhoto }));
-  expect(onRemove).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(add);
+  fireEvent.click(screen.getByRole("button", { name: copy.snapPhoto }));
+  expect(props.onSnapPhoto).toHaveBeenCalledOnce();
+  expect(add.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(add);
+  fireEvent.click(screen.getByRole("button", { name: copy.pickPhoto }));
+  expect(props.onPickPhoto).toHaveBeenCalledOnce();
+  expect(add.getAttribute("aria-expanded")).toBe("false");
+});
+
+test("Add photo offers only the gallery on desktop", () => {
+  const media = vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true, addEventListener() {}, removeEventListener() {} } as unknown as MediaQueryList);
+  try {
+    render(<Composer {...composerProps()} onSnapPhoto={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: copy.addPhoto }));
+    expect(screen.getByRole("button", { name: copy.pickPhoto })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: copy.snapPhoto })).toBeNull();
+  } finally {
+    media.mockRestore();
+  }
 });
 
 test("the review bubble labels its line", () => {

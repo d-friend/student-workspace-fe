@@ -3,10 +3,10 @@ import { useEffect, useId, useRef } from "react";
 import { useCopy } from "./WorkspaceCopy";
 import styles from "./blocks/working.module.css";
 
-export function ActionBar({ level, onHint, onIdea, ideaPending = false, onSplit, onOtherWay, sticky = false }: { level: number; onHint: () => void; onIdea?: () => void; ideaPending?: boolean; onSplit?: () => void; onOtherWay?: () => void; sticky?: boolean }) {
+export function ActionBar({ level, onHint, onIdea, ideaPending = false, onExplainStep, onOtherWay, sticky = false }: { level: number; onHint: () => void; onIdea?: () => void; ideaPending?: boolean; onExplainStep?: () => void; onOtherWay?: () => void; sticky?: boolean }) {
   const copy = useCopy();
   const levelId = useId();
-  // Idea and split both wake the master, so they share one in-flight guard.
+  // Idea and explain-step both wake the master, so they share one in-flight guard.
   const requested = useRef(false);
   useEffect(() => {
     if (!ideaPending) requested.current = false;
@@ -35,9 +35,9 @@ export function ActionBar({ level, onHint, onIdea, ideaPending = false, onSplit,
           <span className={styles.longLabel}>{copy.idea}</span><span className={styles.shortLabel} aria-hidden="true">{copy.ideaShort}</span>
         </button>
       )}
-      {onSplit && (
-        <button type="button" className={styles.otherWay} aria-label={copy.split} disabled={ideaPending} onClick={request(onSplit)}>
-          <span className={styles.longLabel}>{copy.split}</span><span className={styles.shortLabel} aria-hidden="true">{copy.splitShort}</span>
+      {onExplainStep && (
+        <button type="button" className={styles.otherWay} aria-label={copy.explainStep} disabled={ideaPending} onClick={request(onExplainStep)}>
+          <span className={styles.longLabel}>{copy.explainStep}</span><span className={styles.shortLabel} aria-hidden="true">{copy.explainStepShort}</span>
         </button>
       )}
       {onOtherWay && <button type="button" className={styles.otherWay} aria-label={copy.otherWay} onClick={onOtherWay}><span className={styles.longLabel}>{copy.otherWay}</span><span className={styles.shortLabel} aria-hidden="true">{copy.otherWayShort}</span></button>}

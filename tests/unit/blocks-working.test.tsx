@@ -541,26 +541,26 @@ test("other way switches to free typing for good", async () => {
   expect(screen.queryByRole("button", { name: copy.otherWay })).toBeNull();
 });
 
-test("split reports the active scaffold item once, and goes away in free mode", () => {
+test("explain step reports the active scaffold item once, and goes away in free mode", () => {
   const c = ctxWith([ok]);
   const workspace: Workspace = { id: "solve", doc: { ...doc("solve"), blocks: [scaffolded] }, state: { blocks: { s1: { type: "steps", entries: [{ text: "first", state: "ok" }], done: false, free: false } } } };
   render(view({ solve: workspace }, "solve", c));
-  const split = screen.getByRole("button", { name: copy.split });
+  const split = screen.getByRole("button", { name: copy.explainStep });
   fireEvent.click(split);
   fireEvent.click(split);
-  const calls = vi.mocked(c.report).mock.calls.filter((a) => a[0] === "split_requested");
-  expect(calls).toEqual([["split_requested", { block_id: "s1", item: 1 }]]);
+  const calls = vi.mocked(c.report).mock.calls.filter((a) => a[0] === "explain_step_requested");
+  expect(calls).toEqual([["explain_step_requested", { block_id: "s1", item: 1 }]]);
   fireEvent.click(screen.getByRole("button", { name: copy.otherWay }));
-  expect(screen.queryByRole("button", { name: copy.split })).toBeNull();
+  expect(screen.queryByRole("button", { name: copy.explainStep })).toBeNull();
 });
 
-test("split is not offered without a scaffold or in learn", () => {
+test("explain step is not offered without a scaffold or in learn", () => {
   const c = ctxWith();
   const { unmount } = render(view({ solve: ws("solve") }, "solve", c));
-  expect(screen.queryByRole("button", { name: copy.split })).toBeNull();
+  expect(screen.queryByRole("button", { name: copy.explainStep })).toBeNull();
   unmount();
   render(view({ learn: { id: "l", doc: { ...doc("learn"), blocks: [scaffolded] } } }, "learn", c));
-  expect(screen.queryByRole("button", { name: copy.split })).toBeNull();
+  expect(screen.queryByRole("button", { name: copy.explainStep })).toBeNull();
 });
 
 test("action bar is the last doc child and contains all active actions", async () => {

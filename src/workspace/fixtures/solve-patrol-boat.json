@@ -17,6 +17,7 @@
       "scaffold": [
         {
           "kind": "choice",
+          "goal": "Muốn tìm vận tốc, trước hết cần một ẩn để biểu diễn mọi đại lượng",
           "prompt": "Bài này nên bắt đầu từ đâu?",
           "options": [
             "Gọi $v$ là vận tốc ca nô khi nước yên lặng, biểu thị vận tốc ngược dòng $v-2$ và xuôi dòng $v+2$, rồi lập phương trình theo hiệu thời gian",
@@ -26,15 +27,18 @@
         },
         {
           "kind": "choice",
+          "goal": "Để có phương trình theo $v$, cần thời gian mỗi chiều",
           "prompt": "Thời gian ngược dòng 60 km được biểu thị thế nào?",
           "options": ["$\\frac{60}{v-2}$", "$\\frac{60}{v+2}$", "$60(v-2)$"]
         },
         {
           "kind": "blank",
+          "goal": "Đã có hai thời gian theo $v$; giờ cần nối chúng thành một phương trình",
           "template": "$\\frac{60}{v-2} - \\frac{48}{v+2} = $ ___"
         },
         {
           "kind": "blank",
+          "goal": "Giải để ra $v$, rồi giữ nghiệm thỏa điều kiện của ẩn",
           "template": "$v = $ ___"
         }
       ]

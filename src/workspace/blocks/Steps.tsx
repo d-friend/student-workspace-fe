@@ -58,6 +58,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const inline = ctx.phase === "solve" || ctx.phase === "practice";
   const inputId = useId();
   const promptId = useId();
+  const goalId = useId();
   const whyId = useId();
   const group = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -201,6 +202,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
       </ol>
       {!finished && (
         <div ref={anchorRef} data-pet-anchor data-pet-inline={inline ? "" : undefined} data-n={pos + 1} data-item={item ? pos : undefined} className={styles.active}>
+          {item?.goal && <p id={goalId} className={styles.goal}><MathInline text={item.goal} /></p>}
           {inline && (
             <div className={styles.patchQuestion}>
               <div data-pet-slot className={styles.patchSlot} />
@@ -214,7 +216,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
               {!inline && <p id={promptId} data-sel="prompt" className={styles.entryLabel}>
                 <MathInline text={item.prompt} />
               </p>}
-              <div ref={group} role="group" aria-labelledby={promptId} className={styles.options}>
+              <div ref={group} role="group" aria-labelledby={promptId} aria-describedby={item.goal ? goalId : undefined} className={styles.options}>
                 {item.options.map((o, i) => (
                   <button key={i} type="button" className={`${styles.btn} ${styles.option}`} disabled={busy || locked} onClick={(event) => { const selection = window.getSelection(); if (selection && !selection.isCollapsed && selection.anchorNode && event.currentTarget.contains(selection.anchorNode)) return; void run({ answer: String(i), text: o, input: "choice", item: pos }); }}>
                     <span className={styles.optionLabel} aria-hidden="true">{String.fromCharCode(65 + i)}</span>
@@ -236,7 +238,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
                 {copy.blankLabel(pos + 1)}
               </label>
               {displayPre && displayPre !== "$$" && <span><MathInline text={displayPre} /></span>}
-              <input ref={input} id={inputId} className={`${styles.input} ${styles.gap}`} value={text} disabled={busy || locked} onChange={(e) => setText(e.target.value)} autoComplete="off" />
+              <input ref={input} id={inputId} aria-describedby={item.goal ? goalId : undefined} className={`${styles.input} ${styles.gap}`} value={text} disabled={busy || locked} onChange={(e) => setText(e.target.value)} autoComplete="off" />
               {displayPost && displayPost !== "$$" && <span><MathInline text={displayPost} /></span>}
               <button type="submit" className={styles.primary} disabled={busy || locked}>
                 {copy.check}

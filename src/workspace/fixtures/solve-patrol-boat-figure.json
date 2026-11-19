@@ -76,6 +76,7 @@
       "scaffold": [
         {
           "kind": "choice",
+          "goal": "Chọn ẩn sao cho mọi đại lượng còn lại biểu diễn được qua nó",
           "stage": 0,
           "prompt": "Bạn chọn đại lượng nào làm ẩn $x$?",
           "options": [
@@ -86,26 +87,31 @@
         },
         {
           "kind": "blank",
+          "goal": "Dòng nước làm tốc độ thực tế khác tốc độ ca nô; cần biết tốc độ mỗi chiều",
           "stage": 1,
           "template": "Vận tốc ngược dòng (km/h) = ___"
         },
         {
           "kind": "blank",
+          "goal": "Tương tự chiều còn lại: cần tốc độ để tính thời gian",
           "stage": 1,
           "template": "Vận tốc xuôi dòng (km/h) = ___"
         },
         {
           "kind": "blank",
+          "goal": "Có quãng đường và tốc độ, nên tính được thời gian mỗi chiều",
           "stage": 2,
           "template": "Thời gian ngược dòng (giờ) = ___"
         },
         {
           "kind": "blank",
+          "goal": "Cùng cách tính cho chiều còn lại, để so sánh hai thời gian",
           "stage": 2,
           "template": "Thời gian xuôi dòng (giờ) = ___"
         },
         {
           "kind": "choice",
+          "goal": "Đề cho chênh lệch hai thời gian; cần viết nó thành một phương trình đúng chiều",
           "stage": 3,
           "prompt": "Phương trình nào biểu thị đúng chênh lệch thời gian?",
           "options": [
@@ -116,11 +122,13 @@
         },
         {
           "kind": "blank",
+          "goal": "Phương trình có mẫu; cần đưa về dạng không còn ẩn ở mẫu để giải",
           "stage": 4,
           "template": "Khử mẫu và thu gọn: ___ = 0"
         },
         {
           "kind": "blank",
+          "goal": "Có phương trình đơn giản, giải ra ẩn rồi kiểm tra điều kiện",
           "stage": 5,
           "template": "Vận tốc ca nô khi nước yên lặng (km/h) = ___"
         }

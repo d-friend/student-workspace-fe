@@ -412,6 +412,41 @@ export async function getProgress(limit = 30): Promise<{ items: ProgressItem[] }
   return res.json();
 }
 
+// Knowledge tree (spec §5): only nodes the student touched, plus their ancestors. `rate` is for the fill colour, never printed.
+export type TreeNode = {
+  id: string;
+  level: "subject" | "topic" | "type";
+  parent_id: string | null;
+  name: string;
+  grades: number[];
+  attempts: number;
+  solo: number;
+  rate: number | null;
+  unfinished: number;
+  learned: number;
+  last_seen: string;
+};
+
+export type TreeWorkspace = {
+  workspace_id: string;
+  session_id: string;
+  node_id: string;
+  role: "primary" | "secondary";
+  phase: "learn" | "solve" | "practice";
+  title: string;
+  created_at: string;
+  finished: boolean | null;
+  solo: boolean | null;
+};
+
+export type TreeResponse = { nodes: TreeNode[]; workspaces: TreeWorkspace[] };
+
+export async function getTree(): Promise<TreeResponse> {
+  const res = await get("/api/tree");
+  if (!res.ok) throw await toApiError(res);
+  return res.json();
+}
+
 export async function listSessions(before?: string, limit = 20): Promise<SessionList> {
   const query = new URLSearchParams({ limit: String(limit) });
   if (before !== undefined) query.set("before", before);

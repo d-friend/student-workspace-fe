@@ -310,3 +310,20 @@ test("the chevron collapses and restores the child rows without opening the node
   fireEvent.click(toggle);
   expect(within(tree).getByRole("button", { name: /Viète/ })).toBeTruthy();
 });
+
+test("a node with no counted solve (rate null) is a dashed hollow dot, rate 0 is a solid ring with a floor fill", async () => {
+  vi.mocked(api.getTree).mockResolvedValue({
+    nodes: [
+      treeNode("s", "subject", null, { name: "Zero", attempts: 2, solo: 0, rate: 0 }),
+      treeNode("t", "subject", null, { name: "Hollow", learned: 1, rate: null }),
+    ],
+    workspaces: [],
+  });
+  render(<Page />);
+  const tree = await screen.findByRole("region", { name: copy.treeTitle });
+  const dot = (name: string) => within(tree).getByRole("button", { name: new RegExp(`^${name}`) }).querySelector("span[aria-hidden]") as HTMLElement;
+  expect(dot("Hollow").hasAttribute("data-hollow")).toBe(true);
+  expect(dot("Hollow").style.getPropertyValue("--fill")).toBe("");
+  expect(dot("Zero").hasAttribute("data-hollow")).toBe(false);
+  expect(dot("Zero").style.getPropertyValue("--fill")).toBe("15%");
+});

@@ -15,7 +15,7 @@
 .body:hover, .body[aria-expanded="true"] { background: var(--bg); }
 .chevron:focus-visible, .body:focus-visible, .workspace:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .dot { box-sizing: border-box; width: 14px; height: 14px; border: 2px solid var(--ok-text); border-radius: 50%; background: color-mix(in srgb, var(--ok-text) var(--fill, 0%), transparent); }
-.dot[data-hollow] { background: none; }
+.dot[data-hollow] { border-style: dashed; background: none; }
 .name { min-width: 0; overflow-wrap: anywhere; }
 .grade { padding: 1px 8px; border: 1px solid var(--hairline); border-radius: var(--radius-pill); color: var(--muted); font: 500 12px/1.5 var(--font-sans); white-space: nowrap; }
 .counts { grid-column: 2 / -1; color: var(--muted); font: 400 13px/1.4 var(--font-sans); }

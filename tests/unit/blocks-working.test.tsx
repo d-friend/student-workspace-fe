@@ -252,6 +252,30 @@ const showS = (c: BlockCtx) => render(<>{renderBlock(scaffolded, c)}</>);
 const gap = (n: number, v: string) => fireEvent.change(screen.getByLabelText(copy.blankLabel(n)), { target: { value: v } });
 const lineCalls = (c: BlockCtx) => (c.report as ReturnType<typeof vi.fn>).mock.calls.filter((a) => a[0] === "line_checked");
 
+const withGoal = (goal?: string): Extract<Block, { type: "steps" }> => ({
+  ...scaffolded,
+  scaffold: [{ kind: "blank", template: "y′ = ___", goal }, { kind: "choice", prompt: "Hệ số góc là", options: ["10", "4"], goal }],
+});
+
+test.each(["solve", "learn"] as const)("scaffold goal renders above the item and describes the answer control in %s", (phase) => {
+  render(<>{renderBlock(withGoal("Cần $k$ trước"), ctxWith([], { phase }))}</>);
+  const goal = screen.getByText("Cần", { exact: false }).closest("p");
+  expect(goal).not.toBeNull();
+  expect(screen.getByLabelText(copy.blankLabel(1)).getAttribute("aria-describedby")).toBe(goal!.id);
+});
+
+test("scaffold goal describes the options group of a choice item", () => {
+  const block = withGoal("Cần $k$ trước");
+  render(<>{renderBlock({ ...block, scaffold: block.scaffold!.slice(1) }, ctxWith())}</>);
+  expect(screen.getByRole("group").getAttribute("aria-describedby")).toBe(screen.getByText("Cần", { exact: false }).closest("p")!.id);
+});
+
+test("scaffold without a goal renders no goal line", () => {
+  const { container } = render(<>{renderBlock(withGoal(undefined), ctxWith())}</>);
+  expect(container.querySelector("p[id]:not([data-sel])")).toBeNull();
+  expect(screen.getByLabelText(copy.blankLabel(1)).hasAttribute("aria-describedby")).toBe(false);
+});
+
 test("scaffold position counts leading effective accepted entries", () => {
   expect(scaffoldPos([], {})).toBe(0);
   expect(scaffoldPos([{ state: "ok" }, { state: "review" }], {})).toBe(1);
@@ -515,6 +539,28 @@ test("other way switches to free typing for good", async () => {
   expect(screen.getByLabelText(copy.lineLabel(2))).toBeTruthy();
   expect(screen.queryByRole("group")).toBeNull();
   expect(screen.queryByRole("button", { name: copy.otherWay })).toBeNull();
+});
+
+test("explain step reports the active scaffold item once, and goes away in free mode", () => {
+  const c = ctxWith([ok]);
+  const workspace: Workspace = { id: "solve", doc: { ...doc("solve"), blocks: [scaffolded] }, state: { blocks: { s1: { type: "steps", entries: [{ text: "first", state: "ok" }], done: false, free: false } } } };
+  render(view({ solve: workspace }, "solve", c));
+  const split = screen.getByRole("button", { name: copy.explainStep });
+  fireEvent.click(split);
+  fireEvent.click(split);
+  const calls = vi.mocked(c.report).mock.calls.filter((a) => a[0] === "explain_step_requested");
+  expect(calls).toEqual([["explain_step_requested", { block_id: "s1", item: 1 }]]);
+  fireEvent.click(screen.getByRole("button", { name: copy.otherWay }));
+  expect(screen.queryByRole("button", { name: copy.explainStep })).toBeNull();
+});
+
+test("explain step is not offered without a scaffold or in learn", () => {
+  const c = ctxWith();
+  const { unmount } = render(view({ solve: ws("solve") }, "solve", c));
+  expect(screen.queryByRole("button", { name: copy.explainStep })).toBeNull();
+  unmount();
+  render(view({ learn: { id: "l", doc: { ...doc("learn"), blocks: [scaffolded] } } }, "learn", c));
+  expect(screen.queryByRole("button", { name: copy.explainStep })).toBeNull();
 });
 
 test("action bar is the last doc child and contains all active actions", async () => {

@@ -5,7 +5,7 @@ export type Phase = "learn" | "solve" | "practice";
 export type QuizAnswer = "choice" | "number" | "exact" | "expr" | "open";
 export type GeometryTool = "point" | "segment" | "line" | "circle" | "midpoint" | "perpendicular" | "parallel" | "angle";
 
-export type ScaffoldItem = { kind: "choice"; prompt: string; options: string[]; stage?: number } | { kind: "blank"; template: string; stage?: number };
+export type ScaffoldItem = { kind: "choice"; prompt: string; options: string[]; stage?: number; goal?: string } | { kind: "blank"; template: string; stage?: number; goal?: string };
 
 // Mirrors backend/app/workspace_doc.py (spec-workspace section 3). Ids match ^[a-z][a-z0-9_]{0,23}$ and are unique per doc.
 export type Block =

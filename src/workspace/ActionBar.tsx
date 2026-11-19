@@ -3,17 +3,18 @@ import { useEffect, useId, useRef } from "react";
 import { useCopy } from "./WorkspaceCopy";
 import styles from "./blocks/working.module.css";
 
-export function ActionBar({ level, onHint, onIdea, ideaPending = false, onOtherWay, sticky = false }: { level: number; onHint: () => void; onIdea?: () => void; ideaPending?: boolean; onOtherWay?: () => void; sticky?: boolean }) {
+export function ActionBar({ level, onHint, onIdea, ideaPending = false, onExplainStep, onOtherWay, sticky = false }: { level: number; onHint: () => void; onIdea?: () => void; ideaPending?: boolean; onExplainStep?: () => void; onOtherWay?: () => void; sticky?: boolean }) {
   const copy = useCopy();
   const levelId = useId();
-  const ideaRequested = useRef(false);
+  // Idea and explain-step both wake the master, so they share one in-flight guard.
+  const requested = useRef(false);
   useEffect(() => {
-    if (!ideaPending) ideaRequested.current = false;
+    if (!ideaPending) requested.current = false;
   }, [ideaPending]);
-  const requestIdea = () => {
-    if (ideaPending || ideaRequested.current) return;
-    ideaRequested.current = true;
-    onIdea?.();
+  const request = (send?: () => void) => () => {
+    if (ideaPending || requested.current) return;
+    requested.current = true;
+    send?.();
   };
   return (
     <div className={`${styles.help} ${sticky ? styles.actionBar : ""}`} data-action-bar>
@@ -30,8 +31,13 @@ export function ActionBar({ level, onHint, onIdea, ideaPending = false, onOtherW
         {copy.hintLevel(level)}
       </span>
       {onIdea && (
-        <button type="button" className={styles.idea} aria-label={copy.idea} disabled={ideaPending} onClick={requestIdea}>
+        <button type="button" className={styles.idea} aria-label={copy.idea} disabled={ideaPending} onClick={request(onIdea)}>
           <span className={styles.longLabel}>{copy.idea}</span><span className={styles.shortLabel} aria-hidden="true">{copy.ideaShort}</span>
+        </button>
+      )}
+      {onExplainStep && (
+        <button type="button" className={styles.otherWay} aria-label={copy.explainStep} disabled={ideaPending} onClick={request(onExplainStep)}>
+          <span className={styles.longLabel}>{copy.explainStep}</span><span className={styles.shortLabel} aria-hidden="true">{copy.explainStepShort}</span>
         </button>
       )}
       {onOtherWay && <button type="button" className={styles.otherWay} aria-label={copy.otherWay} onClick={onOtherWay}><span className={styles.longLabel}>{copy.otherWay}</span><span className={styles.shortLabel} aria-hidden="true">{copy.otherWayShort}</span></button>}

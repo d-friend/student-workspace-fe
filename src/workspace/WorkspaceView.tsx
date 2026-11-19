@@ -294,8 +294,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
           setFreeBlocks((previous) => ({ ...previous, [active.id]: true }));
           ctx.report("other_way_chosen", { block_id: active.id, line: pos + 1 });
         } : undefined;
-        const onSplit = active && !free && pos < (active.scaffold?.length ?? 0) ? () => ctx.report("split_requested", { block_id: active.id, item: pos }) : undefined;
-        const bar = <ActionBar {...help} onSplit={onSplit} onHint={() => onHint(active?.id ?? "")} onOtherWay={onOtherWay} sticky />;
+        const bar = <ActionBar {...help} onHint={() => onHint(active?.id ?? "")} onOtherWay={onOtherWay} sticky />;
         if (!mobile) return bar;
         return !hidden && mobile.actionBarTarget ? createPortal(bar, mobile.actionBarTarget) : null;
       })()}

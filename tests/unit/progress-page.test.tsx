@@ -10,6 +10,7 @@ vi.mock("@/lib/api", async original => ({
   ...await original<typeof import("@/lib/api")>(),
   createGuest: vi.fn(), getProgress: vi.fn(), getMe: vi.fn(), authMethods: vi.fn(),
   listSessions: vi.fn(), currentSession: vi.fn(), endSession: vi.fn(), resumeSession: vi.fn(),
+  getTree: vi.fn(), setActiveWorkspace: vi.fn(),
 }));
 vi.mock("@/lib/track", () => ({ track: vi.fn() }));
 
@@ -48,6 +49,8 @@ beforeEach(() => {
   vi.mocked(api.currentSession).mockResolvedValue(null);
   vi.mocked(api.endSession).mockResolvedValue(undefined);
   vi.mocked(api.resumeSession).mockResolvedValue(undefined);
+  vi.mocked(api.getTree).mockResolvedValue({ nodes: [], workspaces: [] });
+  vi.mocked(api.setActiveWorkspace).mockResolvedValue(undefined);
 });
 afterEach(() => {
   cleanup();
@@ -204,4 +207,106 @@ test.each(["current", "end"])("a failed %s request stays on the page and permits
   expect(assign).not.toHaveBeenCalled();
   await act(async () => fireEvent.click(screen.getByRole("button", { name: copy.newProblem })));
   expect(assign).toHaveBeenCalledExactlyOnceWith("/");
+});
+
+const treeNode = (id: string, level: api.TreeNode["level"], parent_id: string | null, extra: Partial<api.TreeNode> = {}): api.TreeNode => ({
+  id, level, parent_id, name: `Node ${id}`, grades: [], attempts: 0, solo: 0, rate: null, unfinished: 0, learned: 0, last_seen: "2026-11-19T08:00:00Z", ...extra,
+});
+const treeWs = (id: string, node_id: string, extra: Partial<api.TreeWorkspace> = {}): api.TreeWorkspace => ({
+  workspace_id: id, session_id: `session-${id}`, node_id, role: "primary", phase: "solve", title: `Tree ${id}`,
+  created_at: new Date(Date.now() - 3.5 * 86_400_000).toISOString(), finished: true, solo: true, ...extra,
+});
+const sampleTree = (): api.TreeResponse => ({
+  nodes: [
+    treeNode("math", "subject", null, { name: "Toán", attempts: 4, solo: 2, rate: 0.5, learned: 1 }),
+    treeNode("math.q", "topic", "math", { name: "Bậc hai", grades: [9], attempts: 4, solo: 2, rate: 0.5, unfinished: 1 }),
+    treeNode("math.q.v", "type", "math.q", { name: "Viète", attempts: 2, solo: 2, rate: 1 }),
+  ],
+  workspaces: [treeWs("a", "math.q.v"), treeWs("b", "math.q", { finished: false, solo: null, created_at: new Date().toISOString() }), treeWs("c", "math", { phase: "learn", finished: null, solo: null })],
+});
+
+test("tree sits above the cards, tracks once with the node count, and shows counts, never a percentage", async () => {
+  vi.mocked(api.getProgress).mockResolvedValue({ items: [item("card")] });
+  vi.mocked(api.getTree).mockResolvedValue(sampleTree());
+  const { container } = render(<StrictMode><Page /></StrictMode>);
+  const tree = await screen.findByRole("region", { name: copy.treeTitle });
+  expect(tree.compareDocumentPosition(screen.getByText("Problem card")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(within(tree).getByText(`${copy.treeAttempts(4, 2)} · ${copy.treeLearned(1)}`)).toBeTruthy();
+  expect(within(tree).getByText(`${copy.treeAttempts(4, 2)} · ${copy.treeUnfinished(1)}`)).toBeTruthy();
+  expect(within(tree).getByText(copy.treeGrade([9]))).toBeTruthy();
+  expect(tree.textContent).not.toMatch(/%|mastery|điểm/i);
+  await waitFor(() => expect(vi.mocked(track).mock.calls.filter(([event]) => event === "tree_opened")).toEqual([["tree_opened", { nodes: 3 }]]));
+  expect(container.querySelector("[aria-busy]")?.getAttribute("aria-busy")).toBe("false");
+});
+
+test("no tree nodes, or a tree that fails to load, leaves the page as before", async () => {
+  vi.mocked(api.getProgress).mockResolvedValue({ items: [item("card")] });
+  const { unmount } = render(<Page />);
+  await screen.findByText("Problem card");
+  expect(screen.queryByRole("region", { name: copy.treeTitle })).toBeNull();
+  unmount();
+  vi.mocked(api.getTree).mockRejectedValue(Error("404"));
+  render(<Page />);
+  await screen.findByText("Problem card");
+  expect(screen.queryByRole("region", { name: copy.treeTitle })).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(vi.mocked(track).mock.calls.filter(([event]) => event === "tree_opened")).toEqual([]);
+});
+
+test("a tree alone is enough: no empty-state message next to it", async () => {
+  vi.mocked(api.getTree).mockResolvedValue(sampleTree());
+  render(<Page />);
+  await screen.findByRole("region", { name: copy.treeTitle });
+  expect(screen.queryByText(copy.progressEmpty)).toBeNull();
+});
+
+test("tapping a node lists its subtree workspaces newest first, then a workspace resumes, activates its tab and goes home", async () => {
+  vi.mocked(api.getTree).mockResolvedValue(sampleTree());
+  render(<Page />);
+  const tree = await screen.findByRole("region", { name: copy.treeTitle });
+  const topic = within(tree).getByRole("button", { name: /^Bậc hai/ });
+  expect(topic.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(topic);
+  expect(topic.getAttribute("aria-expanded")).toBe("true");
+  expect(track).toHaveBeenCalledWith("tree_node_clicked", { node_id: "math.q", level: "topic" });
+  const list = within(tree).getByRole("list", { name: copy.treeList("Bậc hai") });
+  expect(within(list).getAllByRole("button").map(button => within(button).getByText(/Tree/).textContent)).toEqual(["Tree b", "Tree a"]);
+  expect(within(list).getByText(copy.treeInProgress)).toBeTruthy();
+  fireEvent.click(within(list).getByRole("button", { name: /Tree a/ }));
+  expect(track).toHaveBeenCalledWith("tree_workspace_opened", { node_id: "math.q", workspace_id: "a" }, "session-a");
+  await waitFor(() => expect(assign).toHaveBeenCalledExactlyOnceWith("/"));
+  expect(api.resumeSession).toHaveBeenCalledExactlyOnceWith("session-a");
+  expect(api.setActiveWorkspace).toHaveBeenCalledExactlyOnceWith("session-a", "a");
+  expect(vi.mocked(track).mock.calls.some(([event]) => event === "history_session_viewed")).toBe(false);
+  expect(vi.mocked(api.resumeSession).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(api.setActiveWorkspace).mock.invocationCallOrder[0]);
+});
+
+test("a failed resume keeps the tree on the page", async () => {
+  vi.mocked(api.getTree).mockResolvedValue(sampleTree());
+  vi.mocked(api.resumeSession).mockRejectedValueOnce(Error("offline"));
+  render(<Page />);
+  const tree = await screen.findByRole("region", { name: copy.treeTitle });
+  fireEvent.click(within(tree).getByRole("button", { name: /Viète/ }));
+  fireEvent.click(within(tree).getByRole("button", { name: /Tree a/ }));
+  await waitFor(() => expect(api.resumeSession).toHaveBeenCalled());
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(api.setActiveWorkspace).not.toHaveBeenCalled();
+  expect(assign).not.toHaveBeenCalled();
+  expect(within(tree).getByRole("button", { name: /Tree a/ })).toBeTruthy();
+});
+
+test("the chevron collapses and restores the child rows without opening the node", async () => {
+  vi.mocked(api.getTree).mockResolvedValue(sampleTree());
+  render(<Page />);
+  const tree = await screen.findByRole("region", { name: copy.treeTitle });
+  const toggle = within(tree).getByRole("button", { name: copy.treeToggle("Bậc hai") });
+  expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  expect(within(tree).getByRole("button", { name: /Viète/ })).toBeTruthy();
+  fireEvent.click(toggle);
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(within(tree).queryByRole("button", { name: /Viète/ })).toBeNull();
+  expect(within(tree).getByRole("button", { name: /^Bậc hai/ }).getAttribute("aria-expanded")).toBe("false");
+  expect(track).not.toHaveBeenCalledWith("tree_node_clicked", expect.anything());
+  fireEvent.click(toggle);
+  expect(within(tree).getByRole("button", { name: /Viète/ })).toBeTruthy();
 });

@@ -9,6 +9,9 @@ export type TrackEvents = {
   tab_switched: { from_phase: "learn" | "solve" | "practice"; to_phase: "learn" | "solve" | "practice" };
   history_opened: { sessions: number };
   progress_opened: { place: "entry" | "page"; cards: number };
+  tree_opened: { nodes: number };
+  tree_node_clicked: { node_id: string; level: "subject" | "topic" | "type" };
+  tree_workspace_opened: { node_id: string; workspace_id: string };
   history_session_viewed: { tabs: number; age_days: number };
   app_opened: { path: string; referrer_host?: string; viewport_w: number; viewport_h: number; restored: boolean };
   empty_state_shown: NoProps;

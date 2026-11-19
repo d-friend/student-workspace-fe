@@ -8,11 +8,13 @@ import { Sidebar } from "@/components/sidebar/Sidebar";
 import { useSidebar } from "@/components/sidebar/useSidebar";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useProgress } from "@/hooks/useProgress";
+import { useTree } from "@/hooks/useTree";
 import { currentSession, endSession, resumeSession, type ProgressItem } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { openProgressSession, progressCards, progressDateLabel } from "@/lib/progress";
 import { track } from "@/lib/track";
 import { MdInline } from "@/workspace/md";
+import { KnowledgeTree } from "@/workspace/KnowledgeTree";
 import { ProgressCardCompact } from "@/workspace/ProgressCardCompact";
 import styles from "./ProgressPage.module.css";
 
@@ -22,10 +24,12 @@ export function ProgressPage() {
 
 function ProgressContent() {
   const progress = useProgress();
+  const { tree, ready: treeReady } = useTree();
   const side = useSidebar();
   const desktop = useDesktop();
   const id = useId();
   const tracked = useRef(false);
+  const treeTracked = useRef(false);
   const starting = useRef(false);
   const [newFailed, setNewFailed] = useState(false);
   const cards = useMemo(() => progressCards(progress.items), [progress.items]);
@@ -48,6 +52,13 @@ function ProgressContent() {
     track("progress_opened", { place: "page", cards: cards.length });
   }, [progress.ready, progress.failed, cards.length]);
 
+  const treeNodes = tree?.nodes.length ?? 0;
+  useEffect(() => {
+    if (!treeReady || !treeNodes || treeTracked.current) return;
+    treeTracked.current = true;
+    track("tree_opened", { nodes: treeNodes });
+  }, [treeReady, treeNodes]);
+
   const newProblem = async () => {
     if (starting.current) return;
     starting.current = true;
@@ -65,17 +76,18 @@ function ProgressContent() {
     }
   };
 
-  const page = <div className={styles.page} aria-busy={!progress.ready}>
+  const page = <div className={styles.page} aria-busy={!progress.ready || !treeReady}>
     <div className={styles.content}>
       <header>
         <h1 className={styles.title}>{copy.progressTitle}</h1>
         <p className={styles.subtitle}>{copy.progressSubtitle}</p>
       </header>
       {newFailed && <p className={styles.error} role="alert">{copy.progressNewFailed}</p>}
-      {progress.ready && (progress.failed ? <div className={styles.state}>
+      {progress.ready && treeReady && (progress.failed ? <div className={styles.state}>
         <p role="alert">{copy.progressError}</p>
         <button type="button" className={styles.action} onClick={progress.retry}>{copy.progressRetry}</button>
       </div> : <>
+        {tree && tree.nodes.length > 0 && <KnowledgeTree data={tree} onOpenWorkspace={ws => void openProgressSession(ws, "/", ws.workspace_id)} />}
         {groups.map(([title, items], index) => <section key={title} aria-labelledby={`${id}-group-${index}`}>
           <h2 id={`${id}-group-${index}`} className={styles.group}>{title}</h2>
           <div className={styles.list}>
@@ -94,7 +106,7 @@ function ProgressContent() {
             </button>)}
           </div>
         </section>}
-        {cards.length === 0 && learned.length === 0 && <div className={styles.state}>
+        {cards.length === 0 && learned.length === 0 && !treeNodes && <div className={styles.state}>
           <p>{copy.progressEmpty}</p>
           <Link className={styles.action} href="/">{copy.progressBack}</Link>
         </div>}

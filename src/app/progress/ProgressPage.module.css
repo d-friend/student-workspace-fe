@@ -49,4 +49,6 @@
   .treeBox { flex: 1 1 auto; min-height: 0; padding: 0 12px 12px; }
   .sidePanel { flex: 0 0 360px; min-height: 0; overflow: auto; overscroll-behavior: contain; }
   .sideContent { display: flex; flex-direction: column; gap: 24px; padding: 16px; }
+  .sideContent .learnRow { flex-direction: column; align-items: stretch; gap: 10px; }
+  .sideContent .learnMeta { justify-content: flex-start; gap: 8px 16px; }
 }

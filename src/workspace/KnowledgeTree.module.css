@@ -3,8 +3,10 @@
 .viewport:active { cursor: grabbing; }
 .canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .edges { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
-.edges path { fill: none; stroke: var(--tree-edge); stroke-width: 2; stroke-linecap: round; transition: d 200ms ease; }
-.node { position: absolute; left: 0; top: 0; width: max-content; max-width: 220px; transition: transform 200ms ease; }
+.edges path { fill: none; stroke: var(--tree-edge); stroke-width: 2; stroke-linecap: round; }
+.node { position: absolute; left: 0; top: 0; width: max-content; max-width: 220px; }
+.tree[data-settled] .node { transition: transform 200ms ease; }
+.tree[data-settled] .edges path { transition: d 200ms ease; }
 .label { display: flex; align-items: center; gap: 8px; box-sizing: border-box; width: 100%; min-height: 44px; padding: 8px 16px 8px 12px; border: 1px solid var(--tree-node-border); border-radius: var(--radius-lg); background: var(--tree-topic-bg); color: var(--text); text-align: left; font: 500 15px/1.35 var(--font-sans); cursor: pointer; }
 .node[data-kind="root"] .label { background: var(--tree-root-bg); padding-left: 16px; font-weight: 700; }
 .node[data-kind="subject"] .label { background: var(--tree-subject-bg); font-weight: 700; }
@@ -19,4 +21,4 @@
 .controls { position: absolute; left: 12px; bottom: 12px; display: flex; gap: 6px; }
 .control { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 44px; min-height: 44px; padding: 0 12px; border: 1px solid var(--control-border); border-radius: var(--radius-md); background: var(--panel); color: var(--text); font: 600 14px/1 var(--font-sans); cursor: pointer; }
 .control:hover { background: var(--bg); }
-@media (prefers-reduced-motion: reduce) { .node, .edges path { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .tree[data-settled] .node, .tree[data-settled] .edges path { transition: none; } }

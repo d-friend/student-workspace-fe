@@ -11,7 +11,7 @@ type Props = { data: TreeResponse; selected: string | null; onSelect: (nodeId: s
 type View = { x: number; y: number; k: number };
 
 const FALLBACK: Size = { w: 160, h: 44 }; // until the first measurement (and in jsdom, which measures nothing)
-const MIN_K = 0.2, MAX_K = 2, PAD = 24;
+const MIN_K = 0.2, MAX_K = 2, PAD = 24, READABLE_K = 0.7;
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
 // NotebookLM-style mind map (spec-v2 §3): root → subject → topic → type, absolutely positioned HTML nodes over one SVG of edges, panned and zoomed by a CSS transform.
@@ -29,6 +29,7 @@ export function KnowledgeTree({ data, selected, onSelect }: Props) {
   const layout = useMemo(() => layoutTree(root, id => sizes.get(id) ?? FALLBACK), [root, sizes]);
   const [view, setView] = useState<View>({ x: PAD, y: PAD, k: 1 });
   const [focusId, setFocusId] = useState(ROOT_ID);
+  const [settled, setSettled] = useState(false);
   const viewport = useRef<HTMLDivElement>(null);
   const boxes = useRef(new Map<string, HTMLElement>());
   const items = useRef(new Map<string, HTMLElement>());
@@ -52,16 +53,24 @@ export function KnowledgeTree({ data, selected, onSelect }: Props) {
     return () => observer.disconnect();
   }, [order, measure]);
 
-  const fit = useCallback(() => {
-    const vp = viewport.current;
-    if (!vp || !layout.width || !vp.clientWidth || !vp.clientHeight) return;
-    const k = clamp(Math.min((vp.clientWidth - 2 * PAD) / layout.width, (vp.clientHeight - 2 * PAD) / layout.height, 1), MIN_K, MAX_K);
-    setView({ k, x: (vp.clientWidth - layout.width * k) / 2, y: (vp.clientHeight - layout.height * k) / 2 });
-  }, [layout.width, layout.height]);
+  // `floor` keeps the first view readable on a narrow screen: the root stays in view and the rest is a pan away. The Fit button passes no floor and shows everything.
+  const fit = useCallback((floor = MIN_K) => {
+    const vp = viewport.current, rootBox = layout.placed.get(ROOT_ID);
+    if (!vp || !rootBox || !layout.width || !vp.clientWidth || !vp.clientHeight) return;
+    const room = { w: vp.clientWidth - 2 * PAD, h: vp.clientHeight - 2 * PAD };
+    const k = clamp(Math.max(Math.min(room.w / layout.width, room.h / layout.height, 1), floor), MIN_K, MAX_K);
+    setView({
+      k,
+      x: layout.width * k <= room.w ? (vp.clientWidth - layout.width * k) / 2 : PAD,
+      y: layout.height * k <= room.h ? (vp.clientHeight - layout.height * k) / 2 : vp.clientHeight / 2 - (rootBox.y + rootBox.h / 2) * k,
+    });
+  }, [layout]);
   useLayoutEffect(() => {
     if (fitted.current || sizes.size === 0) return;
     fitted.current = true;
-    fit();
+    fit(READABLE_K);
+    // Two frames later (past the first paint), a size change is a collapse/expand and animates; the opening settle must not.
+    requestAnimationFrame(() => requestAnimationFrame(() => setSettled(true)));
   }, [sizes, fit]);
 
   const zoomAt = useCallback((cx: number, cy: number, factor: number) => setView(v => {
@@ -160,7 +169,7 @@ export function KnowledgeTree({ data, selected, onSelect }: Props) {
   };
 
   const tabStop = order.some(n => n.id === focusId) ? focusId : ROOT_ID;
-  return <section aria-label={copy.treeTitle} className={styles.tree}>
+  return <section aria-label={copy.treeTitle} className={styles.tree} data-settled={settled || undefined}>
     <div ref={viewport} role="tree" aria-label={copy.treeRoot} className={styles.viewport}
       onKeyDown={onKeyDown} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd}>
       <div className={styles.canvas} style={{ width: layout.width, height: layout.height, transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})` }}>
@@ -194,7 +203,7 @@ export function KnowledgeTree({ data, selected, onSelect }: Props) {
     <div className={styles.controls}>
       <button type="button" className={styles.control} aria-label={copy.treeZoomOut} onClick={() => zoomCentre(1 / 1.25)}><IconMinus size={18} aria-hidden="true" /></button>
       <button type="button" className={styles.control} aria-label={copy.treeZoomIn} onClick={() => zoomCentre(1.25)}><IconPlus size={18} aria-hidden="true" /></button>
-      <button type="button" className={styles.control} onClick={fit}>{copy.treeFit}</button>
+      <button type="button" className={styles.control} onClick={() => fit()}>{copy.treeFit}</button>
     </div>
   </section>;
 }

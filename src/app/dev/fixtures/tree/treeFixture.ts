@@ -1,6 +1,7 @@
 import type { ProgressItem, TreeNode, TreeResponse, TreeWorkspace } from "@/lib/api";
 
-const hours = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+// Rounded to the hour so the server and client renders of this dev page agree on every timestamp.
+const hours = (h: number) => new Date(Math.floor(Date.now() / 3_600_000) * 3_600_000 - h * 3_600_000).toISOString();
 const node = (id: string, level: TreeNode["level"], parent_id: string | null, name: string, grades: number[], rest: Partial<TreeNode>): TreeNode =>
   ({ id, level, parent_id, name, grades, attempts: 0, solo: 0, rate: null, unfinished: 0, learned: 0, last_seen: hours(1), ...rest });
 const ws = (n: number, node_id: string, phase: TreeWorkspace["phase"], title: string, h: number, finished: boolean | null, solo: boolean | null): TreeWorkspace =>

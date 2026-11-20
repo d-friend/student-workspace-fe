@@ -80,6 +80,18 @@ test("Add photo actions close on Escape, outside tap, and selection", () => {
   expect(add.getAttribute("aria-expanded")).toBe("false");
 });
 
+test("Add photo items still fire when tapping them blurs with no relatedTarget (Safari/iOS)", () => {
+  const props = { ...composerProps(), onSnapPhoto: vi.fn() };
+  render(<Composer {...props} />);
+  const add = screen.getByRole("button", { name: copy.addPhoto });
+  fireEvent.click(add);
+  const pick = screen.getByRole("button", { name: copy.pickPhoto });
+  fireEvent.pointerDown(pick);
+  fireEvent.blur(add, { relatedTarget: null });
+  fireEvent.click(pick);
+  expect(props.onPickPhoto).toHaveBeenCalledOnce();
+});
+
 test("Add photo offers only the gallery on desktop", () => {
   const media = vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true, addEventListener() {}, removeEventListener() {} } as unknown as MediaQueryList);
   try {

@@ -48,7 +48,9 @@ function PhotoPicker({ onPickPhoto, onSnapPhoto }: Pick<ComposerProps, "onPickPh
       className={styles.picker}
       ref={picker}
       onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false);
+        // Safari/iOS don't focus a tapped button, so tapping a menu item blurs with no relatedTarget;
+        // closing then would unmount the item before its click fires. Outside taps close via pointerdown.
+        if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) setOpen(false);
       }}
       onKeyDown={(e) => {
         if (!open || e.key !== "Escape") return;

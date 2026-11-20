@@ -105,8 +105,7 @@ export function ProgressView({ items, tree, ready, failed, onRetry, newFailed }:
     // Two floating panels on the desk from 800px: the map in the centre, the activity list on the right.
     if (desktop) return <>
       <div className={styles.treePanel} data-shell-panel>
-        <PanelActions />
-        <div className={styles.treeHead}>{header}</div>
+        <PanelActions>{header}</PanelActions>
         <div className={styles.treeBox}>{map}</div>
       </div>
       <div className={styles.sidePanel} data-shell-panel><div className={styles.sideContent}>{activity}</div></div>

@@ -39,3 +39,36 @@ export function nodeCounts(node: TreeNode): string[] {
 export function nodeFill(rate: number | null): number | null {
   return rate === null ? null : Math.round(15 + 85 * Math.min(1, Math.max(0, rate)));
 }
+
+export const ROOT_ID = "__root__";
+const EXPAND_ALL_LEAVES = 30;
+
+// A node of the visible map. `node` is null for the synthetic root; `hidden` is the direct child count while the node is collapsed.
+export type MapNode = { id: string; node: TreeNode | null; children: MapNode[]; hidden: number };
+
+export function mapTree(rows: TreeRow[], collapsed: ReadonlySet<string>): MapNode {
+  const build = (row: TreeRow): MapNode => {
+    const folded = collapsed.has(row.node.id) && row.children.length > 0;
+    return { id: row.node.id, node: row.node, children: folded ? [] : row.children.map(build), hidden: folded ? row.children.length : 0 };
+  };
+  const folded = collapsed.has(ROOT_ID) && rows.length > 0;
+  return { id: ROOT_ID, node: null, children: folded ? [] : rows.map(build), hidden: folded ? rows.length : 0 };
+}
+
+// Everything starts expanded up to 30 leaves; a bigger tree starts with the types folded into their topics.
+export function defaultCollapsed(rows: TreeRow[]): Set<string> {
+  const leaves = (list: TreeRow[]): number => list.reduce((sum, row) => sum + (row.children.length ? leaves(row.children) : 1), 0);
+  const folded = new Set<string>();
+  if (leaves(rows) <= EXPAND_ALL_LEAVES) return folded;
+  const visit = (list: TreeRow[]) => list.forEach(row => {
+    if (row.children.some(child => child.node.level === "type")) folded.add(row.node.id);
+    else visit(row.children);
+  });
+  visit(rows);
+  return folded;
+}
+
+// Visible nodes top to bottom as the keyboard walks them (parent before its children).
+export function visibleOrder(root: MapNode): MapNode[] {
+  return [root, ...root.children.flatMap(visibleOrder)];
+}

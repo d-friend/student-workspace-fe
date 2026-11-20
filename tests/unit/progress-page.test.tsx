@@ -296,15 +296,49 @@ test("selecting a node narrows cards and lessons to its subtree, shows its count
 
 test("clicking the root clears the selection, and a node without work says so", async () => {
   vi.mocked(api.getProgress).mockResolvedValue({ items: [item("a")] });
-  vi.mocked(api.getTree).mockResolvedValue(sampleTree());
+  const tree = sampleTree();
+  tree.nodes.push(treeNode("void", "subject", null, { name: "Trống" }));
+  vi.mocked(api.getTree).mockResolvedValue(tree);
   render(<Page />);
   await screen.findByRole("region", { name: copy.treeTitle });
-  fireEvent.click(treeitem("Thiên văn học"));
+  fireEvent.click(treeitem("Trống"));
   expect(screen.getByText(copy.treeNoneHere)).toBeTruthy();
   fireEvent.click(treeitem(copy.treeRoot));
   expect(screen.queryByText(copy.treeNoneHere)).toBeNull();
   expect(screen.queryByText(/Đang xem/)).toBeNull();
   expect(cardTitles()).toEqual(["Problem a"]);
+});
+
+test("a selected node also lists workspaces the cards and lessons skip (learn without quizzes, unfinished solve), newest first, and they resume", async () => {
+  const day = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
+  const tree = sampleTree();
+  tree.workspaces.push(
+    treeWs("e", "math.q", { phase: "learn", finished: null, solo: null, title: "Learn e", created_at: day(5) }),
+    treeWs("f", "math.q.v", { phase: "solve", finished: false, solo: null, title: "Solve f", created_at: day(1) }),
+    treeWs("g", "space", { phase: "practice", title: "Practice g" }),
+  );
+  // Only a and c have progress items. b, e and f have none; d and g sit outside the selected subtree.
+  vi.mocked(api.getProgress).mockResolvedValue({ items: [item("a"), learned("c")] });
+  vi.mocked(api.getTree).mockResolvedValue(tree);
+  render(<Page />);
+  await screen.findByRole("region", { name: copy.treeTitle });
+  expect(screen.queryByText("Solve f")).toBeNull(); // the unfiltered view stays as it was
+  expect(screen.queryByRole("heading", { name: copy.treeRest })).toBeNull();
+  fireEvent.click(treeitem("Bậc hai"));
+  const rest = screen.getByRole("heading", { name: copy.treeRest }).closest("section")!;
+  expect(within(rest).getAllByRole("button").map(button => within(button).getByText(/^(Solve|Learn|Tree) /).textContent)).toEqual(["Solve f", "Tree b", "Learn e"]);
+  expect(within(rest).getByText(copy.treeInProgress)).toBeTruthy();
+  expect(within(rest).getAllByText(copy.treeKind.solve)).toHaveLength(2); // f and b
+  expect(within(rest).getByText(copy.treeKind.learn)).toBeTruthy();
+  expect(cardTitles()).toEqual(["Problem a"]); // b has no progress item either, so it is a row above
+  expect(screen.queryByText(copy.treeNoneHere)).toBeNull();
+  expect(screen.queryByText("Practice g")).toBeNull();
+  fireEvent.click(within(rest).getByText("Solve f"));
+  expect(track).toHaveBeenCalledWith("tree_workspace_opened", { node_id: "math.q", workspace_id: "f" }, "session-f");
+  await waitFor(() => expect(assign).toHaveBeenCalledExactlyOnceWith("/"));
+  expect(api.setActiveWorkspace).toHaveBeenCalledExactlyOnceWith("session-f", "f");
+  fireEvent.click(screen.getByRole("button", { name: copy.treeClear }));
+  expect(screen.queryByText("Solve f")).toBeNull();
 });
 
 test("with a node selected a card resumes its session, activates its tab and tracks the tree event, not history_session_viewed", async () => {

@@ -23,12 +23,15 @@ export function ProgressView({ items, tree, ready, failed, onRetry, newFailed }:
   const [selected, setSelected] = useState<string | null>(null);
   const selectedNode = tree?.nodes.find(node => node.id === selected) ?? null;
   const hasTree = !!tree && tree.nodes.length > 0;
-  const inside = useMemo(
-    () => selectedNode && tree ? new Set(nodeWorkspaces(tree.nodes, tree.workspaces, selectedNode.id).map(ws => ws.workspace_id)) : null,
-    [selectedNode, tree],
-  );
+  const scoped = useMemo(() => selectedNode && tree ? nodeWorkspaces(tree.nodes, tree.workspaces, selectedNode.id) : null, [selectedNode, tree]);
+  const inside = useMemo(() => scoped && new Set(scoped.map(ws => ws.workspace_id)), [scoped]);
   const cards = useMemo(() => progressCards(items).filter(item => !inside || inside.has(item.workspace_id)), [items, inside]);
   const learned = useMemo(() => items.filter(item => item.phase === "learn" && item.quizzes && (!inside || inside.has(item.workspace_id))), [items, inside]);
+  // Everything else in the selected subtree (a learn without quizzes, an unfinished solve) still shows, as plain rows, so the list matches the node's counts.
+  const rest = useMemo(() => {
+    const shown = new Set([...cards, ...learned].map(item => item.workspace_id));
+    return scoped?.filter(ws => !shown.has(ws.workspace_id)) ?? [];
+  }, [scoped, cards, learned]);
   const groups = useMemo(() => {
     const grouped = new Map<string, ProgressItem[]>();
     for (const item of cards) {
@@ -45,7 +48,7 @@ export function ProgressView({ items, tree, ready, failed, onRetry, newFailed }:
     setSelected(nodeId);
     if (nodeId !== null && !desktop) listRef.current?.scrollIntoView?.({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
   };
-  const open = (item: ProgressItem) => {
+  const open = (item: Pick<ProgressItem, "workspace_id" | "session_id" | "created_at"> & { tabs?: number }) => {
     if (!selectedNode) return void openProgressSession(item, "/");
     track("tree_workspace_opened", { node_id: selectedNode.id, workspace_id: item.workspace_id }, item.session_id);
     void openProgressSession(item, "/", item.workspace_id);
@@ -77,7 +80,20 @@ export function ProgressView({ items, tree, ready, failed, onRetry, newFailed }:
         </button>)}
       </div>
     </section>}
-    {selectedNode && cards.length === 0 && learned.length === 0 && <p className={styles.none}>{copy.treeNoneHere}</p>}
+    {rest.length > 0 && <section aria-labelledby={`${id}-rest`}>
+      <h2 id={`${id}-rest`} className={styles.group}>{copy.treeRest}</h2>
+      <div className={styles.learned}>
+        {rest.map(ws => <button key={ws.workspace_id} type="button" className={styles.learnRow} onClick={() => open(ws)}>
+          <span className={styles.learnTitle}><MdInline text={ws.title} /></span>{" "}
+          <span className={styles.learnMeta}>
+            <span>{copy.treeKind[ws.phase]}</span>
+            {ws.phase !== "learn" && ws.finished === false && <span className={styles.wip}>{copy.treeInProgress}</span>}
+            <time dateTime={ws.created_at}>{progressDateLabel(ws.created_at)}</time>
+          </span>
+        </button>)}
+      </div>
+    </section>}
+    {selectedNode && cards.length === 0 && learned.length === 0 && rest.length === 0 && <p className={styles.none}>{copy.treeNoneHere}</p>}
   </>;
   const header = <header>
     <h1 className={styles.title}>{copy.progressTitle}</h1>

@@ -1,22 +1,17 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ProfileGate } from "@/components/ProfileGate";
-import { PanelActions, Shell } from "@/components/Shell";
+import { Shell } from "@/components/Shell";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { useSidebar } from "@/components/sidebar/useSidebar";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useProgress } from "@/hooks/useProgress";
 import { useTree } from "@/hooks/useTree";
-import { currentSession, endSession, resumeSession, type ProgressItem } from "@/lib/api";
-import { copy } from "@/lib/copy";
-import { openProgressSession, progressCards, progressDateLabel } from "@/lib/progress";
+import { currentSession, endSession, resumeSession } from "@/lib/api";
+import { progressCards } from "@/lib/progress";
 import { track } from "@/lib/track";
-import { MdInline } from "@/workspace/md";
-import { KnowledgeTree } from "@/workspace/KnowledgeTree";
-import { ProgressCardCompact } from "@/workspace/ProgressCardCompact";
-import styles from "./ProgressPage.module.css";
+import { ProgressView } from "./ProgressView";
 
 export function ProgressPage() {
   return <ProfileGate><ProgressContent /></ProfileGate>;
@@ -27,30 +22,17 @@ function ProgressContent() {
   const { tree, ready: treeReady } = useTree();
   const side = useSidebar();
   const desktop = useDesktop();
-  const id = useId();
   const tracked = useRef(false);
   const treeTracked = useRef(false);
   const starting = useRef(false);
   const [newFailed, setNewFailed] = useState(false);
-  const cards = useMemo(() => progressCards(progress.items), [progress.items]);
-  const groups = useMemo(() => {
-    const grouped = new Map<string, ProgressItem[]>();
-    for (const item of cards) {
-      const title = item.roadmap && Object.hasOwn(copy.roadmapTitle, item.roadmap) ? copy.roadmapTitle[item.roadmap] : copy.roadmapTitle.generic;
-      const group = grouped.get(title);
-      if (group) group.push(item);
-      else grouped.set(title, [item]);
-    }
-    // API order is newest first; insertion order keeps each group and its newest card in order.
-    return Array.from(grouped);
-  }, [cards]);
-  const learned = progress.items.filter(item => item.phase === "learn" && item.quizzes);
+  const cardCount = useMemo(() => progressCards(progress.items).length, [progress.items]);
 
   useEffect(() => {
-    if (!progress.ready || progress.failed || !cards.length || tracked.current) return;
+    if (!progress.ready || progress.failed || !cardCount || tracked.current) return;
     tracked.current = true;
-    track("progress_opened", { place: "page", cards: cards.length });
-  }, [progress.ready, progress.failed, cards.length]);
+    track("progress_opened", { place: "page", cards: cardCount });
+  }, [progress.ready, progress.failed, cardCount]);
 
   const treeNodes = tree?.nodes.length ?? 0;
   useEffect(() => {
@@ -76,48 +58,7 @@ function ProgressContent() {
     }
   };
 
-  const page = <div className={styles.page} aria-busy={!progress.ready || !treeReady}>
-    <div className={styles.content}>
-      <header>
-        <h1 className={styles.title}>{copy.progressTitle}</h1>
-        <p className={styles.subtitle}>{copy.progressSubtitle}</p>
-      </header>
-      {newFailed && <p className={styles.error} role="alert">{copy.progressNewFailed}</p>}
-      {progress.ready && treeReady && (progress.failed ? <div className={styles.state}>
-        <p role="alert">{copy.progressError}</p>
-        <button type="button" className={styles.action} onClick={progress.retry}>{copy.progressRetry}</button>
-      </div> : <>
-        {tree && tree.nodes.length > 0 && <KnowledgeTree data={tree} onOpenWorkspace={ws => void openProgressSession(ws, "/", ws.workspace_id)} />}
-        {groups.map(([title, items], index) => <section key={title} aria-labelledby={`${id}-group-${index}`}>
-          <h2 id={`${id}-group-${index}`} className={styles.group}>{title}</h2>
-          <div className={styles.list}>
-            {items.map(item => <ProgressCardCompact key={item.workspace_id} item={item} variant="page" onOpen={() => void openProgressSession(item, "/")} />)}
-          </div>
-        </section>)}
-        {learned.length > 0 && <section aria-labelledby={`${id}-learned`}>
-          <h2 id={`${id}-learned`} className={styles.group}>{copy.progressLearned}</h2>
-          <div className={styles.learned}>
-            {learned.map(item => <button key={item.workspace_id} type="button" className={styles.learnRow} onClick={() => void openProgressSession(item, "/")}>
-              <span className={styles.learnTitle}><MdInline text={item.title} /></span>{" "}
-              <span className={styles.learnMeta}>
-                <span className={styles.quizChip} data-hint={item.quizzes!.first_try < item.quizzes!.total || undefined}>{copy.progressQuizCount(item.quizzes!.first_try, item.quizzes!.total)}</span>{" "}
-                <time dateTime={item.created_at}>{progressDateLabel(item.created_at)}</time>
-              </span>
-            </button>)}
-          </div>
-        </section>}
-        {cards.length === 0 && learned.length === 0 && !treeNodes && <div className={styles.state}>
-          <p>{copy.progressEmpty}</p>
-          <Link className={styles.action} href="/">{copy.progressBack}</Link>
-        </div>}
-      </>)}
-    </div>
-  </div>;
-
-  // From 800px the page is one floating panel on the desk (Feedback + Theme in its bar, its own scroller); a phone keeps the full-bleed page.
-  const work = desktop
-    ? <div className={styles.panel} data-shell-panel><PanelActions /><div className={styles.scroll}>{page}</div></div>
-    : page;
+  const work = <ProgressView items={progress.items} tree={tree} ready={progress.ready && treeReady} failed={progress.failed} onRetry={progress.retry} newFailed={newFailed} />;
 
   return <Shell work={work} layer={null} floatingPanels showCornerActions={!desktop} inert={side.drawerOpen && !desktop}
     sidebar={<Sidebar side={side} progress={{ active: true }} onNewProblem={() => void newProblem()} refreshKey="progress"

@@ -28,3 +28,24 @@ body {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* Knowledge map colours (app-only, so not in styles/tokens.css, which mirrors the workspace kit). */
+:root {
+  --tree-root-bg: #d8dfea;
+  --tree-subject-bg: #e2e8f1;
+  --tree-topic-bg: #edf0f6;
+  --tree-node-border: #c3cddd;
+  --tree-leaf-bg: #e3f3ea;
+  --tree-leaf-border: #a8dcc3;
+  --tree-edge: #9db4dd;
+}
+
+:root[data-theme="dark"] {
+  --tree-root-bg: #323b50;
+  --tree-subject-bg: #2a3142;
+  --tree-topic-bg: #232937;
+  --tree-node-border: #44506a;
+  --tree-leaf-bg: #14301f;
+  --tree-leaf-border: #2a5c45;
+  --tree-edge: #4d6396;
+}

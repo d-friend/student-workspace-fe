@@ -4,7 +4,7 @@ import { setLocale } from "@/lib/copy";
 import { nodeCounts, nodeFill, nodeWorkspaces, treeRows } from "@/lib/tree";
 
 const node = (id: string, parent_id: string | null, extra: Partial<TreeNode> = {}): TreeNode => ({
-  id, level: parent_id === null ? "subject" : "topic", parent_id, name: id, grades: [], attempts: 0, solo: 0, rate: null, unfinished: 0, learned: 0, last_seen: "2026-11-19T08:00:00Z", ...extra,
+  id, level: parent_id === null ? "subject" : "topic", parent_id, name: id, grades: [], attempts: 0, solo: 0, rate: null, unfinished: 0, learned: 0, packs: 0, last_seen: "2026-11-19T08:00:00Z", ...extra,
 });
 const ws = (id: string, node_id: string, created_at: string): TreeWorkspace => ({
   workspace_id: id, session_id: `s-${id}`, node_id, role: "primary", phase: "solve", title: id, created_at, finished: true, solo: true,

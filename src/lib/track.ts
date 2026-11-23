@@ -12,6 +12,10 @@ export type TrackEvents = {
   tree_opened: { nodes: number };
   tree_node_clicked: { node_id: string; level: "subject" | "topic" | "type" };
   tree_workspace_opened: { node_id: string; workspace_id: string };
+  pack_opened: { pack_id: string; via: "status_sheet" | "list" | "node_source" };
+  node_source_viewed: { node_id: string; pack_id: string };
+  learn_more_tapped: { node_id: string; pack_id: string };
+  pack_retry_clicked: { pack_id: string; stage: "extract" | "subject" | "concepts" | "merge" };
   history_session_viewed: { tabs: number; age_days: number };
   app_opened: { path: string; referrer_host?: string; viewport_w: number; viewport_h: number; restored: boolean };
   empty_state_shown: NoProps;

@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // POST /api/packs carries up to 10 base64 photos through the rewrite; the backend caps it at 16 MB (Next buffers 10 MB by default).
+  experimental: { proxyClientMaxBodySize: "16mb" },
   // The workspace iframe is sandboxed without allow-same-origin (opaque origin), so its font and ES module fetches are cross-origin.
   // Folders named lib@version never change, so they cache forever.
   async headers() {

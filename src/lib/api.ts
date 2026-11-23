@@ -4,7 +4,7 @@ import { readSse } from "./sse";
 
 // Typed client for spec 4.2 to 4.6. A 401 no_guest makes one guest call and one retry.
 
-export type StartedVia = "photo" | "typed" | "starter_derivative" | "starter_geometry";
+export type StartedVia = "photo" | "typed" | "starter_derivative" | "starter_geometry" | "pack_learn_more";
 
 export type ImageBlock = {
   type: "image";
@@ -425,6 +425,7 @@ export type TreeNode = {
   unfinished: number;
   learned: number;
   last_seen: string;
+  packs: number; // study packs at or under the node
 };
 
 export type TreeWorkspace = {
@@ -443,6 +444,74 @@ export type TreeResponse = { nodes: TreeNode[]; workspaces: TreeWorkspace[] };
 
 export async function getTree(): Promise<TreeResponse> {
   const res = await get("/api/tree");
+  if (!res.ok) throw await toApiError(res);
+  return res.json();
+}
+
+// Study packs: photos of the student's notes, read into blocks and merged into the tree.
+export type PackStatus = "extracting" | "needs_subject" | "merging" | "ready" | "partial" | "failed";
+export type PackFileStatus = "pending" | "ok" | "unreadable" | "failed";
+export type PackBlock = { id: string; file_id: string; page: number; ordinal: number; kind: "heading" | "text" | "formula" | "figure"; text: string };
+export type PackSummary = {
+  id: string;
+  status: PackStatus;
+  error: string | null; // "<stage>:<code>"
+  subject: { id: string; name: string; by: "auto" | "student" | null; confidence: number | null } | null;
+  guesses: string[] | null; // only while status is needs_subject
+  created_at: string;
+  updated_at: string;
+  photos?: number; // list only
+  concepts?: number; // list only
+};
+export type Pack = PackSummary & {
+  files: { id: string; ordinal: number; status: PackFileStatus; media_type: string }[];
+  blocks: PackBlock[];
+  nodes: { node_id: string; level: "topic" | "type"; parent_id: string | null; name: string; summary: string; block_ids: string[]; created: boolean }[];
+};
+export type NodeView = {
+  id: string;
+  level: "subject" | "topic" | "type";
+  name: string;
+  path: { id: string; name: string }[];
+  summaries: { pack_id: string; created_at: string; summary: string; blocks: PackBlock[] }[];
+  workspaces: { workspace_id: string; session_id: string; phase: "learn" | "solve" | "practice"; title: string; created_at: string }[];
+};
+
+export const packPhotoUrl = (packId: string, fileId: string) => `/api/packs/${packId}/files/${fileId}`;
+
+// photos: base64 JPEGs without the data-URL prefix (readPhoto's output).
+export async function createPack(photos: string[]): Promise<Pack> {
+  const res = await post("/api/packs", { photos: photos.map(data => ({ media_type: "image/jpeg", data })) });
+  if (!res.ok) throw await toApiError(res);
+  return res.json();
+}
+
+export async function listPacks(): Promise<PackSummary[]> {
+  const res = await get("/api/packs");
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).packs;
+}
+
+export async function getPack(id: string): Promise<Pack> {
+  const res = await get(`/api/packs/${encodeURIComponent(id)}`);
+  if (!res.ok) throw await toApiError(res);
+  return res.json();
+}
+
+export async function setPackSubject(id: string, subject: string): Promise<Pack> {
+  const res = await withGuest(() => fetch(`/api/packs/${encodeURIComponent(id)}`, { method: "PATCH", headers: JSON_HEADERS, body: JSON.stringify({ subject }) }));
+  if (!res.ok) throw await toApiError(res);
+  return res.json();
+}
+
+export async function retryPack(id: string): Promise<Pack> {
+  const res = await post(`/api/packs/${encodeURIComponent(id)}/retry`, {});
+  if (!res.ok) throw await toApiError(res);
+  return res.json();
+}
+
+export async function getNodeView(nodeId: string): Promise<NodeView> {
+  const res = await get(`/api/tree/nodes/${encodeURIComponent(nodeId)}`);
   if (!res.ok) throw await toApiError(res);
   return res.json();
 }

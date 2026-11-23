@@ -7,7 +7,7 @@ import { copy, getLocale } from "@/lib/copy";
 import { groupSessions } from "./groupSessions";
 import styles from "./Sidebar.module.css";
 
-export function SessionList({ sessions, onChoose, onDelete, disabled = false, deleteDisabled = false }: { sessions: SessionSummary[]; onChoose: (id: string) => void; onDelete?: (id: string) => void; disabled?: boolean; deleteDisabled?: boolean }) {
+export function SessionList({ sessions, onChoose, onDelete, disabled = false, deleteDisabled = false, projectNames }: { sessions: SessionSummary[]; onChoose: (id: string) => void; onDelete?: (id: string) => void; disabled?: boolean; deleteDisabled?: boolean; projectNames?: ReadonlyMap<string, string> }) {
   const [revealed, setRevealed] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gesture = useRef<{ id: string; x: number; y: number; held: boolean } | null>(null);
@@ -52,7 +52,8 @@ export function SessionList({ sessions, onChoose, onDelete, disabled = false, de
         const title = session.title || copy.historyUntitled;
         const date = new Date(session.last_active_at).toLocaleString(getLocale(), { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
         const phaseLabels = [...new Set(session.tabs.map(tab => tab.phase))].map(phase => phases[phase]);
-        const metadata = [date, ...phaseLabels, ...(session.tabs.length > 1 ? [session.tabs.length] : [])].join(" · ");
+        const project = session.project_id ? projectNames?.get(session.project_id) : undefined;
+        const metadata = [date, ...phaseLabels, ...(session.tabs.length > 1 ? [session.tabs.length] : []), ...(project ? [copy.sessionInProject(project)] : [])].join(" · ");
         return (
           <div key={session.id} className={styles.sessionRow} data-session-row={session.id} data-actions={revealed === session.id || undefined}>
             <button type="button" className={styles.session} title={`${title} · ${metadata}`}
@@ -77,7 +78,10 @@ export function SessionList({ sessions, onChoose, onDelete, disabled = false, de
                 setRevealed(null);
                 onChoose(session.id);
               }}>
-              <span id={`history-session-${session.id}`} className={styles.title}>{title}</span>
+              <span className={styles.text}>
+                <span id={`history-session-${session.id}`} className={styles.title}>{title}</span>
+                {project && <span className={styles.sessionProject} aria-hidden="true">{project}</span>}
+              </span>
               <span className={styles.srOnly}>{metadata}</span>
               {session.done && <IconCheck className={styles.done} size={14} aria-label={copy.historyDone} />}
             </button>

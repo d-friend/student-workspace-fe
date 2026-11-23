@@ -8,6 +8,8 @@ import type { SessionList, SessionSummary } from "@/lib/api";
 
 vi.mock("@/lib/track", () => ({ track: vi.fn() }));
 const fetchMock = vi.fn();
+// The Môn học list asks for /api/projects too; these tests count the account and history requests.
+const requests = () => fetchMock.mock.calls.filter(([path]) => !String(path).startsWith("/api/projects"));
 const side = { mode: "open" as const, drawerOpen: false, toggle: vi.fn(), openDrawer: vi.fn(), closeDrawer: vi.fn() };
 let desktop = true;
 let signedIn = false;
@@ -58,7 +60,7 @@ it.each([404, "network"])("quietly handles %s list failures", async (failure) =>
 it.each([[false, true, true], [true, true, false], [false, false, false]])("guest banner for signedIn=%s enabled=%s", async (signed, method, banner) => {
   signedIn = signed; enabled = method;
   render(<Sidebar side={side} onNewProblem={vi.fn()} refreshKey="1" />);
-  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+  await waitFor(() => expect(requests()).toHaveLength(3));
   expect(!!screen.queryByText(copy.historyGuest)).toBe(banner);
   if (banner) {
     fireEvent.click(screen.getAllByRole("button", { name: copy.historyLogin })[0]);
@@ -70,7 +72,7 @@ it("rail has an accessible new-problem icon, no list fetch", async () => {
   render(<Sidebar side={{ ...side, mode: "rail" }} onNewProblem={newProblem} refreshKey="1" />);
   fireEvent.click(screen.getByRole("button", { name: copy.newProblem }));
   expect(newProblem).toHaveBeenCalledOnce();
-  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(requests()).toHaveLength(2));
   expect(screen.queryByText("first")).toBeNull();
 });
 function Phone({ onOpen = vi.fn(), onNew = vi.fn(), progress }: { onOpen?: (id: string) => void; onNew?: () => void; progress?: { active?: boolean } | null }) {
@@ -96,7 +98,7 @@ it("rail progress link has an accessible icon-only name", async () => {
   expect(link.textContent).toBe("");
   expect(link.querySelector("svg")).toBeTruthy();
   expect(link.getAttribute("aria-current")).toBe("page");
-  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(requests()).toHaveLength(2));
 });
 
 it("phone progress link closes the drawer on tap", async () => {
@@ -183,7 +185,7 @@ it("tracks every phone opening with the first-page count and keeps focus inside"
 it("does not fetch while hidden, then fetches the latest refreshKey when expanded", async () => {
   const { rerender } = render(<Sidebar side={{ ...side, mode: "rail" }} onNewProblem={vi.fn()} refreshKey="1" />);
   rerender(<Sidebar side={{ ...side, mode: "rail" }} onNewProblem={vi.fn()} refreshKey="2" />);
-  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(requests()).toHaveLength(2));
   rerender(<Sidebar side={side} onNewProblem={vi.fn()} refreshKey="2" />);
   await screen.findByText("first");
   expect(fetchMock.mock.calls.filter(([path]) => path.startsWith("/api/sessions"))).toHaveLength(1);

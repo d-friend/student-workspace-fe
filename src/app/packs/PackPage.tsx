@@ -51,7 +51,9 @@ function PackContent({ id }: { id: string }) {
     try { set(await run()); setChanging(false); } catch { setFailed(true); } finally { setBusy(false); }
   };
 
-  const back = <Link className={styles.back} href="/progress"><IconArrowLeft size={18} aria-hidden="true" />{copy.packBack}</Link>;
+  const back = pack?.project_id
+    ? <Link className={styles.back} href={`/projects/${pack.project_id}?tab=sources`}><IconArrowLeft size={18} aria-hidden="true" />{copy.packBackProject}</Link>
+    : <Link className={styles.back} href="/progress"><IconArrowLeft size={18} aria-hidden="true" />{copy.packBack}</Link>;
   if (!pack) return <main className={styles.page}>
     {back}
     {error && <p role="alert" className={styles.error}>{error === "missing" ? copy.packNotFound : copy.packLoadFailed}</p>}
@@ -83,7 +85,7 @@ function PackContent({ id }: { id: string }) {
     {settled && pack.nodes.length > 0 && <section aria-labelledby="pack-concepts">
       <h2 id="pack-concepts" className={styles.h2}>{copy.packConcepts}</h2>
       <ul className={styles.concepts}>
-        {pack.nodes.map(n => <li key={n.node_id}><strong>{n.name}</strong><span className={styles.summary}><MdInline text={n.summary} /></span></li>)}
+        {pack.nodes.map(n => <li key={n.id}><strong>{n.name}</strong></li>)}
       </ul>
     </section>}
 

@@ -8,7 +8,7 @@ import { KnowledgeTree } from "@/workspace/KnowledgeTree";
 vi.mock("@/lib/track", () => ({ track: vi.fn() }));
 
 const node = (id: string, level: TreeNode["level"], parent_id: string | null, extra: Partial<TreeNode> = {}): TreeNode => ({
-  id, level, parent_id, name: id, grades: [], attempts: 0, solo: 0, rate: null, unfinished: 0, learned: 0, packs: 0, last_seen: "2026-11-19T08:00:00Z", ...extra,
+  id, level, parent_id, name: id, grades: [], attempts: 0, solo: 0, rate: null, unfinished: 0, learned: 0, last_seen: "2026-11-19T08:00:00Z", ...extra,
 });
 const data = (): TreeResponse => ({
   nodes: [
@@ -169,4 +169,14 @@ test("labels and the toggle name follow the locale", () => {
   render(<KnowledgeTree data={data()} selected={null} onSelect={() => {}} />);
   expect(within(screen.getByRole("region", { name: copy.treeTitle })).getByRole("tree", { name: "My knowledge tree" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Zoom in" })).toBeTruthy();
+});
+
+test("a project map names the root after the subject and keeps its clicks out of tree analytics", () => {
+  const onSelect = vi.fn();
+  render(<KnowledgeTree data={data()} selected={null} onSelect={onSelect} rootLabel="Toán học" trackClicks={false} />);
+  expect(screen.getByRole("tree", { name: "Toán học" })).toBeTruthy();
+  expect(names()[0]).toBe("Toán học");
+  fireEvent.click(item("Viète"));
+  expect(onSelect).toHaveBeenCalledWith("math.q.v");
+  expect(track).not.toHaveBeenCalled();
 });

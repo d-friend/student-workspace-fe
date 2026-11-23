@@ -35,7 +35,7 @@ it("survives blocked storage and keeps phone drawer separate", () => {
 });
 it("groups by local calendar days at midnight, sorts newest first, and omits empty groups", () => {
   const now = new Date(2026, 9, 29, 0, 1);
-  const row = (id: string, day: number, hour = 12): SessionSummary => ({ id, title: id, created_at: new Date(2026, 9, day, hour).toISOString(), last_active_at: new Date(2026, 9, day, hour).toISOString(), tabs: [], done: false, current: false });
+  const row = (id: string, day: number, hour = 12): SessionSummary => ({ id, title: id, created_at: new Date(2026, 9, day, hour).toISOString(), last_active_at: new Date(2026, 9, day, hour).toISOString(), tabs: [], done: false, current: false, project_id: null });
   const groups = groupSessions([row("old", 21), row("yesterday", 28, 23), row("seven", 22), row("today", 29, 0), row("recent", 27)], now);
   expect(groups.map(g => [g.key, g.sessions.map(s => s.id)])).toEqual([
     ["today", ["today"]], ["yesterday", ["yesterday"]], ["week", ["recent", "seven"]], ["older", ["old"]],
@@ -59,7 +59,7 @@ it("does not override a student's choice when the viewport changes", () => {
 });
 it("places moments on either side of local midnight into separate groups", () => {
   const now = new Date(2026, 0, 1, 0, 1);
-  const base = { title: null, tabs: [], done: false, current: false };
+  const base = { title: null, tabs: [], done: false, current: false, project_id: null };
   const groups = groupSessions([
     { ...base, id: "before", created_at: new Date(2025, 11, 31, 23, 59).toISOString(), last_active_at: new Date(2025, 11, 31, 23, 59).toISOString() },
     { ...base, id: "after", created_at: new Date(2026, 0, 1, 0, 0).toISOString(), last_active_at: new Date(2026, 0, 1, 0, 0).toISOString() },

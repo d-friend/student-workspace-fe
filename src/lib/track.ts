@@ -16,6 +16,8 @@ export type TrackEvents = {
   node_source_viewed: { node_id: string; pack_id: string };
   learn_more_tapped: { node_id: string; pack_id: string };
   pack_retry_clicked: { pack_id: string; stage: "extract" | "subject" | "concepts" | "merge" };
+  project_opened: { project_id: string; via: "sidebar" | "pack_sheet" };
+  project_tab_viewed: { project_id: string; tab: "map" | "sessions" | "sources" };
   history_session_viewed: { tabs: number; age_days: number };
   app_opened: { path: string; referrer_host?: string; viewport_w: number; viewport_h: number; restored: boolean };
   empty_state_shown: NoProps;

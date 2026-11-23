@@ -118,7 +118,7 @@ it("attaches gallery files in order and keeps the greeting and progress visible"
   await waitFor(() => expect(api.currentSession).toHaveBeenCalledOnce());
   expect(screen.getByText(copy.starter1)).toBeTruthy();
   expect((screen.getByLabelText(copy.inputLabel) as HTMLTextAreaElement).disabled).toBe(false);
-  const gallery = container.querySelector('input[type="file"][multiple]')!;
+  const gallery = container.querySelector('input[type="file"][multiple]:not([aria-label])')!;
   expect(container.querySelector('input[type="file"][capture]:not([multiple])')).not.toBeNull();
   const files = [new File(["a"], "first.jpg"), new File(["b"], "second.jpg")];
   fireEvent.change(gallery, { target: { files } });

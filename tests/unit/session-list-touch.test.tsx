@@ -6,7 +6,7 @@ import { copy, setLocale } from "@/lib/copy";
 
 const session: SessionSummary = {
   id: "one", title: "A lesson", created_at: new Date().toISOString(), last_active_at: new Date().toISOString(),
-  tabs: [], done: false, current: false,
+  tabs: [], done: false, current: false, project_id: null,
 };
 beforeEach(() => { vi.useFakeTimers(); setLocale("en"); });
 afterEach(() => { cleanup(); vi.useRealTimers(); });

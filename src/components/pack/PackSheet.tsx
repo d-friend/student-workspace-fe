@@ -63,7 +63,10 @@ export function PackSheet({ initial, onClose, onSettled }: { initial: Pack; onCl
       {failed && <p className={styles.error} role="alert">{copy.packUploadFailed}</p>}
       <div className={styles.actions}>
         {canRetry && <button type="button" className={styles.primary} disabled={busy} onClick={retry}>{copy.packRetry}</button>}
-        {(stage === "ready" || stage === "partial") && <Link className={styles.primary} href={`/packs/${current.id}?via=status_sheet`}>{copy.packOpen}</Link>}
+        {(stage === "ready" || stage === "partial") && (current.project_id
+          ? <Link className={styles.primary} href={`/projects/${current.project_id}`}
+            onClick={() => track("project_opened", { project_id: current.project_id!, via: "pack_sheet" })}>{copy.packOpenProject}</Link>
+          : <Link className={styles.primary} href={`/packs/${current.id}?via=status_sheet`}>{copy.packOpen}</Link>)}
         <button type="button" className={styles.secondary} onClick={onClose}>{copy.packClose}</button>
       </div>
     </section>

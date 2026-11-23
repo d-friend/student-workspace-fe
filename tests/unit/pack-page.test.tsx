@@ -14,7 +14,7 @@ vi.mock("next/navigation", () => ({ useParams: () => ({ id: "p1" }), useSearchPa
 vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a> }));
 
 const pack = (extra: Partial<api.Pack> = {}): api.Pack => ({
-  id: "p1", status: "ready", error: null, subject: { id: "phys", name: "Vật lí", by: "auto", confidence: 0.9 }, guesses: null,
+  id: "p1", status: "ready", error: null, subject: { id: "phys", name: "Vật lí", by: "auto", confidence: 0.9 }, guesses: null, project_id: null,
   created_at: "2026-11-23T10:00:00Z", updated_at: "2026-11-23T10:00:00Z",
   files: [{ id: "f1", ordinal: 0, status: "ok", media_type: "image/jpeg" }, { id: "f2", ordinal: 1, status: "ok", media_type: "image/jpeg" }],
   blocks: [
@@ -22,7 +22,7 @@ const pack = (extra: Partial<api.Pack> = {}): api.Pack => ({
     { id: "b2", file_id: "f1", page: 1, ordinal: 1, kind: "formula", text: "$$I = \\dfrac{U}{R}$$" },
     { id: "b3", file_id: "f2", page: 1, ordinal: 0, kind: "figure", text: "[Hình: mạch điện]" },
   ],
-  nodes: [{ node_id: "phys.ohm", level: "topic", parent_id: "phys", name: "Định luật Ôm", summary: "I = U/R", block_ids: ["b1"], created: true }], ...extra,
+  nodes: [{ id: "m-ohm", name: "Định luật Ôm", role: "lesson", created: true }], ...extra,
 });
 
 beforeEach(() => {

@@ -1,0 +1,34 @@
+import { IconCheck, IconPlus } from "@tabler/icons-react";
+import type { ProjectSessions } from "@/hooks/useProjectSessions";
+import { copy } from "@/lib/copy";
+import { progressDateLabel } from "@/lib/progress";
+import { MdInline } from "@/workspace/md";
+import styles from "./Project.module.css";
+
+// "Phiên học": this project's sessions, newest first, and the way to start a new one inside it.
+export function ProjectSessionList({ sessions, onOpen, openFailed, onNew, newFailed }: {
+  sessions: ProjectSessions; onOpen: (id: string) => void; openFailed: boolean; onNew: () => void; newFailed: boolean;
+}) {
+  const phases = { learn: copy.phaseLearn, solve: copy.phaseSolve, practice: copy.phasePractice };
+  return <div className={styles.sessions} aria-busy={!sessions.ready}>
+    <button type="button" className={styles.primary} onClick={onNew}><IconPlus size={18} aria-hidden="true" />{copy.projectNewSession}</button>
+    {newFailed && <p className={styles.error} role="alert">{copy.projectNewFailed}</p>}
+    {openFailed && <p className={styles.error} role="alert">{copy.projectSessionOpenFailed}</p>}
+    {sessions.ready && sessions.failed && <p className={styles.error} role="alert">{copy.projectSessionsFailed}</p>}
+    {sessions.ready && !sessions.failed && !sessions.sessions.length && <p className={styles.empty}>{copy.projectSessionsEmpty}</p>}
+    {sessions.sessions.length > 0 && <div className={styles.list}>
+      {sessions.sessions.map(session => {
+        const kinds = [...new Set(session.tabs.map(tab => phases[tab.phase]))].join(" · ");
+        return <button key={session.id} type="button" className={styles.row} onClick={() => onOpen(session.id)}>
+          <span className={styles.rowTitle}>{session.title ? <MdInline text={session.title} /> : copy.historyUntitled}</span>
+          <span className={styles.rowMeta}>
+            {kinds && <span>{kinds}</span>}
+            {session.done && <IconCheck size={14} aria-label={copy.historyDone} />}
+            <time dateTime={session.last_active_at}>{progressDateLabel(session.last_active_at)}</time>
+          </span>
+        </button>;
+      })}
+    </div>}
+    {sessions.hasMore && <button type="button" className={styles.secondary} disabled={sessions.loadingMore} onClick={sessions.more}>{copy.historyMore}</button>}
+  </div>;
+}

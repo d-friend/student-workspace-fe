@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import logoMark from "../../../assets/logo-mark.png";
 import { IconChartLine, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconMenu2, IconPlus, IconX } from "@tabler/icons-react";
 import { useDesktop } from "@/hooks/useDesktop";
-import { ApiError, deleteSession, listSessions, resumeSession, type SessionList as SessionPage } from "@/lib/api";
+import { useProjects } from "@/hooks/useProjects";
+import { ApiError, deleteSession, listSessions, resumeSession, type ProjectSummary, type SessionList as SessionPage, type SessionSummary } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { track } from "@/lib/track";
 import { AccountMenu, type AccountStatus } from "./AccountMenu";
+import { ProjectList } from "./ProjectList";
 import { SessionList } from "./SessionList";
 import type { useSidebar } from "./useSidebar";
 import styles from "./Sidebar.module.css";
@@ -18,7 +20,7 @@ import styles from "./Sidebar.module.css";
 // Once for this page load, even if the sidebar remounts.
 let historyLoaded = false;
 
-export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progress, busy = false, menuTarget }: {
+export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progress, busy = false, menuTarget, activeProjectId, awayFromHome = false, preload }: {
   side: ReturnType<typeof useSidebar>;
   onNewProblem: () => void;
   refreshKey: string;
@@ -26,11 +28,14 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
   progress?: { active?: boolean } | null;
   busy?: boolean; // Keep deletion blocked while a turn is streaming.
   menuTarget?: HTMLElement | null;
+  activeProjectId?: string; // the project page on screen, if any
+  awayFromHome?: boolean; // not on home: even the current session needs a navigation back to its workspace (progress.active implies it)
+  preload?: { projects: ProjectSummary[]; sessions: SessionSummary[] }; // fixture pages: show this and make no requests
 }) {
   const desktop = useDesktop();
   const visible = desktop ? side.mode === "open" : side.drawerOpen;
   const rail = desktop && side.mode === "rail";
-  const [page, setPage] = useState<SessionPage>({ sessions: [], next_before: null });
+  const [page, setPage] = useState<SessionPage>(() => ({ sessions: preload?.sessions ?? [], next_before: null }));
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<"historyDeleteFailed" | "historyDeleteBusy" | null>(null);
@@ -42,6 +47,10 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
   const menu = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const { closeDrawer, openDrawer } = side;
+  const away = awayFromHome || !!progress?.active;
+  const loaded = useProjects(visible && !preload, refreshKey);
+  const projects = preload?.projects ?? loaded.projects;
+  const projectNames = useMemo(() => new Map(projects.map(project => [project.id, project.name])), [projects]);
 
   useEffect(() => {
     const revealAccount = (event: Event) => {
@@ -53,7 +62,7 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
 
   useEffect(() => {
     if (!visible || desktop) phoneTracked.current = false;
-    if (!visible) return;
+    if (!visible || preload) return;
     let active = true;
     const requests = request;
     const id = ++request.current;
@@ -74,7 +83,7 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
       }
     });
     return () => { active = false; ++requests.current; pending.current = false; };
-  }, [visible, refreshKey, desktop]);
+  }, [visible, refreshKey, desktop, preload]);
 
   useEffect(() => {
     if (desktop || !side.drawerOpen) return;
@@ -109,7 +118,7 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
   // Opening a past session resumes it, then a reload runs the app's normal restore. A failed resume leaves things as they were.
   const open = (id: string) => {
     const session = page.sessions.find(row => row.id === id);
-    if (!session || (session.current && !progress?.active)) return;
+    if (!session || (session.current && !away)) return;
     const createdAt = Date.parse(session.created_at);
     // Measure age from creation, so resuming does not make an old session look new.
     const ageDays = Number.isFinite(createdAt) ? Math.max(0, Math.floor((Date.now() - createdAt) / 86_400_000)) : 0;
@@ -176,9 +185,13 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
           <IconChartLine size={18} aria-hidden="true" />{!rail && copy.progressNav}
         </Link>}
         {visible && <div className={styles.list} aria-busy={loading}>
-          <SessionList sessions={page.sessions} disabled={deleting || loading} deleteDisabled={busy || deleting || loading} onDelete={id => void remove(id)} onChoose={id => {
+          <ProjectList projects={projects} activeId={activeProjectId} onOpen={project => {
+            track("project_opened", { project_id: project.id, via: "sidebar" });
+            if (!desktop) closeDrawer();
+          }} />
+          <SessionList sessions={page.sessions} projectNames={projectNames} disabled={deleting || loading} deleteDisabled={busy || deleting || loading} onDelete={id => void remove(id)} onChoose={id => {
             // On /progress even the current session needs a navigation back to its workspace.
-            if (progress?.active || !page.sessions.find(row => row.id === id)?.current) open(id);
+            if (away || !page.sessions.find(row => row.id === id)?.current) open(id);
             if (!desktop) closeDrawer();
           }} />
           {deleteError && <p className={styles.deleteError} role="alert">{copy[deleteError]}</p>}

@@ -10,12 +10,12 @@ vi.mock("@/lib/track", () => ({ track: vi.fn() }));
 vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a> }));
 
 const pack = (extra: Partial<api.Pack> = {}): api.Pack => ({
-  id: "p1", status: "extracting", error: null, subject: null, guesses: null, created_at: "2026-11-23T10:00:00Z", updated_at: "2026-11-23T10:00:00Z",
+  id: "p1", status: "extracting", error: null, subject: null, guesses: null, project_id: null, created_at: "2026-11-23T10:00:00Z", updated_at: "2026-11-23T10:00:00Z",
   files: [{ id: "f1", ordinal: 0, status: "pending", media_type: "image/jpeg" }, { id: "f2", ordinal: 1, status: "pending", media_type: "image/jpeg" }],
   blocks: [], nodes: [], ...extra,
 });
 const ok = (id: string) => ({ id, ordinal: 0, status: "ok" as const, media_type: "image/jpeg" });
-const node = (name: string, created: boolean): api.Pack["nodes"][number] => ({ node_id: name, level: "topic", parent_id: null, name, summary: "s", block_ids: [], created });
+const node = (name: string, created: boolean): api.Pack["nodes"][number] => ({ id: name, name, role: "lesson", created });
 
 beforeEach(() => { vi.resetAllMocks(); vi.useFakeTimers({ shouldAdvanceTime: true }); setLocale("vi"); });
 afterEach(() => { cleanup(); vi.useRealTimers(); });

@@ -83,7 +83,7 @@ function PackContent({ id }: { id: string }) {
     {settled && pack.nodes.length > 0 && <section aria-labelledby="pack-concepts">
       <h2 id="pack-concepts" className={styles.h2}>{copy.packConcepts}</h2>
       <ul className={styles.concepts}>
-        {pack.nodes.map(n => <li key={n.node_id}><strong>{n.name}</strong><span className={styles.summary}><MdInline text={n.summary} /></span></li>)}
+        {pack.nodes.map(n => <li key={n.id}><strong>{n.name}</strong></li>)}
       </ul>
     </section>}
 

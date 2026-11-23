@@ -107,8 +107,9 @@ async function postGuest(locale?: string): Promise<{ guestId: string; created: b
   return { guestId: body.guest_id, created: body.created };
 }
 
-export async function createSession(startedVia: StartedVia): Promise<{ sessionId: string }> {
-  const res = await post("/api/sessions", { started_via: startedVia });
+// projectId files the new session in that project from the start (Học thêm, "new session in this project").
+export async function createSession(startedVia: StartedVia, projectId?: string): Promise<{ sessionId: string }> {
+  const res = await post("/api/sessions", { started_via: startedVia, ...(projectId && { project_id: projectId }) });
   if (!res.ok) throw await toApiError(res);
   const body = await res.json();
   return { sessionId: body.session_id };
@@ -383,6 +384,7 @@ export type SessionSummary = {
   tabs: { phase: "learn" | "solve" | "practice" }[];
   done: boolean;
   current: boolean;
+  project_id: string | null; // null = not filed yet
 };
 
 export type SessionList = { sessions: SessionSummary[]; next_before: string | null };
@@ -458,6 +460,7 @@ export type PackSummary = {
   error: string | null; // "<stage>:<code>"
   subject: { id: string; name: string; by: "auto" | "student" | null; confidence: number | null } | null;
   guesses: string[] | null; // only while status is needs_subject
+  project_id: string | null; // set once the subject is settled
   created_at: string;
   updated_at: string;
   photos?: number; // list only
@@ -466,7 +469,7 @@ export type PackSummary = {
 export type Pack = PackSummary & {
   files: { id: string; ordinal: number; status: PackFileStatus; media_type: string }[];
   blocks: PackBlock[];
-  nodes: { node_id: string; level: "topic" | "type"; parent_id: string | null; name: string; summary: string; block_ids: string[]; created: boolean }[];
+  nodes: { id: string; name: string; role: MapRole; created: boolean }[]; // the map nodes this pack added or touched
 };
 export type NodeView = {
   id: string;
@@ -479,9 +482,9 @@ export type NodeView = {
 
 export const packPhotoUrl = (packId: string, fileId: string) => `/api/packs/${packId}/files/${fileId}`;
 
-// photos: base64 JPEGs without the data-URL prefix (readPhoto's output).
-export async function createPack(photos: string[]): Promise<Pack> {
-  const res = await post("/api/packs", { photos: photos.map(data => ({ media_type: "image/jpeg", data })) });
+// photos: base64 JPEGs without the data-URL prefix (readPhoto's output). projectId: upload into that project, so the subject stage is skipped.
+export async function createPack(photos: string[], projectId?: string): Promise<Pack> {
+  const res = await post("/api/packs", { photos: photos.map(data => ({ media_type: "image/jpeg", data })), ...(projectId && { project_id: projectId }) });
   if (!res.ok) throw await toApiError(res);
   return res.json();
 }
@@ -516,12 +519,76 @@ export async function getNodeView(nodeId: string): Promise<NodeView> {
   return res.json();
 }
 
-export async function listSessions(before?: string, limit = 20): Promise<SessionList> {
+// Subject projects (Study Pack v2): one per student and subject, with their own map, sessions and sources.
+export type MapRole = "chapter" | "lesson" | "concept" | "detail";
+export type MasteryTier = "beginner" | "intermediate" | "advanced";
+export type Mastery = { tier: MasteryTier; confidence: number };
+export type ProjectSummary = {
+  id: string;
+  subject_node_id: string;
+  name: string; // the subject's name
+  sessions: number;
+  packs: number;
+  map_nodes: number;
+  last_active_at: string;
+};
+// One node of a project's free-depth map. mastery is the node's own global link, else its nearest linked ancestor's; mastery_node_id says which.
+export type MapItem = {
+  id: string;
+  parent_id: string | null;
+  role: MapRole;
+  name: string;
+  summary: string;
+  block_ids: string[];
+  node_id: string | null;
+  ordinal: number;
+  mastery: Mastery | null;
+  mastery_node_id: string | null;
+};
+export type Project = { id: string; name: string; subject_node_id: string; map: MapItem[]; packs: PackSummary[] };
+// The Nguồn reader: the project's blocks in order, one entry per photo.
+export type ReaderPage = { pack_id: string; file_id: string; ordinal: number; created_at: string; blocks: PackBlock[] };
+export type MapNodeView = { node: MapItem; project_id: string; blocks: PackBlock[]; pack_ids: string[] };
+
+export async function listProjects(): Promise<ProjectSummary[]> {
+  const res = await get("/api/projects");
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).projects ?? [];
+}
+
+export async function getProject(id: string): Promise<Project> {
+  const res = await get(`/api/projects/${encodeURIComponent(id)}`);
+  if (!res.ok) throw await toApiError(res);
+  return res.json();
+}
+
+export async function getReader(id: string): Promise<ReaderPage[]> {
+  const res = await get(`/api/projects/${encodeURIComponent(id)}/reader`);
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).pages;
+}
+
+export async function getMapNode(id: string): Promise<MapNodeView> {
+  const res = await get(`/api/map-nodes/${encodeURIComponent(id)}`);
+  if (!res.ok) throw await toApiError(res);
+  return res.json();
+}
+
+export async function listSessions(before?: string, limit = 20, projectId?: string): Promise<SessionList> {
   const query = new URLSearchParams({ limit: String(limit) });
   if (before !== undefined) query.set("before", before);
+  if (projectId !== undefined) query.set("project_id", projectId);
   const res = await get(`/api/sessions?${query}`);
   if (!res.ok) throw await toApiError(res);
   return res.json();
+}
+
+// Moves a session into a project, or out of every project (null).
+export async function moveSession(sessionId: string, projectId: string | null): Promise<void> {
+  const res = await withGuest(() => fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+    method: "PATCH", headers: JSON_HEADERS, body: JSON.stringify({ project_id: projectId }),
+  }));
+  if (!res.ok) throw await toApiError(res);
 }
 
 // The student switched tabs: the server keeps it so the tutor and a reload see the tab they are looking at.

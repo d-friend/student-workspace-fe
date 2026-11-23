@@ -51,7 +51,7 @@ const packTree = (): api.TreeResponse => ({
   workspaces: [],
 });
 const summary = (id: string, subject: string, name: string, extra: Partial<api.PackSummary> = {}): api.PackSummary => ({
-  id, status: "ready", error: null, subject: { id: subject, name, by: "auto", confidence: 0.9 }, guesses: null,
+  id, status: "ready", error: null, subject: { id: subject, name, by: "auto", confidence: 0.9 }, guesses: null, project_id: null,
   created_at: new Date().toISOString(), updated_at: new Date().toISOString(), photos: 2, concepts: 3, ...extra,
 });
 const file = (id: string): api.Pack["files"][number] => ({ id, ordinal: 0, status: "ok", media_type: "image/jpeg" });

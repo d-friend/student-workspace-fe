@@ -12,7 +12,7 @@ const side = { mode: "open" as const, drawerOpen: false, toggle: vi.fn(), openDr
 let desktop = true;
 let signedIn = false;
 let enabled = true;
-const row = (id: string, current = false): SessionSummary => ({ id, title: id, created_at: new Date().toISOString(), last_active_at: new Date().toISOString(), tabs: [{ phase: "learn" }, { phase: "solve" }], done: true, current });
+const row = (id: string, current = false): SessionSummary => ({ id, title: id, created_at: new Date().toISOString(), last_active_at: new Date().toISOString(), tabs: [{ phase: "learn" }, { phase: "solve" }], done: true, current, project_id: null });
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 let first: SessionList;
 beforeEach(() => {

@@ -159,7 +159,7 @@ test("resume failure keeps the card available without navigation", async () => {
 
 test("sidebar opens even the current session and returns home after resuming", async () => {
   vi.mocked(api.listSessions).mockResolvedValue({ sessions: [{
-    id: "current", title: "Current session", current: true, done: true, tabs: [{ phase: "solve" }],
+    id: "current", title: "Current session", current: true, done: true, project_id: null, tabs: [{ phase: "solve" }],
     created_at: new Date().toISOString(), last_active_at: new Date().toISOString(),
   }], next_before: null });
   render(<Page />);

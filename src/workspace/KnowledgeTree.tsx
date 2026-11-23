@@ -7,7 +7,8 @@ import { defaultCollapsed, mapTree, nodeFill, ROOT_ID, treeRows, visibleOrder, t
 import { edgePath, layoutTree, type Size } from "@/lib/treeLayout";
 import styles from "./KnowledgeTree.module.css";
 
-type Props = { data: TreeResponse; selected: string | null; onSelect: (nodeId: string | null) => void };
+// rootLabel names the synthetic root (the knowledge tree says its own title; a project map says the subject). trackClicks=false keeps a project map's node ids out of tree_node_clicked.
+type Props = { data: TreeResponse; selected: string | null; onSelect: (nodeId: string | null) => void; rootLabel?: string; trackClicks?: boolean };
 type View = { x: number; y: number; k: number };
 
 const FALLBACK: Size = { w: 160, h: 44 }; // until the first measurement (and in jsdom, which measures nothing)
@@ -15,7 +16,7 @@ const MIN_K = 0.2, MAX_K = 2, PAD = 24, READABLE_K = 0.7;
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
 // NotebookLM-style mind map (spec-v2 §3): root → subject → topic → type, absolutely positioned HTML nodes over one SVG of edges, panned and zoomed by a CSS transform.
-export function KnowledgeTree({ data, selected, onSelect }: Props) {
+export function KnowledgeTree({ data, selected, onSelect, rootLabel = copy.treeRoot, trackClicks = true }: Props) {
   const rows = useMemo(() => treeRows(data.nodes), [data.nodes]);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => defaultCollapsed(rows));
   const root = useMemo(() => mapTree(rows, collapsed), [rows, collapsed]);
@@ -128,7 +129,7 @@ export function KnowledgeTree({ data, selected, onSelect }: Props) {
 
   const toggle = (id: string) => setCollapsed(prev => { const next = new Set(prev); if (!next.delete(id)) next.add(id); return next; });
   const pick = (mapNode: MapNode) => {
-    if (mapNode.node) track("tree_node_clicked", { node_id: mapNode.node.id, level: mapNode.node.level });
+    if (mapNode.node && trackClicks) track("tree_node_clicked", { node_id: mapNode.node.id, level: mapNode.node.level });
     onSelect(mapNode.node?.id ?? null);
   };
 
@@ -170,7 +171,7 @@ export function KnowledgeTree({ data, selected, onSelect }: Props) {
 
   const tabStop = order.some(n => n.id === focusId) ? focusId : ROOT_ID;
   return <section aria-label={copy.treeTitle} className={styles.tree} data-settled={settled || undefined}>
-    <div ref={viewport} role="tree" aria-label={copy.treeRoot} className={styles.viewport}
+    <div ref={viewport} role="tree" aria-label={rootLabel} className={styles.viewport}
       onKeyDown={onKeyDown} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd}>
       <div className={styles.canvas} style={{ width: layout.width, height: layout.height, transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})` }}>
         <svg className={styles.edges} width={layout.width} height={layout.height} aria-hidden="true">
@@ -180,7 +181,7 @@ export function KnowledgeTree({ data, selected, onSelect }: Props) {
         {order.map(mapNode => {
           const { node } = mapNode, p = layout.placed.get(mapNode.id)!;
           const fill = node ? nodeFill(node.rate) : null;
-          const name = node?.name ?? copy.treeRoot;
+          const name = node?.name ?? rootLabel;
           const expandable = mapNode.children.length > 0 || mapNode.hidden > 0;
           return <div key={mapNode.id} role="none" className={styles.node} data-node-id={mapNode.id} data-kind={node?.level ?? "root"}
             ref={el => { if (el) boxes.current.set(mapNode.id, el); else boxes.current.delete(mapNode.id); }}

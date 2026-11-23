@@ -2228,6 +2228,42 @@ describe("problem handed over from the landing page (?q=)", () => {
     expect(location.search).toBe("");
   });
 
+  const PROJECT = "11111111-1111-4111-8111-111111111111";
+
+  it("files the session it creates in the project the page came from (?project=), and only that one", async () => {
+    history.replaceState(null, "", "/?q=" + encodeURIComponent("Mình muốn hiểu kĩ hơn: Viète.") + "&via=pack_learn_more&project=" + PROJECT);
+    const t = await boot();
+    expect(t.api.createSession).toHaveBeenCalledWith("pack_learn_more", PROJECT);
+    expect(location.search).toBe("");
+    t.ws.actions.newProblem();
+    t.ws.actions.setInput("bài khác");
+    await t.ws.actions.submit();
+    expect(t.api.createSession).toHaveBeenLastCalledWith("typed");
+  });
+
+  it("an empty composer started from a project page files the first typed session there", async () => {
+    history.replaceState(null, "", "/?project=" + PROJECT);
+    const t = await boot();
+    expect(t.api.createSession).not.toHaveBeenCalled();
+    expect(location.search).toBe("");
+    t.ws.actions.setInput("bài trong môn");
+    await t.ws.actions.submit();
+    expect(t.api.createSession).toHaveBeenCalledWith("typed", PROJECT);
+  });
+
+  it("ignores a project that is not an id, and any project while a problem is open", async () => {
+    history.replaceState(null, "", "/?q=" + encodeURIComponent("bài") + "&project=../../x");
+    const t = await boot();
+    expect(t.api.createSession).toHaveBeenCalledWith("typed");
+    history.replaceState(null, "", "/?project=" + PROJECT);
+    const open = await boot(undefined, { sessionId: "srv1", messages: [{ role: "user", content: "bài cũ" }, { role: "assistant", content: HTML_REPLY }], html: "<p>x</p>", tabs: [], activeId: null });
+    expect(location.search).toBe("");
+    open.ws.actions.newProblem();
+    open.ws.actions.setInput("bài mới");
+    await open.ws.actions.submit();
+    expect(open.api.createSession).toHaveBeenLastCalledWith("typed");
+  });
+
   it("ignores an unknown via", async () => {
     history.replaceState(null, "", "/?q=" + encodeURIComponent("bài") + "&via=nope");
     const t = await boot();

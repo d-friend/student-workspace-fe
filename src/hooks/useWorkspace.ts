@@ -156,6 +156,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let input = "";
   let nextVia: StartedVia | undefined; // set by a handoff (?via=) for the session the next submit creates
+  let nextProject: string | undefined; // set by a handoff (?project=) from a project page: the session the next submit creates is filed there
   let photos: string[] = [];
   let photoNoteId: number | null = null;
   let html: string | null = null;
@@ -599,8 +600,10 @@ export function createWorkspace(deps: WorkspaceDeps) {
     let keepEvents = false;
     try {
       if (sessionId === null) {
-        const created = await api.createSession(via ?? (shots.length ? "photo" : "typed"));
+        const startedVia = via ?? (shots.length ? "photo" : "typed");
+        const created = await (nextProject ? api.createSession(startedVia, nextProject) : api.createSession(startedVia));
         if (epoch !== mine) return;
+        nextProject = undefined; // kept until it worked, so a failed first send still files the retry
         sessionId = created.sessionId;
         sheet = null;
         sessionConfirmed = true;
@@ -940,6 +943,14 @@ export function createWorkspace(deps: WorkspaceDeps) {
           has_workspace: applied.html !== null || applied.tabs.length > 0,
         });
       }
+      // A project page starts a session in its project as ?project=<id>. Consume it once, and only when no problem is open.
+      const project = new URLSearchParams(location.search).get("project");
+      if (project) {
+        const url = new URL(location.href);
+        url.searchParams.delete("project");
+        history.replaceState(null, "", url);
+        if (!applied && /^[0-9a-f-]{36}$/i.test(project)) nextProject = project;
+      }
       // The landing page hands over the problem it was typed as ?q=. Consume it once (reload must not resend).
       const q = new URLSearchParams(location.search).get("q")?.trim();
       if (q) {
@@ -961,6 +972,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   }
 
   function resetToNew(reason: "new_problem" | "abandoned") {
+    nextProject = undefined;
     epoch++;
     flushSaves();
     if (sessionId) api.endSession(sessionId, reason).catch(() => {});

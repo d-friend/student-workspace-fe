@@ -170,3 +170,13 @@ test("labels and the toggle name follow the locale", () => {
   expect(within(screen.getByRole("region", { name: copy.treeTitle })).getByRole("tree", { name: "My knowledge tree" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Zoom in" })).toBeTruthy();
 });
+
+test("a project map names the root after the subject and keeps its clicks out of tree analytics", () => {
+  const onSelect = vi.fn();
+  render(<KnowledgeTree data={data()} selected={null} onSelect={onSelect} rootLabel="Toán học" trackClicks={false} />);
+  expect(screen.getByRole("tree", { name: "Toán học" })).toBeTruthy();
+  expect(names()[0]).toBe("Toán học");
+  fireEvent.click(item("Viète"));
+  expect(onSelect).toHaveBeenCalledWith("math.q.v");
+  expect(track).not.toHaveBeenCalled();
+});

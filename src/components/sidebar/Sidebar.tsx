@@ -20,7 +20,7 @@ import styles from "./Sidebar.module.css";
 // Once for this page load, even if the sidebar remounts.
 let historyLoaded = false;
 
-export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progress, busy = false, menuTarget, activeProjectId, preload }: {
+export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progress, busy = false, menuTarget, activeProjectId, awayFromHome = false, preload }: {
   side: ReturnType<typeof useSidebar>;
   onNewProblem: () => void;
   refreshKey: string;
@@ -29,6 +29,7 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
   busy?: boolean; // Keep deletion blocked while a turn is streaming.
   menuTarget?: HTMLElement | null;
   activeProjectId?: string; // the project page on screen, if any
+  awayFromHome?: boolean; // not on home: even the current session needs a navigation back to its workspace (progress.active implies it)
   preload?: { projects: ProjectSummary[]; sessions: SessionSummary[] }; // fixture pages: show this and make no requests
 }) {
   const desktop = useDesktop();
@@ -46,6 +47,7 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
   const menu = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const { closeDrawer, openDrawer } = side;
+  const away = awayFromHome || !!progress?.active;
   const loaded = useProjects(visible && !preload, refreshKey);
   const projects = preload?.projects ?? loaded.projects;
   const projectNames = useMemo(() => new Map(projects.map(project => [project.id, project.name])), [projects]);
@@ -116,7 +118,7 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
   // Opening a past session resumes it, then a reload runs the app's normal restore. A failed resume leaves things as they were.
   const open = (id: string) => {
     const session = page.sessions.find(row => row.id === id);
-    if (!session || (session.current && !progress?.active)) return;
+    if (!session || (session.current && !away)) return;
     const createdAt = Date.parse(session.created_at);
     // Measure age from creation, so resuming does not make an old session look new.
     const ageDays = Number.isFinite(createdAt) ? Math.max(0, Math.floor((Date.now() - createdAt) / 86_400_000)) : 0;
@@ -189,7 +191,7 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
           }} />
           <SessionList sessions={page.sessions} projectNames={projectNames} disabled={deleting || loading} deleteDisabled={busy || deleting || loading} onDelete={id => void remove(id)} onChoose={id => {
             // On /progress even the current session needs a navigation back to its workspace.
-            if (progress?.active || !page.sessions.find(row => row.id === id)?.current) open(id);
+            if (away || !page.sessions.find(row => row.id === id)?.current) open(id);
             if (!desktop) closeDrawer();
           }} />
           {deleteError && <p className={styles.deleteError} role="alert">{copy[deleteError]}</p>}

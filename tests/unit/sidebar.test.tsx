@@ -268,6 +268,15 @@ it("opening a past session tracks its tab count and age in whole days, but the c
   expect(track).toHaveBeenCalledTimes(1); // the past-session view only
 });
 
+it("away from home (a project page) even the current session opens, without marking Tiến bộ as the page", async () => {
+  first = { sessions: [row("first", true)], next_before: null };
+  const onOpen = vi.fn();
+  render(<Sidebar side={side} onNewProblem={vi.fn()} refreshKey="1" onOpenSession={onOpen} awayFromHome progress={{ active: false }} />);
+  fireEvent.click(await screen.findByRole("button", { name: /first/ }));
+  expect(onOpen).toHaveBeenCalledWith("first");
+  expect(screen.getByRole("link", { name: copy.progressNav }).getAttribute("aria-current")).toBeNull();
+});
+
 it("confirms deletion, removes only the chosen session, and does not open it", async () => {
   first = { sessions: [row("first", true), row("older")], next_before: null };
   const onOpen = vi.fn();

@@ -105,6 +105,36 @@ const CASES: [string, Partial<Parsed>][] = [
     "Hi\n```html\n<p>x</p>\n```\nVì sao? [opts: a | b]",
     { opts: ["a", "b"], chat: "Hi\n\nVì sao?", html: "<p>x</p>" },
   ],
+  // hidden learner tags ([obs ...], [level ...]) never show; the server records the leading ones
+  ["[obs error sign-error-chain-rule: quên dấu trừ] [silent]", { silent: true }],
+  ["[level easier] [silent]", { silent: true }],
+  ["[silent] [obs error x-y: n]", { silent: true }],
+  ["[obs error a-b: n] [why] [opts: A | B] text", { ask: "why", opts: ["A", "B"], chat: "text" }],
+  ["[why] [obs error a-b: n] text", { ask: "why", chat: "text" }],
+  [
+    "[mode:solve] [obs struggle a-b: n][line 2][level harder] [offer] [obs error c-d: n] [opts: A | B] text",
+    { mode: "solve", line: 2, offer: true, opts: ["A", "B"], chat: "text" },
+  ],
+  ["[obs error a-b: n][obs error c-d: n][obs question e-f: n][level easier] Mình xem lại nhé.", { chat: "Mình xem lại nhé." }],
+  ["[obs bogus x: y] [level expert] hi", { chat: "hi" }],
+  ["Hi [obs error x-y: n] there [level harder]", { chat: "Hi there" }],
+  [
+    "Hi\n```html\n<p>[level 3] [obs x]</p>\n```\nBye [obs error a-b: n]",
+    { chat: "Hi\n\nBye", html: "<p>[level 3] [obs x]</p>" },
+  ],
+  // streaming: an open tag shows nothing until it closes, ordinary brackets show as soon as they are clearly not ours
+  ["[ob", {}],
+  ["[obs error x-y: no", {}],
+  ["[obs error x-y: note] ", {}],
+  ["Mình thử nhé. [ob", { chat: "Mình thử nhé." }],
+  ["Mình thử nhé. [lev", { chat: "Mình thử nhé." }],
+  ["Mình thử nhé. [level eas", { chat: "Mình thử nhé." }],
+  ["Mình thử nhé. [obs error x-y: no", { chat: "Mình thử nhé." }],
+  ["Khoảng [0;1", { chat: "Khoảng [0;1" }],
+  ["[0;1] là khoảng", { chat: "[0;1] là khoảng" }],
+  ["Dùng [obst", { chat: "Dùng [obst" }],
+  ["Dùng [obstacle] nhé", { chat: "Dùng [obstacle] nhé" }],
+  ["Mức [levels] nhé", { chat: "Mức [levels] nhé" }],
 ];
 
 test.each(CASES)("parse(%j)", (raw, expected) => {

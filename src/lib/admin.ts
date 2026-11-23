@@ -132,6 +132,20 @@ export type GuestDetail = {
   }[];
 };
 
+export type LearnerNode = {
+  node_id: string;
+  name: string;
+  tier: "beginner" | "intermediate" | "advanced";
+  score: number;
+  confidence: number;
+  signals: number;
+  ready: boolean;
+  asked: string | null;
+  top_signatures: [string, number][];
+  transitions: { event_id: number; from: string; to: string; why: string }[];
+  recent: { id: number; at: string; kind: string; mode: string; signature: string | null; payload: Record<string, unknown> }[];
+};
+
 export type FeedbackRow = { id: number; guest_id: string; created_at: string; message: string; internal: boolean };
 export type SheetRow = { id: string; title: string; items: number; path: string; created_at: string };
 export type SheetCostTotal = { calls: number; input_tokens: number; output_tokens: number; usd: number | null; unpriced: boolean };

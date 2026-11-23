@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError } from "@/lib/api";
-import { adminGet, adminPost, adminPut, type Cost, type Features, type FeedbackRow, type GuestDetail, type GuestRow, type Health, type Latency, type Pct, type SheetReport, type SheetRow, type Thesis, type Users } from "@/lib/admin";
+import { adminGet, adminPost, adminPut, type Cost, type Features, type FeedbackRow, type GuestDetail, type GuestRow, type Health, type LearnerNode, type Latency, type Pct, type SheetReport, type SheetRow, type Thesis, type Users } from "@/lib/admin";
 import { LineChart, countsByDay, windowDays } from "./LineChart";
 import styles from "./admin.module.css";
 
@@ -290,6 +290,27 @@ export function FeedbackSection({ token, onGuestOpen }: Omit<Props, "days">) {
   return <Section title="Feedback">{error ? <Failure /> : !rows ? <p>Loading…</p> : rows.length === 0 ? <Empty /> : <div className={styles.tableWrap}><table><thead><tr><th>When</th><th>Guest</th><th>Message</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td>{when(row.created_at)}</td><td><button className={styles.idButton} type="button" title={row.guest_id} onClick={() => onGuestOpen?.(row.guest_id)}>{row.guest_id.slice(0, 8)}</button>{row.internal && " (internal)"}</td><td style={{ whiteSpace: "pre-wrap", minWidth: 320 }}>{row.message}</td></tr>)}</tbody></table></div>}</Section>;
 }
 
+// Debug view of the learner signal engine. Internal tiers: never shown to students, and a failure here must not break the timeline.
+function LearnerSignals({ token, guestId }: { token: string; guestId: string }) {
+  const [nodes, setNodes] = useState<LearnerNode[] | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    let current = true;
+    void adminGet<LearnerNode[]>(`/guests/${guestId}/learner`, token).then((data) => current && setNodes(Array.isArray(data) ? data : []), () => current && setError(true));
+    return () => { current = false; };
+  }, [guestId, token]);
+  return <div className={styles.timeline} aria-label="Learner signals">
+    <h3>Learner signals (debug)</h3>
+    {error ? <p className={styles.note}>Learner signals unavailable.</p> : !nodes ? <p>Loading…</p> : nodes.length === 0 ? <p className={styles.note}>No learner signals yet.</p> : nodes.map((node) => <article key={node.node_id} className={styles.session}>
+      <h3 title={node.node_id}>{node.name}</h3>
+      <p>{node.tier} · score {node.score.toFixed(2)} · confidence {node.confidence.toFixed(2)} · {node.signals} signals · {node.ready ? "past the gate" : "below the gate"}{node.asked ? ` · asked ${node.asked}` : ""}</p>
+      {node.top_signatures.length > 0 && <p>Signatures: {node.top_signatures.map(([signature, count]) => `${signature} ×${count}`).join(", ")}</p>}
+      {node.transitions.map((t) => <p key={t.event_id}>#{t.event_id}: {t.from} → {t.to} ({t.why})</p>)}
+      {node.recent.map((e) => <div className={styles.turn} key={e.id}><b>{when(e.at)}</b><span>{e.kind} · {e.mode}{e.signature ? ` · ${e.signature}` : ""}</span><span>{JSON.stringify(e.payload)}</span></div>)}
+    </article>)}
+  </div>;
+}
+
 export function GuestTimeline({ token, guestId, onClose, onGuestOpen }: { token: string; guestId: string; onClose: () => void; onGuestOpen: (guestId: string) => void }) {
   const [detail, setDetail] = useState<GuestDetail | null>(null);
   const [error, setError] = useState(false);
@@ -298,5 +319,5 @@ export function GuestTimeline({ token, guestId, onClose, onGuestOpen }: { token:
     void adminGet<GuestDetail>(`/guests/${guestId}`, token).then((data) => current && setDetail(data), () => current && setError(true));
     return () => { current = false; };
   }, [guestId, token]);
-  return <Section title="Guest timeline"><button type="button" className={styles.signOut} onClick={onClose}>Close timeline</button>{error ? <Failure /> : !detail ? <p>Loading…</p> : <div className={styles.timeline}><p>Guest <span title={detail.guest.id}>{detail.guest.id}</span></p><div className={styles.siblings}><span>Sibling guests:</span>{detail.sibling_guest_ids.length ? detail.sibling_guest_ids.map(id => <button key={id} type="button" className={styles.idButton} title={id} onClick={() => onGuestOpen(id)}>{id.slice(0, 8)}</button>) : <span>None</span>}</div>{detail.sessions.length === 0 && <Empty />}{detail.sessions.map((session) => <article key={session.id} className={styles.session}><h3>{session.id}</h3><p>{session.started_via} · {when(session.created_at)} · {session.mode ?? "—"}</p><p>Last active: {session.last_active_at ? when(session.last_active_at) : "—"} · resumed ×{session.resumed}</p><div className={styles.tabs}>{session.tabs.length ? session.tabs.map(tab => <span key={tab.workspace_id} className={styles.tab} data-active={tab.workspace_id === session.active_workspace_id || undefined} title={tab.workspace_id}>{tab.phase}{tab.workspace_id === session.active_workspace_id && " · active"}</span>) : <span className={styles.note}>No tabs.</span>}</div>{session.turns.map((turn) => <div className={styles.turn} key={turn.id}><b>{when(turn.started_at)}</b><span>{turn.kind} · {turn.route ?? "—"} · {turn.mode ?? "—"}</span><span>{turn.error_code ?? (turn.ok === null ? "—" : turn.ok ? "ok" : "failed")} · {ms(turn.total_ms)} · {turn.model ?? "—"} · {money(turn.usd)}</span><span>{turn.events.join(", ") || "—"}</span></div>)}</article>)}</div>}</Section>;
+  return <Section title="Guest timeline"><button type="button" className={styles.signOut} onClick={onClose}>Close timeline</button>{error ? <Failure /> : !detail ? <p>Loading…</p> : <div className={styles.timeline}><p>Guest <span title={detail.guest.id}>{detail.guest.id}</span></p><div className={styles.siblings}><span>Sibling guests:</span>{detail.sibling_guest_ids.length ? detail.sibling_guest_ids.map(id => <button key={id} type="button" className={styles.idButton} title={id} onClick={() => onGuestOpen(id)}>{id.slice(0, 8)}</button>) : <span>None</span>}</div><LearnerSignals token={token} guestId={guestId} />{detail.sessions.length === 0 && <Empty />}{detail.sessions.map((session) => <article key={session.id} className={styles.session}><h3>{session.id}</h3><p>{session.started_via} · {when(session.created_at)} · {session.mode ?? "—"}</p><p>Last active: {session.last_active_at ? when(session.last_active_at) : "—"} · resumed ×{session.resumed}</p><div className={styles.tabs}>{session.tabs.length ? session.tabs.map(tab => <span key={tab.workspace_id} className={styles.tab} data-active={tab.workspace_id === session.active_workspace_id || undefined} title={tab.workspace_id}>{tab.phase}{tab.workspace_id === session.active_workspace_id && " · active"}</span>) : <span className={styles.note}>No tabs.</span>}</div>{session.turns.map((turn) => <div className={styles.turn} key={turn.id}><b>{when(turn.started_at)}</b><span>{turn.kind} · {turn.route ?? "—"} · {turn.mode ?? "—"}</span><span>{turn.error_code ?? (turn.ok === null ? "—" : turn.ok ? "ok" : "failed")} · {ms(turn.total_ms)} · {turn.model ?? "—"} · {money(turn.usd)}</span><span>{turn.events.join(", ") || "—"}</span></div>)}</article>)}</div>}</Section>;
 }

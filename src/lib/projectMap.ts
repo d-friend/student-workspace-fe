@@ -12,7 +12,7 @@ export const masteryRate = (mastery: Mastery | null): number | null => mastery ?
 export function mapAsTree(map: MapItem[]): TreeResponse {
   const nodes: TreeNode[] = [...map].sort((a, b) => a.ordinal - b.ordinal).map(item => ({
     id: item.id, level: LEVEL[item.role], parent_id: item.parent_id, name: item.name, grades: [],
-    attempts: 0, solo: 0, rate: masteryRate(item.mastery), unfinished: 0, learned: 0, packs: 0, last_seen: "",
+    attempts: 0, solo: 0, rate: masteryRate(item.mastery), unfinished: 0, learned: 0, last_seen: "",
   }));
   return { nodes, workspaces: [] };
 }

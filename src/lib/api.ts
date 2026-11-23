@@ -427,7 +427,6 @@ export type TreeNode = {
   unfinished: number;
   learned: number;
   last_seen: string;
-  packs: number; // study packs at or under the node
 };
 
 export type TreeWorkspace = {
@@ -471,15 +470,6 @@ export type Pack = PackSummary & {
   blocks: PackBlock[];
   nodes: { id: string; name: string; role: MapRole; created: boolean }[]; // the map nodes this pack added or touched
 };
-export type NodeView = {
-  id: string;
-  level: "subject" | "topic" | "type";
-  name: string;
-  path: { id: string; name: string }[];
-  summaries: { pack_id: string; created_at: string; summary: string; blocks: PackBlock[] }[];
-  workspaces: { workspace_id: string; session_id: string; phase: "learn" | "solve" | "practice"; title: string; created_at: string }[];
-};
-
 export const packPhotoUrl = (packId: string, fileId: string) => `/api/packs/${packId}/files/${fileId}`;
 
 // photos: base64 JPEGs without the data-URL prefix (readPhoto's output). projectId: upload into that project, so the subject stage is skipped.
@@ -503,12 +493,6 @@ export async function setPackSubject(id: string, subject: string): Promise<Pack>
 
 export async function retryPack(id: string): Promise<Pack> {
   const res = await post(`/api/packs/${encodeURIComponent(id)}/retry`, {});
-  if (!res.ok) throw await toApiError(res);
-  return res.json();
-}
-
-export async function getNodeView(nodeId: string): Promise<NodeView> {
-  const res = await get(`/api/tree/nodes/${encodeURIComponent(nodeId)}`);
   if (!res.ok) throw await toApiError(res);
   return res.json();
 }

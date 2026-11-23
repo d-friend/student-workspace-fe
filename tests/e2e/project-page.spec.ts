@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "./fixtures";
 import { copy } from "../../src/lib/copy";
-import { MATH, projectsFixture, projectViews, readers, sessionsFixture } from "../../src/app/dev/fixtures/projects/projectsFixture";
+import { MATH, mapNodeView, projectsFixture, projectViews, readers, sessionsFixture } from "../../src/app/dev/fixtures/projects/projectsFixture";
 
 // The project page. The projects API is not on the mock backend yet, so its calls are answered in the browser from the dev fixture.
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64");
@@ -13,6 +13,10 @@ async function mockProjects(page: Page) {
     const project = new URL(route.request().url()).searchParams.get("project_id");
     const sessions = sessionsFixture.filter(s => !project || s.project_id === project);
     return route.fulfill({ json: { sessions, next_before: null } });
+  });
+  await page.route("**/api/map-nodes/*", route => {
+    const view = mapNodeView(route.request().url().split("/").pop()!);
+    return view ? route.fulfill({ json: view }) : route.fulfill({ status: 404, json: { error: { code: "not_found", message: "no" } } });
   });
   await page.route("**/api/packs/*/files/*", route => route.fulfill({ body: PNG, contentType: "image/png" }));
 }
@@ -102,4 +106,51 @@ test("Học thêm on a passage opens home with the message and the project", asy
   await page.getByRole("button", { name: copy.packLearnMore }).click();
   const url = new URL((await navigation).url());
   expect(url.searchParams.get("q")).toContain("Viète");
+});
+
+test("desktop: a map node opens its notes beside the map, Xem nguồn jumps to the passage, and the panel closes", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/projects/${MATH}`);
+  const tree = page.getByRole("tree", { name: "Toán" });
+  await tree.getByRole("treeitem", { name: "Hệ thức Viète" }).click();
+  const notes = page.getByRole("region", { name: copy.packFromNotes });
+  await expect(notes.getByText("Hệ thức Viète")).toBeVisible();
+  await expect(notes.locator(".katex").first()).toBeVisible();
+  // Beside the map, not under it.
+  const [mapBox, noteBox] = await Promise.all([tree.boundingBox(), notes.boundingBox()]);
+  expect(noteBox!.x).toBeGreaterThanOrEqual(mapBox!.x + mapBox!.width - 1);
+
+  await notes.getByRole("button", { name: copy.packViewSource }).click();
+  await expect(page.getByRole("tab", { name: "Nguồn" })).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(/tab=sources&block=b5/);
+  await expect(page.locator("#block-b5")).toHaveAttribute("data-highlight", "true");
+  await expect(page.locator("#block-b5")).toBeInViewport();
+
+  await page.getByRole("tab", { name: "Bản đồ" }).click();
+  await page.getByRole("tree", { name: "Toán" }).getByRole("treeitem", { name: "Hàm số" }).click(); // a chapter with no notes
+  await expect(page.getByText(copy.projectNodeEmpty)).toBeVisible();
+  await page.getByRole("button", { name: copy.treeClear }).click();
+  await expect(page.getByRole("region", { name: copy.packFromNotes })).toHaveCount(0);
+});
+
+test("phone: the node's notes appear under the map and fit the width", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/projects/${MATH}`);
+  await page.getByRole("treeitem", { name: "Công thức nghiệm" }).click();
+  const notes = page.getByRole("region", { name: copy.packFromNotes });
+  await expect(notes).toBeVisible();
+  const [mapBox, noteBox] = await Promise.all([page.getByRole("tree", { name: "Toán" }).boundingBox(), notes.boundingBox()]);
+  expect(noteBox!.y).toBeGreaterThanOrEqual(mapBox!.y + mapBox!.height - 1);
+  expect(noteBox!.x + noteBox!.width).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  for (const button of await notes.getByRole("button").all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+});
+
+test("Học thêm on a map node opens home with the node's name and the project", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/projects/${MATH}`);
+  await page.getByRole("tree", { name: "Toán" }).getByRole("treeitem", { name: "Hệ thức Viète" }).click();
+  const navigation = page.waitForRequest(r => r.isNavigationRequest() && r.url().includes("via=pack_learn_more") && r.url().includes(`project=${MATH}`));
+  await page.getByRole("region", { name: copy.packFromNotes }).getByRole("button", { name: copy.packLearnMore }).click();
+  expect(new URL((await navigation).url()).searchParams.get("q")).toContain("Mình muốn hiểu kĩ hơn: Hệ thức Viète.");
 });

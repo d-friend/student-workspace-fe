@@ -1,22 +1,24 @@
-import Link from "next/link";
+import { IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
-import { getNodeView, type NodeView, type TreeNode } from "@/lib/api";
+import { getMapNode, type MapItem, type MapNodeView, type PackBlock } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { learnMoreMessage } from "@/lib/pack";
-import { progressDateLabel } from "@/lib/progress";
 import { track } from "@/lib/track";
 import { MdInline } from "@/workspace/md";
 import styles from "./Pack.module.css";
 
-// What the student's own notes say about the node on screen: the summary, the way to its source, and "Học thêm".
-export function NodePanel({ node, onLearnMore, learnFailed }: { node: TreeNode; onLearnMore: (text: string) => void; learnFailed: boolean }) {
-  const [view, setView] = useState<{ id: string; data: NodeView | null; failed: boolean } | null>(null);
-  const wanted = node.packs > 0;
+// What the student's own notes say about the map node on screen: the summary, the way to its source, and "Học thêm".
+// The summary comes with the map; the passages (for the source link and the Học thêm excerpt) are fetched per node.
+export function NodePanel({ node, onViewSource, onLearnMore, learnFailed, onClose }: {
+  node: MapItem; onViewSource: (blockId: string) => void; onLearnMore: (text: string) => void; learnFailed: boolean; onClose: () => void;
+}) {
+  const [view, setView] = useState<{ id: string; data: MapNodeView | null; failed: boolean } | null>(null);
+  const wanted = node.block_ids.length > 0;
 
   useEffect(() => {
     if (!wanted) return;
     let active = true;
-    getNodeView(node.id).then(
+    getMapNode(node.id).then(
       data => { if (active) setView({ id: node.id, data, failed: false }); },
       () => { if (active) setView({ id: node.id, data: null, failed: true }); },
     );
@@ -24,23 +26,34 @@ export function NodePanel({ node, onLearnMore, learnFailed }: { node: TreeNode; 
   }, [node.id, wanted]);
 
   const mine = view?.id === node.id ? view : null;
-  if (!wanted || !mine) return null;
-  if (mine.failed) return <p className={styles.error} role="alert">{copy.packNodeFailed}</p>;
-  const summaries = mine.data?.summaries ?? [];
-  if (!summaries.length) return null;
+  const blocks: PackBlock[] = mine?.data?.blocks ?? [];
+  const summary = node.summary.trim();
+  const hasNotes = summary !== "" || wanted;
+  const firstBlock = blocks[0]?.id ?? node.block_ids[0];
+  const pack = mine?.data?.pack_ids[0];
+  // node_id is the map node's id here, not a global tree node's. The event waits for the fetch that names the pack; the action does not.
+  const report = (event: "node_source_viewed" | "learn_more_tapped") => { if (pack) track(event, { node_id: node.id, pack_id: pack }); };
+
   return <section className={styles.notes} aria-label={copy.packFromNotes}>
-    {summaries.map(s => <article key={s.pack_id} className={styles.note}>
-      <header className={styles.noteHead}><strong>{copy.packFromNotes}</strong><time dateTime={s.created_at}>{progressDateLabel(s.created_at)}</time></header>
-      <p className={styles.summary}><MdInline text={s.summary} /></p>
-      <div className={styles.actions}>
-        <Link className={styles.secondary} href={`/packs/${s.pack_id}?via=node_source${s.blocks[0] ? `&block=${s.blocks[0].id}` : ""}`}
-          onClick={() => track("node_source_viewed", { node_id: node.id, pack_id: s.pack_id })}>{copy.packViewSource}</Link>
+    <article className={styles.note}>
+      <header className={styles.noteHead}>
+        <strong>{node.name}</strong>
+        <button type="button" className={styles.close} aria-label={copy.treeClear} onClick={onClose}><IconX size={18} aria-hidden="true" /></button>
+      </header>
+      {summary !== "" && <p className={styles.summary}><MdInline text={summary} /></p>}
+      {!hasNotes && <p className={styles.summary}>{copy.projectNodeEmpty}</p>}
+      {mine?.failed && <p className={styles.error} role="alert">{copy.packNodeFailed}</p>}
+      {hasNotes && <div className={styles.actions}>
+        {firstBlock && <button type="button" className={styles.secondary} onClick={() => {
+          report("node_source_viewed");
+          onViewSource(firstBlock);
+        }}>{copy.packViewSource}</button>}
         <button type="button" className={styles.primary} onClick={() => {
-          track("learn_more_tapped", { node_id: node.id, pack_id: s.pack_id });
-          onLearnMore(learnMoreMessage(node.name, s.blocks, s.summary));
+          report("learn_more_tapped");
+          onLearnMore(learnMoreMessage(node.name, blocks, summary));
         }}>{copy.packLearnMore}</button>
-      </div>
-    </article>)}
-    {learnFailed && <p className={styles.error} role="alert">{copy.packLearnMoreFailed}</p>}
+      </div>}
+      {learnFailed && <p className={styles.error} role="alert">{copy.packLearnMoreFailed}</p>}
+    </article>
   </section>;
 }

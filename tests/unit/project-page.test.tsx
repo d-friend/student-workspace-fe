@@ -5,7 +5,7 @@ import * as api from "@/lib/api";
 import { copy, setLocale } from "@/lib/copy";
 import { readPhoto } from "@/lib/photo";
 import { track } from "@/lib/track";
-import { MATH, mathProject, mathReader, projectsFixture, sessionsFixture } from "../../src/app/dev/fixtures/projects/projectsFixture";
+import { MATH, mapNodeView, mathProject, mathReader, projectsFixture, sessionsFixture } from "../../src/app/dev/fixtures/projects/projectsFixture";
 
 let search = "";
 vi.mock("next/navigation", () => ({ useParams: () => ({ id: "11111111-1111-4111-8111-111111111111" }), useSearchParams: () => new URLSearchParams(search) }));
@@ -14,7 +14,7 @@ vi.mock("@/lib/api", async original => ({
   ...await original<typeof import("@/lib/api")>(),
   createGuest: vi.fn(), getMe: vi.fn(), authMethods: vi.fn(), listSessions: vi.fn(), listProjects: vi.fn(), currentSession: vi.fn(),
   endSession: vi.fn(), resumeSession: vi.fn(), getProject: vi.fn(), getReader: vi.fn(), createPack: vi.fn(), getPack: vi.fn(),
-  retryPack: vi.fn(), setPackSubject: vi.fn(),
+  retryPack: vi.fn(), setPackSubject: vi.fn(), getMapNode: vi.fn(),
 }));
 vi.mock("@/lib/track", () => ({ track: vi.fn() }));
 vi.mock("@/lib/photo", async original => ({ ...await original<typeof import("@/lib/photo")>(), readPhoto: vi.fn() }));
@@ -39,6 +39,7 @@ beforeEach(() => {
   vi.mocked(api.listProjects).mockResolvedValue(projectsFixture);
   vi.mocked(api.getProject).mockResolvedValue(mathProject);
   vi.mocked(api.getReader).mockResolvedValue(mathReader);
+  vi.mocked(api.getMapNode).mockImplementation(async id => mapNodeView(id)!);
   vi.mocked(api.currentSession).mockResolvedValue(null);
   vi.mocked(api.endSession).mockResolvedValue(undefined);
   vi.mocked(api.resumeSession).mockResolvedValue(undefined);
@@ -200,4 +201,28 @@ test("Học thêm stays put and says so when the open problem cannot be ended", 
   fireEvent.click(screen.getByRole("button", { name: copy.packLearnMore }));
   expect((await screen.findByRole("alert")).textContent).toBe(copy.packLearnMoreFailed);
   expect(assign).not.toHaveBeenCalled();
+});
+
+test("Xem nguồn on a map node opens the notes at its passage, marks it, and keeps the tab in the address", async () => {
+  await loaded();
+  fireEvent.click(screen.getByRole("treeitem", { name: "Hệ thức Viète" }));
+  await act(async () => fireEvent.click(await screen.findByRole("button", { name: copy.packViewSource })));
+  expect(screen.getByRole("tab", { name: copy.projectTabs.sources }).getAttribute("aria-selected")).toBe("true");
+  await screen.findByRole("img", { name: copy.packPhotoAlt(2) });
+  expect(document.getElementById("block-b5")!.hasAttribute("data-highlight")).toBe(true);
+  expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+  const url = new URL(window.location.href);
+  expect([url.searchParams.get("tab"), url.searchParams.get("block")]).toEqual(["sources", "b5"]);
+  expect(track).toHaveBeenCalledWith("project_tab_viewed", { project_id: MATH, tab: "sources" });
+});
+
+test("Học thêm on a map node hands the node's name, the project and the pack_learn_more start to home", async () => {
+  await loaded();
+  fireEvent.click(screen.getByRole("treeitem", { name: "Hệ thức Viète" }));
+  await act(async () => {});
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: copy.packLearnMore })));
+  await waitFor(() => expect(assign).toHaveBeenCalledTimes(1));
+  const url = new URL(assign.mock.calls[0][0] as string, "http://x");
+  expect([url.searchParams.get("via"), url.searchParams.get("project")]).toEqual(["pack_learn_more", MATH]);
+  expect(url.searchParams.get("q")).toContain("Mình muốn hiểu kĩ hơn: Hệ thức Viète.");
 });

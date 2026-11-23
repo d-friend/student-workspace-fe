@@ -27,7 +27,7 @@ function ProjectContent({ id }: { id: string }) {
   const query = useSearchParams();
   const { data: project, error, reload: reloadProject } = useProject(id);
   const [tab, setTab] = useState<ProjectTab>(() => tabOf(query.get("tab")));
-  const [block] = useState(() => query.get("block")); // set by "Xem nguồn"; the reader scrolls to it
+  const [block, setBlock] = useState(() => query.get("block")); // set by "Xem nguồn"; the reader scrolls to it
   const [opened, setOpened] = useState<ProjectTab[]>(() => [tab]); // a tab loads its data the first time it is shown
   const [openFailed, setOpenFailed] = useState(false);
   const [sheet, setSheet] = useState<Pack | null>(null); // the upload status sheet
@@ -55,6 +55,17 @@ function ProjectContent({ id }: { id: string }) {
     window.history.replaceState(null, "", url);
   }, []);
 
+  // "Xem nguồn" on a map node: open the notes at the passage the node came from.
+  const viewSource = useCallback((blockId: string) => {
+    setBlock(blockId);
+    setTab("sources");
+    setOpened(list => list.includes("sources") ? list : [...list, "sources"]);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", "sources");
+    url.searchParams.set("block", blockId);
+    window.history.replaceState(null, "", url);
+  }, []);
+
   // A finished upload changes the map, the pack list and the reader.
   const { reload: reloadReader } = reader;
   const settled = useCallback(() => { reloadProject(); reloadReader(); }, [reloadProject, reloadReader]);
@@ -69,7 +80,7 @@ function ProjectContent({ id }: { id: string }) {
     sessions={sessions} onOpenSession={openSession} openFailed={openFailed}
     onNewSession={() => void fresh.leave(`/?${new URLSearchParams({ project: id })}`, true)} newFailed={fresh.failed}
     reader={{ pages: reader.data, failed: reader.error !== null }} block={block}
-    onLearnMore={text => void learn.leave(`/?${new URLSearchParams({ q: text, via: "pack_learn_more", project: id })}`, false)} learnFailed={learn.failed} onUploaded={setSheet} />
+    onLearnMore={text => void learn.leave(`/?${new URLSearchParams({ q: text, via: "pack_learn_more", project: id })}`, false)} learnFailed={learn.failed} onViewSource={viewSource} onUploaded={setSheet} />
     : <div className={styles.page}>{error && <p className={styles.error} role="alert">{error === "missing" ? copy.projectNotFound : copy.projectLoadFailed}</p>}</div>;
 
   return <>

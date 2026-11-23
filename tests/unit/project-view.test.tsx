@@ -11,7 +11,7 @@ const mine = sessionsFixture.filter(s => s.project_id === MATH);
 const props = (over: Partial<ProjectViewProps> = {}): ProjectViewProps => ({
   project: mathProject, tab: "map", onTab: noop,
   sessions: { sessions: mine, ready: true, failed: false, hasMore: false, loadingMore: false, more: noop }, onOpenSession: noop, openFailed: false,
-  onNewSession: noop, newFailed: false, reader: { pages: mathReader, failed: false }, block: null, onLearnMore: noop, learnFailed: false, onUploaded: noop, ...over,
+  onNewSession: noop, newFailed: false, reader: { pages: mathReader, failed: false }, block: null, onLearnMore: noop, learnFailed: false, onViewSource: noop, onUploaded: noop, ...over,
 });
 beforeEach(() => {
   setLocale("vi");

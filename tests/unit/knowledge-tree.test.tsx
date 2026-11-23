@@ -8,7 +8,7 @@ import { KnowledgeTree } from "@/workspace/KnowledgeTree";
 vi.mock("@/lib/track", () => ({ track: vi.fn() }));
 
 const node = (id: string, level: TreeNode["level"], parent_id: string | null, extra: Partial<TreeNode> = {}): TreeNode => ({
-  id, level, parent_id, name: id, grades: [], attempts: 0, solo: 0, rate: null, unfinished: 0, learned: 0, packs: 0, last_seen: "2026-11-19T08:00:00Z", ...extra,
+  id, level, parent_id, name: id, grades: [], attempts: 0, solo: 0, rate: null, unfinished: 0, learned: 0, last_seen: "2026-11-19T08:00:00Z", ...extra,
 });
 const data = (): TreeResponse => ({
   nodes: [

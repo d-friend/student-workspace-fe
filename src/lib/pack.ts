@@ -41,11 +41,3 @@ export function excerpt(blocks: Pick<PackBlock, "text">[], fallback: string): st
 export function learnMoreMessage(name: string, blocks: Pick<PackBlock, "text">[], summary: string): string {
   return copy.packLearnMoreMessage(name, excerpt(blocks, summary));
 }
-
-// The subject node of any node in the payload (itself when it is one).
-export function subjectOf(nodes: { id: string; parent_id: string | null }[], id: string): string | null {
-  const byId = new Map(nodes.map(n => [n.id, n]));
-  let at = byId.get(id);
-  while (at?.parent_id) at = byId.get(at.parent_id);
-  return at?.id ?? null;
-}

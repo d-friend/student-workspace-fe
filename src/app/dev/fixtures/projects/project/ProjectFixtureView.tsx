@@ -19,7 +19,7 @@ export function ProjectFixtureView({ projectId, tab: initial, block }: { project
   const mine = sessionsFixture.filter(s => s.project_id === projectId);
   const view = <ProjectView project={project} tab={tab} onTab={setTab}
     sessions={{ sessions: mine, ready: true, failed: false, hasMore: false, loadingMore: false, more: noop }} onOpenSession={noop} openFailed={false}
-    onNewSession={noop} newFailed={false} reader={{ pages: readers[projectId], failed: false }} block={block ?? null} onLearnMore={noop} learnFailed={false} />;
+    onNewSession={noop} newFailed={false} reader={{ pages: readers[projectId], failed: false }} block={block ?? null} onLearnMore={noop} learnFailed={false} onUploaded={noop} />;
   return <Shell work={view} layer={null} floatingPanels showCornerActions={!desktop} inert={side.drawerOpen && !desktop}
     sidebar={<Sidebar side={side} refreshKey="fixture" onNewProblem={noop} awayFromHome progress={{ active: false }} activeProjectId={projectId}
       preload={{ projects: projectsFixture, sessions: sessionsFixture }} />}

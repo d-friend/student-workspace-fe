@@ -489,12 +489,6 @@ export async function createPack(photos: string[], projectId?: string): Promise<
   return res.json();
 }
 
-export async function listPacks(): Promise<PackSummary[]> {
-  const res = await get("/api/packs");
-  if (!res.ok) throw await toApiError(res);
-  return (await res.json()).packs;
-}
-
 export async function getPack(id: string): Promise<Pack> {
   const res = await get(`/api/packs/${encodeURIComponent(id)}`);
   if (!res.ok) throw await toApiError(res);

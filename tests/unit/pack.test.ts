@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ApiError, type Pack } from "@/lib/api";
 import { copy, setLocale } from "@/lib/copy";
-import { badPages, excerpt, learnMoreMessage, packStage, retryStage, subjectOf, uploadError } from "@/lib/pack";
+import { badPages, excerpt, learnMoreMessage, packStage, retryStage, uploadError } from "@/lib/pack";
 
 const file = (status: Pack["files"][number]["status"]) => ({ id: status, ordinal: 0, status, media_type: "image/jpeg" });
 
@@ -54,9 +54,4 @@ describe("the learn-more message", () => {
     expect(text.endsWith("…")).toBe(true);
     expect(text.endsWith(" …")).toBe(false);
   });
-});
-
-it("finds the subject of a node", () => {
-  const nodes = [{ id: "s", parent_id: null }, { id: "t", parent_id: "s" }, { id: "x", parent_id: "t" }];
-  expect([subjectOf(nodes, "x"), subjectOf(nodes, "s"), subjectOf(nodes, "zzz")]).toEqual(["s", "s", null]);
 });

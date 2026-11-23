@@ -11,7 +11,7 @@ const mine = sessionsFixture.filter(s => s.project_id === MATH);
 const props = (over: Partial<ProjectViewProps> = {}): ProjectViewProps => ({
   project: mathProject, tab: "map", onTab: noop,
   sessions: { sessions: mine, ready: true, failed: false, hasMore: false, loadingMore: false, more: noop }, onOpenSession: noop, openFailed: false,
-  onNewSession: noop, newFailed: false, reader: { pages: mathReader, failed: false }, block: null, onLearnMore: noop, learnFailed: false, ...over,
+  onNewSession: noop, newFailed: false, reader: { pages: mathReader, failed: false }, block: null, onLearnMore: noop, learnFailed: false, onUploaded: noop, ...over,
 });
 beforeEach(() => {
   setLocale("vi");
@@ -128,8 +128,17 @@ test("Nguồn marks the passage 'Xem nguồn' points at, and scrolls to it", () 
 test("Nguồn shows loading, empty and failed states", () => {
   const { rerender, container } = render(<ProjectView {...props({ tab: "sources", reader: { pages: null, failed: false } })} />);
   expect(container.querySelector("[aria-busy=true]")).not.toBeNull();
-  rerender(<ProjectView {...props({ tab: "sources", reader: { pages: [], failed: false } })} />);
+  rerender(<ProjectView {...props({ tab: "sources", project: { ...mathProject, packs: [] }, reader: { pages: [], failed: false } })} />);
   expect(screen.getByText(copy.projectSourcesEmpty)).toBeDefined();
+  rerender(<ProjectView {...props({ tab: "sources", reader: { pages: [], failed: false } })} />); // packs with no readable page still list
+  expect(screen.queryByText(copy.projectSourcesEmpty)).toBeNull();
+  expect(screen.getByText(copy.packListTitle)).toBeDefined();
   rerender(<ProjectView {...props({ tab: "sources", reader: { pages: null, failed: true } })} />);
   expect(screen.getByRole("alert").textContent).toBe(copy.projectSourcesFailed);
+});
+
+test("Cập nhật vở sits next to the subject name and hands the uploaded pack to the page", () => {
+  render(<ProjectView {...props()} />);
+  expect(screen.getByRole("button", { name: copy.projectUpdateNotes })).toBeDefined();
+  expect(screen.getByLabelText(copy.packUploadHint)).toBeDefined();
 });

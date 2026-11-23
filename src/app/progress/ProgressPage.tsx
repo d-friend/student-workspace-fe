@@ -1,17 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PackSheet } from "@/components/pack/PackSheet";
+import { useEffect, useMemo, useRef } from "react";
 import { ProfileGate } from "@/components/ProfileGate";
 import { Shell } from "@/components/Shell";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { useSidebar } from "@/components/sidebar/useSidebar";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useLeaveSession } from "@/hooks/useLeaveSession";
-import { usePacks } from "@/hooks/usePacks";
 import { useProgress } from "@/hooks/useProgress";
 import { useTree } from "@/hooks/useTree";
-import { type Pack, resumeSession } from "@/lib/api";
+import { resumeSession } from "@/lib/api";
 import { progressCards } from "@/lib/progress";
 import { track } from "@/lib/track";
 import { ProgressView } from "./ProgressView";
@@ -22,13 +20,8 @@ export function ProgressPage() {
 
 function ProgressContent() {
   const progress = useProgress();
-  const { tree, ready: treeReady, reload: reloadTree } = useTree();
-  const { packs, reload: reloadPacks } = usePacks();
-  const [sheet, setSheet] = useState<Pack | null>(null);
+  const { tree, ready: treeReady } = useTree();
   const fresh = useLeaveSession();
-  const learn = useLeaveSession();
-  const settled = useCallback(() => { reloadTree(); reloadPacks(); }, [reloadTree, reloadPacks]);
-  const closeSheet = useCallback(() => setSheet(null), []);
   const side = useSidebar();
   const desktop = useDesktop();
   const tracked = useRef(false);
@@ -48,15 +41,10 @@ function ProgressContent() {
     track("tree_opened", { nodes: treeNodes });
   }, [treeReady, treeNodes]);
 
-  const work = <ProgressView items={progress.items} tree={tree} ready={progress.ready && treeReady} failed={progress.failed} onRetry={progress.retry} newFailed={fresh.failed}
-    packs={packs} onUploaded={pack => { setSheet(pack); reloadPacks(); }} learnFailed={learn.failed}
-    onLearnMore={text => void learn.leave(`/?${new URLSearchParams({ q: text, via: "pack_learn_more" })}`, false)} />;
+  const work = <ProgressView items={progress.items} tree={tree} ready={progress.ready && treeReady} failed={progress.failed} onRetry={progress.retry} newFailed={fresh.failed} />;
 
-  return <>
-    <Shell work={work} layer={null} floatingPanels showCornerActions={!desktop} inert={side.drawerOpen && !desktop}
+  return <Shell work={work} layer={null} floatingPanels showCornerActions={!desktop} inert={side.drawerOpen && !desktop}
     sidebar={<Sidebar side={side} progress={{ active: true }} onNewProblem={() => void fresh.leave("/", true)} refreshKey="progress"
       onOpenSession={sessionId => { void resumeSession(sessionId).then(() => window.location.assign("/"), () => {}); }} />}
-    side={desktop ? side.mode : undefined} />
-    {sheet && <PackSheet initial={sheet} onClose={closeSheet} onSettled={settled} />}
-  </>;
+    side={desktop ? side.mode : undefined} />;
 }

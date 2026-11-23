@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { IconArrowRight, IconArrowsShuffle, IconCheck } from "@tabler/icons-react";
 import { copy } from "@/lib/copy";
-import { getSurpriseCard, type ProgressItem, type SurpriseCard } from "@/lib/api";
+import { PackUpload } from "@/components/pack/PackUpload";
+import { getSurpriseCard, type Pack, type ProgressItem, type SurpriseCard } from "@/lib/api";
 import { progressDateLabel } from "@/lib/progress";
 import { MdInline } from "@/workspace/md";
 import styles from "./EmptyThread.module.css";
@@ -13,9 +14,10 @@ export type EmptyThreadProps = {
   onStarter: (starter: Starter) => void;
   onSurprise: (id?: string) => void;
   progress?: { item: ProgressItem; onOpen: () => void } | null;
+  onPackUploaded?: (pack: Pack) => void; // "Tải vở / sách": the page owns the status sheet
 };
 
-export function EmptyThread({ onStarter, onSurprise, progress }: EmptyThreadProps) {
+export function EmptyThread({ onStarter, onSurprise, progress, onPackUploaded }: EmptyThreadProps) {
   const cards: { id: Starter; title: string; sub: string }[] = [
     { id: "derivative", title: copy.starter1, sub: copy.starter1Sub },
     { id: "geometry", title: copy.starter2, sub: copy.starter2Sub },
@@ -45,6 +47,10 @@ export function EmptyThread({ onStarter, onSurprise, progress }: EmptyThreadProp
           {progress && <NextStep {...progress} />}
           <Surprise onOpen={onSurprise} />
         </div>
+        {onPackUploaded && <div className={styles.upload}>
+          <p className={styles.uploadHint}>{copy.homeUploadHint}</p>
+          <PackUpload onUploaded={onPackUploaded} />
+        </div>}
       </div>
       <p className={styles.foot}>{copy.entryFoot}</p>
     </section>

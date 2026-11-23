@@ -4,6 +4,7 @@ import { type ChangeEvent, useCallback, useEffect, useImperativeHandle, useLayou
 import { ProfileGate } from "@/components/ProfileGate";
 import { AskStrip, pendingAsk } from "@/components/chat/AskStrip";
 import { ChatView } from "@/components/chat/ChatView";
+import { PackSheet } from "@/components/pack/PackSheet";
 import { PanelActions, Shell } from "@/components/Shell";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { useSidebar } from "@/components/sidebar/useSidebar";
@@ -16,6 +17,7 @@ import { WorkspaceFrame } from "@/components/work/WorkspaceFrame";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useProgress } from "@/hooks/useProgress";
+import type { Pack } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { frameDoc } from "@/lib/frame";
 import { JPEG_PREFIX } from "@/lib/photo";
@@ -33,8 +35,12 @@ export default function Page() {
   return <ProfileGate><Home /></ProfileGate>;
 }
 
+const noop = () => {};
+
 function Home() {
   const ws = useWorkspace();
+  const [packSheet, setPackSheet] = useState<Pack | null>(null); // a notes upload from the empty state; the sheet outlives it
+  const closePackSheet = useCallback(() => setPackSheet(null), []);
   const progress = useProgress();
   const cards = useMemo(() => progressCards(progress.items), [progress.items]);
   const progressTracked = useRef(false);
@@ -338,6 +344,7 @@ function Home() {
           onStarter: (starter) => void ws.startStarter(starter),
           onSurprise: (id) => void ws.startSurprise(id),
           progress: latest ? { item: latest, onOpen: () => void openProgressSession(latest, "reload") } : null,
+          onPackUploaded: setPackSheet,
         }}
         workspaceVisible={showWorkspace}
         onOpenLegacyWorkspace={legacyWorkspace ? openWorkspaceView : undefined}
@@ -358,6 +365,7 @@ function Home() {
         side={desktop ? side.mode : undefined} />
       <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={onFile} />
       <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={onFile} />
+      {packSheet && <PackSheet initial={packSheet} onClose={closePackSheet} onSettled={noop} />}
     </PetAnchorProvider>
   );
 }

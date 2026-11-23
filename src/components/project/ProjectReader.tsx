@@ -1,5 +1,6 @@
 import { type KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { packPhotoUrl, type PackBlock, type ReaderPage } from "@/lib/api";
+import { PackList } from "@/components/pack/PackList";
+import { packPhotoUrl, type PackBlock, type PackSummary, type ReaderPage } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { learnMoreMessage } from "@/lib/pack";
 import { findBlock, headingAbove, pageNumbers } from "@/lib/projectMap";
@@ -7,8 +8,8 @@ import { Md, MdInline } from "@/workspace/md";
 import styles from "./Project.module.css";
 
 // "Nguồn": every photo of the project's notes in order, each next to the text read from it. Tapping a passage offers Học thêm.
-export function ProjectReader({ projectName, pages, failed, block, onLearnMore, learnFailed }: {
-  projectName: string; pages: ReaderPage[] | null; failed: boolean; block: string | null; onLearnMore: (text: string) => void; learnFailed: boolean;
+export function ProjectReader({ projectName, packs, pages, failed, block, onLearnMore, learnFailed }: {
+  projectName: string; packs: PackSummary[]; pages: ReaderPage[] | null; failed: boolean; block: string | null; onLearnMore: (text: string) => void; learnFailed: boolean;
 }) {
   const hint = useId();
   const [picked, setPicked] = useState<string | null>(null);
@@ -37,7 +38,7 @@ export function ProjectReader({ projectName, pages, failed, block, onLearnMore, 
 
   if (failed) return <p className={styles.error} role="alert">{copy.projectSourcesFailed}</p>;
   if (!pages) return <p className={styles.empty} aria-busy="true" />;
-  if (!pages.length) return <p className={styles.empty}>{copy.projectSourcesEmpty}</p>;
+  if (!pages.length && !packs.length) return <p className={styles.empty}>{copy.projectSourcesEmpty}</p>;
 
   const toggle = (id: string) => setPicked(current => current === id ? null : id);
   const onKeyDown = (e: KeyboardEvent, id: string) => {
@@ -50,6 +51,7 @@ export function ProjectReader({ projectName, pages, failed, block, onLearnMore, 
   };
 
   return <div className={styles.reader}>
+    <PackList packs={packs} />
     <span id={hint} className={styles.srOnly}>{copy.projectBlockHint}</span>
     {pages.map(page => {
       const n = numbers.get(page.file_id) ?? 0;

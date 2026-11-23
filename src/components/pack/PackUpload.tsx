@@ -6,8 +6,9 @@ import { MAX_PACK_PHOTOS, uploadError } from "@/lib/pack";
 import { readPhoto } from "@/lib/photo";
 import styles from "./Pack.module.css";
 
-// "Tải vở / sách": photos of notes, up to 10. The page owns the status sheet, so it survives this button moving between layouts.
-export function PackUpload({ onUploaded }: { onUploaded: (pack: Pack) => void }) {
+// "Tải vở / sách" on home, "Cập nhật vở" inside a project (projectId set: the server skips the subject stage). Photos of notes, up to 10.
+// The page owns the status sheet, so it survives this button moving between layouts.
+export function PackUpload({ onUploaded, projectId }: { onUploaded: (pack: Pack) => void; projectId?: string }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +24,7 @@ export function PackUpload({ onUploaded }: { onUploaded: (pack: Pack) => void })
     try {
       let photos: string[];
       try { photos = (await Promise.all(files.map(readPhoto))).map(p => p.data); } catch { return setError(copy.packUnreadablePhotos); }
-      onUploaded(await createPack(photos));
+      onUploaded(await createPack(photos, projectId));
     } catch (err) {
       const { text, unavailable: off } = uploadError(err);
       setError(text);
@@ -35,7 +36,7 @@ export function PackUpload({ onUploaded }: { onUploaded: (pack: Pack) => void })
 
   return <div className={styles.upload}>
     <button type="button" className={styles.uploadButton} disabled={busy || unavailable} onClick={() => input.current?.click()}>
-      <IconPhotoPlus size={20} aria-hidden="true" />{busy ? copy.packUploading : copy.packUpload}
+      <IconPhotoPlus size={20} aria-hidden="true" />{busy ? copy.packUploading : projectId ? copy.projectUpdateNotes : copy.packUpload}
     </button>
     <input ref={input} type="file" accept="image/*" multiple hidden aria-label={copy.packUploadHint} onChange={e => void onFiles(e)} />
     {error && <p className={styles.error} role="alert">{error}</p>}

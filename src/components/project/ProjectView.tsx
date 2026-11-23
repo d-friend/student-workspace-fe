@@ -2,7 +2,8 @@ import { type KeyboardEvent, useId, useMemo, useState } from "react";
 import { PanelActions } from "@/components/Shell";
 import { useDesktop } from "@/hooks/useDesktop";
 import type { ProjectSessions } from "@/hooks/useProjectSessions";
-import type { Project, ReaderPage } from "@/lib/api";
+import { PackUpload } from "@/components/pack/PackUpload";
+import type { Pack, Project, ReaderPage } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { mapAsTree, TABS, type ProjectTab } from "@/lib/projectMap";
 import { KnowledgeTree } from "@/workspace/KnowledgeTree";
@@ -23,6 +24,7 @@ export type ProjectViewProps = {
   block: string | null; // the passage the reader scrolls to and marks
   onLearnMore: (text: string) => void;
   learnFailed: boolean;
+  onUploaded: (pack: Pack) => void; // "Cập nhật vở": the page owns the status sheet
 };
 
 // A subject project: its name, then three tabs (Bản đồ, Phiên học, Nguồn). Pure on its props, so a fixture page can draw it with no backend.
@@ -42,7 +44,10 @@ export function ProjectView(props: ProjectViewProps) {
     document.getElementById(`${id}-tab-${next}`)?.focus();
   };
 
-  const header = <h1 className={styles.title}>{project.name}</h1>;
+  const header = <div className={styles.head}>
+    <h1 className={styles.title}>{project.name}</h1>
+    <PackUpload projectId={project.id} onUploaded={props.onUploaded} />
+  </div>;
   const tabs = <div role="tablist" aria-label={copy.projectTabsLabel} className={styles.tabs} onKeyDown={onKeyDown}>
     {TABS.map(t => <button key={t} type="button" role="tab" id={`${id}-tab-${t}`} className={styles.tab}
       aria-selected={tab === t} aria-controls={`${id}-panel`} tabIndex={tab === t ? 0 : -1} onClick={() => onTab(t)}>{copy.projectTabs[t]}</button>)}
@@ -53,7 +58,7 @@ export function ProjectView(props: ProjectViewProps) {
       : <p className={styles.empty}>{copy.projectMapEmpty}</p>)}
     {tab === "sessions" && <ProjectSessionList sessions={props.sessions} onOpen={props.onOpenSession} openFailed={props.openFailed}
       onNew={props.onNewSession} newFailed={props.newFailed} />}
-    {tab === "sources" && <ProjectReader projectName={project.name} pages={props.reader.pages} failed={props.reader.failed} block={props.block}
+    {tab === "sources" && <ProjectReader projectName={project.name} packs={project.packs} pages={props.reader.pages} failed={props.reader.failed} block={props.block}
       onLearnMore={props.onLearnMore} learnFailed={props.learnFailed} />}
   </div>;
 

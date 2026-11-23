@@ -51,7 +51,9 @@ function PackContent({ id }: { id: string }) {
     try { set(await run()); setChanging(false); } catch { setFailed(true); } finally { setBusy(false); }
   };
 
-  const back = <Link className={styles.back} href="/progress"><IconArrowLeft size={18} aria-hidden="true" />{copy.packBack}</Link>;
+  const back = pack?.project_id
+    ? <Link className={styles.back} href={`/projects/${pack.project_id}?tab=sources`}><IconArrowLeft size={18} aria-hidden="true" />{copy.packBackProject}</Link>
+    : <Link className={styles.back} href="/progress"><IconArrowLeft size={18} aria-hidden="true" />{copy.packBack}</Link>;
   if (!pack) return <main className={styles.page}>
     {back}
     {error && <p role="alert" className={styles.error}>{error === "missing" ? copy.packNotFound : copy.packLoadFailed}</p>}

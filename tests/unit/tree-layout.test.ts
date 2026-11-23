@@ -59,7 +59,7 @@ test("an edge runs from the parent's right-middle to the child's left-middle", (
 });
 
 const node = (id: string, parent_id: string | null, level: TreeNode["level"]): TreeNode => ({
-  id, level, parent_id, name: id, grades: [], attempts: 0, solo: 0, rate: null, unfinished: 0, learned: 0, last_seen: "2026-11-19T08:00:00Z",
+  id, level, parent_id, name: id, grades: [], attempts: 0, solo: 0, rate: null, unfinished: 0, learned: 0, packs: 0, last_seen: "2026-11-19T08:00:00Z",
 });
 const small = () => treeRows([node("m", null, "subject"), node("m.a", "m", "topic"), node("m.a.x", "m.a", "type"), node("m.a.y", "m.a", "type"), node("m.b", "m", "topic"), node("p", null, "subject")]);
 

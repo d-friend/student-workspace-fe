@@ -2221,6 +2221,19 @@ describe("problem handed over from the landing page (?q=)", () => {
     expect(location.search).toBe("");
   });
 
+  it("starts the session as pack_learn_more when the study pack hands the message over (?via=)", async () => {
+    history.replaceState(null, "", "/?q=" + encodeURIComponent("Mình muốn hiểu kĩ hơn: Định luật Ôm.") + "&via=pack_learn_more");
+    const t = await boot();
+    expect(t.api.createSession).toHaveBeenCalledWith("pack_learn_more");
+    expect(location.search).toBe("");
+  });
+
+  it("ignores an unknown via", async () => {
+    history.replaceState(null, "", "/?q=" + encodeURIComponent("bài") + "&via=nope");
+    const t = await boot();
+    expect(t.api.createSession).toHaveBeenCalledWith("typed");
+  });
+
   it("ignores a blank q", async () => {
     history.replaceState(null, "", "/?q=%20%20");
     const t = await boot();

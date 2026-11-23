@@ -210,7 +210,7 @@ test.each(["current", "end"])("a failed %s request stays on the page and permits
 });
 
 const treeNode = (id: string, level: api.TreeNode["level"], parent_id: string | null, extra: Partial<api.TreeNode> = {}): api.TreeNode => ({
-  id, level, parent_id, name: `Node ${id}`, grades: [], attempts: 0, solo: 0, rate: null, unfinished: 0, learned: 0, last_seen: "2026-11-19T08:00:00Z", ...extra,
+  id, level, parent_id, name: `Node ${id}`, grades: [], attempts: 0, solo: 0, rate: null, unfinished: 0, learned: 0, packs: 0, last_seen: "2026-11-19T08:00:00Z", ...extra,
 });
 const treeWs = (id: string, node_id: string, extra: Partial<api.TreeWorkspace> = {}): api.TreeWorkspace => ({
   workspace_id: id, session_id: `session-${id}`, node_id, role: "primary", phase: "solve", title: `Tree ${id}`,

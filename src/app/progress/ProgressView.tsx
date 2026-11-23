@@ -3,20 +3,27 @@ import Link from "next/link";
 import { useId, useMemo, useRef, useState } from "react";
 import { PanelActions } from "@/components/Shell";
 import { useDesktop } from "@/hooks/useDesktop";
-import type { ProgressItem, TreeResponse } from "@/lib/api";
+import { NodePanel } from "@/components/pack/NodePanel";
+import { PackList } from "@/components/pack/PackList";
+import { PackUpload } from "@/components/pack/PackUpload";
+import type { Pack, PackSummary, ProgressItem, TreeResponse } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { openProgressSession, progressCards, progressDateLabel } from "@/lib/progress";
 import { track } from "@/lib/track";
+import { subjectOf } from "@/lib/pack";
 import { nodeCounts, nodeWorkspaces } from "@/lib/tree";
 import { MdInline } from "@/workspace/md";
 import { KnowledgeTree } from "@/workspace/KnowledgeTree";
 import { ProgressCardCompact } from "@/workspace/ProgressCardCompact";
 import styles from "./ProgressPage.module.css";
 
-type Props = { items: ProgressItem[]; tree: TreeResponse | null; ready: boolean; failed: boolean; onRetry: () => void; newFailed: boolean };
+type Props = {
+  items: ProgressItem[]; tree: TreeResponse | null; ready: boolean; failed: boolean; onRetry: () => void; newFailed: boolean;
+  packs: PackSummary[]; onUploaded: (pack: Pack) => void; onLearnMore: (text: string) => void; learnFailed: boolean;
+};
 
 // The content of the work area: the mind map with a filtered activity list beside it (desktop) or under it (phone).
-export function ProgressView({ items, tree, ready, failed, onRetry, newFailed }: Props) {
+export function ProgressView({ items, tree, ready, failed, onRetry, newFailed, packs, onUploaded, onLearnMore, learnFailed }: Props) {
   const desktop = useDesktop();
   const id = useId();
   const listRef = useRef<HTMLDivElement>(null);
@@ -44,6 +51,12 @@ export function ProgressView({ items, tree, ready, failed, onRetry, newFailed }:
     return Array.from(grouped);
   }, [cards]);
 
+  // The packs of the subject on screen; all of them when nothing is selected.
+  const shownPacks = useMemo(() => {
+    const subject = selectedNode && tree ? subjectOf(tree.nodes, selectedNode.id) : null;
+    return subject ? packs.filter(pack => pack.subject?.id === subject) : packs;
+  }, [packs, selectedNode, tree]);
+
   const select = (nodeId: string | null) => {
     setSelected(nodeId);
     if (nodeId !== null && !desktop) listRef.current?.scrollIntoView?.({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
@@ -62,6 +75,8 @@ export function ProgressView({ items, tree, ready, failed, onRetry, newFailed }:
       </div>
       <button type="button" className={styles.clear} aria-label={copy.treeClear} onClick={() => select(null)}><IconX size={18} aria-hidden="true" /></button>
     </div>}
+    {selectedNode && <NodePanel node={selectedNode} onLearnMore={onLearnMore} learnFailed={learnFailed} />}
+    <PackList packs={shownPacks} />
     {groups.map(([title, group], index) => <section key={title} aria-labelledby={`${id}-group-${index}`}>
       <h2 id={`${id}-group-${index}`} className={styles.group}>{title}</h2>
       <div className={styles.list}>
@@ -98,6 +113,7 @@ export function ProgressView({ items, tree, ready, failed, onRetry, newFailed }:
   const header = <header>
     <h1 className={styles.title}>{copy.progressTitle}</h1>
     <p className={styles.subtitle}>{copy.progressSubtitle}</p>
+    {hasTree && <PackUpload onUploaded={onUploaded} />}
   </header>;
 
   if (ready && !failed && hasTree) {
@@ -131,6 +147,7 @@ export function ProgressView({ items, tree, ready, failed, onRetry, newFailed }:
         {cards.length === 0 && learned.length === 0 && <div className={styles.state}>
           <p>{copy.progressEmpty}</p>
           <Link className={styles.action} href="/">{copy.progressBack}</Link>
+          <PackUpload onUploaded={onUploaded} />
         </div>}
       </>)}
     </div>

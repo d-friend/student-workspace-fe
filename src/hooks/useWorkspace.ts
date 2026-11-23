@@ -155,6 +155,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let handledGesture = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let input = "";
+  let nextVia: StartedVia | undefined; // set by a handoff (?via=) for the session the next submit creates
   let photos: string[] = [];
   let photoNoteId: number | null = null;
   let html: string | null = null;
@@ -943,7 +944,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
       const q = new URLSearchParams(location.search).get("q")?.trim();
       if (q) {
         const url = new URL(location.href);
+        if (url.searchParams.get("via") === "pack_learn_more") nextVia = "pack_learn_more";
         url.searchParams.delete("q");
+        url.searchParams.delete("via");
         history.replaceState(null, "", url);
         if (applied || busy) {
           // A problem is already open: prefill the composer rather than replace it.
@@ -1042,7 +1045,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
         sid(),
       );
       closeRestate();
-      return dispatch(text, shots);
+      const via = nextVia;
+      nextVia = undefined;
+      return dispatch(text, shots, via);
     },
 
     retry(bubbleId: number): Promise<void> {

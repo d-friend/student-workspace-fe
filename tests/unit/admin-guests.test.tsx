@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { useState } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 import { GuestsSection, GuestTimeline } from "@/app/admin/sections";
-import { adminGet, adminPut, type GuestDetail, type GuestRow } from "@/lib/admin";
+import { adminGet, adminPut, type GuestDetail, type GuestRow, type LearnerNode } from "@/lib/admin";
 
 vi.mock("@/lib/admin", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/admin")>()), adminGet: vi.fn(), adminPut: vi.fn() }));
 const mockedAdminGet = vi.mocked(adminGet);
@@ -115,4 +115,34 @@ test("clicking a sibling guest opens that guest", async () => {
   render(<GuestTimeline token="token" guestId="internal-abcdefgh" onClose={() => {}} onGuestOpen={onGuestOpen} />);
   fireEvent.click(await screen.findByRole("button", { name: "sibling-" }));
   expect(onGuestOpen).toHaveBeenCalledWith("sibling-abcdefgh");
+});
+
+const learner: LearnerNode[] = [{
+  node_id: "math.quad.vieta", name: "Viète", tier: "beginner", score: -0.34, confidence: 0.9, signals: 4, ready: true, asked: "easier",
+  top_signatures: [["sign-error-chain-rule", 2]],
+  transitions: [{ event_id: 7, from: "intermediate", to: "beginner", why: "evidence" }],
+  recent: [{ id: 7, at: "2026-10-19T00:02:00Z", kind: "item_correct", mode: "solve", signature: null, payload: { tries: 2, hint: 3 } }],
+}];
+
+test("the timeline shows the learner debug section: state, transitions and recent signals", async () => {
+  mockedAdminGet.mockImplementation(async (path) => (path.endsWith("/learner") ? learner : detail) as never);
+  render(<GuestTimeline token="token" guestId="internal-abcdefgh" onClose={() => {}} onGuestOpen={() => {}} />);
+  expect(await screen.findByText("Viète")).toBeTruthy();
+  expect(mockedAdminGet).toHaveBeenCalledWith("/guests/internal-abcdefgh/learner", "token");
+  expect(screen.getByText(/beginner · score -0\.34 · confidence 0\.90 · 4 signals · past the gate · asked easier/)).toBeTruthy();
+  expect(screen.getByText("Signatures: sign-error-chain-rule ×2")).toBeTruthy();
+  expect(screen.getByText("#7: intermediate → beginner (evidence)")).toBeTruthy();
+  expect(screen.getByText('{"tries":2,"hint":3}')).toBeTruthy();
+});
+
+test("an empty or failing learner call leaves the rest of the timeline intact", async () => {
+  mockedAdminGet.mockImplementation(async (path) => (path.endsWith("/learner") ? [] : detail) as never);
+  const { unmount } = render(<GuestTimeline token="token" guestId="internal-abcdefgh" onClose={() => {}} onGuestOpen={() => {}} />);
+  expect(await screen.findByText("No learner signals yet.")).toBeTruthy();
+  expect(screen.getByText("session-new")).toBeTruthy();
+  unmount();
+  mockedAdminGet.mockImplementation(async (path) => { if (path.endsWith("/learner")) throw new Error("down"); return detail as never; });
+  render(<GuestTimeline token="token" guestId="internal-abcdefgh" onClose={() => {}} onGuestOpen={() => {}} />);
+  expect(await screen.findByText("Learner signals unavailable.")).toBeTruthy();
+  expect(screen.getByText("session-new")).toBeTruthy();
 });

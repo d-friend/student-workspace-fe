@@ -123,8 +123,7 @@ test("a pack whose subject the model is unsure of waits for the student's choice
   await page.getByRole("button", { name: "Đổi môn" }).click();
   await page.getByRole("button", { name: "Toán" }).click();
   await expect(page.getByRole("heading", { name: "Toán", level: 1 })).toBeVisible();
-  await expect.poll(async () => (await projects(page)).find(p => p.name === "Toán")?.packs).toBe(1);
-  // Not asserted: projects-v2.md says every project has something in it, but the emptied Vật lí project stays in GET /api/projects (packs 0).
+  await expect.poll(async () => (await projects(page)).map(p => `${p.name}:${p.packs}`).sort()).toEqual(["Toán:1"]); // the emptied Vật lí project is dropped
 });
 
 test("Cập nhật vở inside a project never asks for a subject, even for a page the model is unsure of", async ({ page }) => {

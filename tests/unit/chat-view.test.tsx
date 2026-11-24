@@ -138,3 +138,12 @@ it("renders building, ready and failed workspace cards with the corresponding ac
   fireEvent.click(failed.getByRole("button", { name: copy.retry }));
   expect(actions.onRebuild).toHaveBeenCalledOnce();
 });
+
+it("draws the math in a student's message (the Học thêm message quotes the notes) and keeps a typed * as text", () => {
+  const { ui } = setup();
+  const text = "Mình muốn hiểu kĩ hơn: Định luật Ôm. Vở ghi: «$I = \\dfrac{U}{R}$» và 2 * 3";
+  const { container } = render(ui([{ kind: "student", id: 1, turn: 1, text, photos: [], failed: null }]));
+  expect(container.querySelector(".katex")).not.toBeNull();
+  expect(container.textContent).not.toContain("$");
+  expect(container.textContent).toContain("2 * 3");
+});

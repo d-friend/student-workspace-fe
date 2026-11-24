@@ -612,7 +612,7 @@ export type ReviewCard = {
   problem?: { excerpt_md: string; workspace_id: string };
 };
 export type ReviewDay = { due: number; cards: ReviewCard[] };
-export type ReviewResult = { correct: boolean; explanation_md: string; box: number; due_at: string };
+export type ReviewResult = { correct: boolean; explanation_md: string | null; box: number; due_at: string }; // explanation_md is null on a wrong first attempt, so the retry stays unspoiled
 
 export async function getReview(projectId: string): Promise<ReviewDay> {
   const res = await get(`/api/review?${new URLSearchParams({ project_id: projectId })}`);

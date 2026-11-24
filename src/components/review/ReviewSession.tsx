@@ -51,7 +51,7 @@ function QuizCard({ card, onNext }: { card: ReviewCard; onNext: (dueAt: string) 
     check: async (_blockId, answer) => {
       const r = await answerReview(card.id, answer, attempts.current + 1); // a failed call is not an attempt
       attempts.current += 1;
-      setExplanation(r.explanation_md);
+      setExplanation(r.explanation_md ?? "");
       // One retry, like a learn doc: a second answer ends the card whatever it was.
       if (r.correct || attempts.current >= 2) setFinished(r.due_at);
       return { ok: r.correct, state: r.correct ? "ok" : "review", done: r.correct };

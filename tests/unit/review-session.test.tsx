@@ -41,6 +41,16 @@ test("a wrong answer allows one retry (attempt 2), then Tiếp whatever the seco
   expect(vi.mocked(api.answerReview).mock.calls.map(c => [c[1], c[2]])).toEqual([["0", 1], ["2", 2]]);
 });
 
+test("a wrong first attempt comes back with no explanation: the card shows none until it is done", async () => {
+  vi.mocked(api.answerReview).mockResolvedValueOnce(result({ correct: false, explanation_md: null })).mockResolvedValueOnce(result({ correct: true }));
+  draw();
+  fireEvent.click(screen.getAllByRole("radio")[0]);
+  await waitFor(() => expect(api.answerReview).toHaveBeenCalledTimes(1));
+  expect(screen.queryByText(/Vì/)).toBeNull();
+  fireEvent.click(screen.getAllByRole("radio")[1]);
+  await screen.findByText(/Vì/);
+});
+
 test("a failed answer call is not an attempt and shows the check error", async () => {
   vi.mocked(api.answerReview).mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(result());
   draw([number]);

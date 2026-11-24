@@ -81,7 +81,7 @@ test("a question asked while in the workspace shows in the ask strip and a chip 
 test("three photos picked at once show in the tray, in the bubble and in the request", async ({ page }) => {
   await open(page);
   const files = [1, 2, 3].map((n) => ({ name: `p${n}.png`, mimeType: "image/png", buffer: PNG }));
-  await page.locator("input[type=file]:not([capture])").setInputFiles(files);
+  await page.locator("input[type=file]:not([capture]):not([aria-label])").setInputFiles(files);
   await expect(page.getByRole("button", { name: copy.removePhoto })).toHaveCount(3);
 
   const request = page.waitForRequest((r) => r.method() === "POST" && r.url().endsWith("/turns"));

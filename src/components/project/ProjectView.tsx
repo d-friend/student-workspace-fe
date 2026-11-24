@@ -33,6 +33,7 @@ export type ProjectViewProps = {
   review: { cards: ReviewCard[] | null; failed: boolean }; // today's cards; null while they load
   onStartProblem: (card: ReviewCard) => Promise<boolean>; // a problem card: a new session in the subject, true when the page is navigating
   reviewStartFailed: boolean;
+  onReviewProgress?: () => void; // the page refreshes the sidebar badges
 };
 
 // A subject page: the overview (start a session, notes and map rows, recent sessions), or the map or the notes reader as a full page of their own.
@@ -90,7 +91,7 @@ export function ProjectView(props: ProjectViewProps) {
       : <p className={styles.empty}>{copy.projectMapEmpty}</p>)}
     {screen === "review" && (props.review.failed
       ? <p className={styles.error} role="alert">{copy.reviewLoadFailed}</p>
-      : props.review.cards && <ReviewSession cards={props.review.cards} onStartProblem={props.onStartProblem} startFailed={props.reviewStartFailed} onExit={props.onBack} />)}
+      : props.review.cards && <ReviewSession cards={props.review.cards} onStartProblem={props.onStartProblem} startFailed={props.reviewStartFailed} onExit={props.onBack} onProgress={props.onReviewProgress} />)}
     {screen === "sources" && <ProjectReader projectName={project.name} packs={project.packs} pages={props.reader.pages} failed={props.reader.failed} block={props.block}
       onLearnMore={props.onLearnMore} learnFailed={props.learnFailed} />}
   </div>;

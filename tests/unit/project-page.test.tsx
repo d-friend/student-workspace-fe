@@ -25,7 +25,7 @@ vi.mock("@/lib/api", async original => ({
   ...await original<typeof import("@/lib/api")>(),
   createGuest: vi.fn(), getMe: vi.fn(), authMethods: vi.fn(), listSessions: vi.fn(), listProjects: vi.fn(), currentSession: vi.fn(),
   endSession: vi.fn(), resumeSession: vi.fn(), getProject: vi.fn(), getReader: vi.fn(), createPack: vi.fn(), getPack: vi.fn(),
-  retryPack: vi.fn(), setPackSubject: vi.fn(), getMapNode: vi.fn(), getReview: vi.fn(),
+  retryPack: vi.fn(), setPackSubject: vi.fn(), getMapNode: vi.fn(), getReview: vi.fn(), getReviewCount: vi.fn(), answerReview: vi.fn(),
 }));
 vi.mock("@/lib/track", () => ({ track: vi.fn() }));
 vi.mock("@/lib/photo", async original => ({ ...await original<typeof import("@/lib/photo")>(), readPhoto: vi.fn() }));
@@ -58,6 +58,7 @@ beforeEach(() => {
   vi.mocked(api.getReader).mockResolvedValue(mathReader);
   vi.mocked(api.getMapNode).mockImplementation(async id => mapNodeView(id)!);
   vi.mocked(api.getReview).mockResolvedValue({ due: 0, cards: [] });
+  vi.mocked(api.getReviewCount).mockResolvedValue([]);
   vi.mocked(api.currentSession).mockResolvedValue(null);
   vi.mocked(api.endSession).mockResolvedValue(undefined);
   vi.mocked(api.resumeSession).mockResolvedValue(undefined);
@@ -399,4 +400,21 @@ test("review: a problem card ends the open session and loads home with the card 
   expect(url.searchParams.get("via")).toBe("review");
   expect(url.searchParams.get("card")).toBe(reviewCards[2].id);
   expect(url.searchParams.get("project")).toBe(MATH);
+});
+
+test("review: the sidebar badge shows the count, ?via=sidebar is reported, and an answer recounts the badges", async () => {
+  vi.mocked(api.getReview).mockResolvedValue({ due: 3, cards: reviewCards });
+  vi.mocked(api.getReviewCount).mockResolvedValueOnce([{ project_id: MATH, due: 3 }]).mockResolvedValue([{ project_id: MATH, due: 2 }]);
+  vi.mocked(api.answerReview).mockResolvedValue({ correct: true, explanation_md: "ok", box: 3, due_at: "2026-12-01T00:00:00Z" });
+  setSearch("tab=review&via=sidebar");
+  render(<ProjectPage />);
+  const badge = await screen.findByRole("link", { name: copy.reviewDueLabel("Toán", 3) });
+  expect(badge.getAttribute("href")).toBe(`/projects/${MATH}?tab=review&via=sidebar`);
+  await screen.findByText(copy.reviewCount(1, 3));
+  expect(track).toHaveBeenCalledWith("review_opened", { project_id: MATH, due: 3, via: "sidebar" });
+  const before = vi.mocked(api.getReviewCount).mock.calls.length;
+  fireEvent.click(screen.getAllByRole("radio")[1]);
+  await screen.findByRole("button", { name: copy.reviewNext });
+  await waitFor(() => expect(vi.mocked(api.getReviewCount).mock.calls.length).toBe(before + 1));
+  await screen.findByRole("link", { name: copy.reviewDueLabel("Toán", 2) });
 });

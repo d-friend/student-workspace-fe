@@ -8,6 +8,7 @@ import logoMark from "../../../assets/logo-mark.png";
 import { IconChartLine, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconMenu2, IconPlus, IconX } from "@tabler/icons-react";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useProjects } from "@/hooks/useProjects";
+import { useReviewCounts } from "@/hooks/useReviewCounts";
 import { ApiError, deleteSession, listSessions, resumeSession, type ProjectSummary, type SessionList as SessionPage, type SessionSummary } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { track } from "@/lib/track";
@@ -20,7 +21,7 @@ import styles from "./Sidebar.module.css";
 // Once for this page load, even if the sidebar remounts.
 let historyLoaded = false;
 
-export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progress, busy = false, menuTarget, activeProjectId, awayFromHome = false, preload }: {
+export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progress, busy = false, menuTarget, activeProjectId, awayFromHome = false, preload, reviewTick = 0 }: {
   side: ReturnType<typeof useSidebar>;
   onNewProblem: () => void;
   refreshKey: string;
@@ -30,7 +31,8 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
   menuTarget?: HTMLElement | null;
   activeProjectId?: string; // the project page on screen, if any
   awayFromHome?: boolean; // not on home: even the current session needs a navigation back to its workspace (progress.active implies it)
-  preload?: { projects: ProjectSummary[]; sessions: SessionSummary[] }; // fixture pages: show this and make no requests
+  preload?: { projects: ProjectSummary[]; sessions: SessionSummary[]; due?: Record<string, number> }; // fixture pages: show this and make no requests
+  reviewTick?: number; // the page bumps it after a review answer, so the badges count what is still due
 }) {
   const desktop = useDesktop();
   const visible = desktop ? side.mode === "open" : side.drawerOpen;
@@ -50,6 +52,8 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
   const away = awayFromHome || !!progress?.active;
   const loaded = useProjects(visible && !preload, refreshKey);
   const projects = preload?.projects ?? loaded.projects;
+  const counted = useReviewCounts(visible && !preload, `${refreshKey}|${reviewTick}`);
+  const due = preload?.due ?? counted;
   const projectNames = useMemo(() => new Map(projects.map(project => [project.id, project.name])), [projects]);
 
   useEffect(() => {
@@ -188,7 +192,7 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
           <ProjectList projects={projects} activeId={activeProjectId} onOpen={project => {
             track("project_opened", { project_id: project.id, via: "sidebar" });
             if (!desktop) closeDrawer();
-          }} />
+          }} due={due} onReview={() => { if (!desktop) closeDrawer(); }} />
           <SessionList sessions={page.sessions} projectNames={projectNames} disabled={deleting || loading} deleteDisabled={busy || deleting || loading} onDelete={id => void remove(id)} onChoose={id => {
             // On /progress even the current session needs a navigation back to its workspace.
             if (away || !page.sessions.find(row => row.id === id)?.current) open(id);

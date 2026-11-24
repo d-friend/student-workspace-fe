@@ -37,7 +37,9 @@ function ProjectContent({ id }: { id: string }) {
   const sessions = useProjectSessions(id, true);
   const reader = useReader(id, readerWanted);
   const review = useReview(id);
-  const reviewVia = useRef(query.get("via") === "home_chip" ? "home_chip" as const : "project_row" as const); // the home chip links here with ?via=
+  const viaParam = query.get("via"); // the home chip and the sidebar badge link to ?tab=review with ?via=; the row has none
+  const [reviewTick, setReviewTick] = useState(0); // bumped on a review answer: the sidebar badges recount
+  const bumpReview = useCallback(() => setReviewTick(t => t + 1), []);
   const reviewTracked = useRef(false);
   const [reviewStartFailed, setReviewStartFailed] = useState(false);
   const fresh = useLeaveSession();
@@ -62,9 +64,8 @@ function ProjectContent({ id }: { id: string }) {
     }
     if (reviewTracked.current || !review.data) return;
     reviewTracked.current = true;
-    track("review_opened", { project_id: id, due: review.data.cards.length, via: reviewVia.current });
-    reviewVia.current = "project_row";
-  }, [screen, review.data, id, reloadReview]);
+    track("review_opened", { project_id: id, due: review.data.cards.length, via: viaParam === "home_chip" || viaParam === "sidebar" ? viaParam : "project_row" });
+  }, [screen, review.data, id, reloadReview, viaParam]);
 
   // A new screen starts at its top, whatever the one before was scrolled to.
   useEffect(() => { document.querySelector("main")?.scrollTo?.(0, 0); }, [screen]);
@@ -75,6 +76,7 @@ function ProjectContent({ id }: { id: string }) {
   const push = useCallback((next: "map" | "sources" | "review", blockId?: string) => {
     const url = new URL(window.location.href);
     url.searchParams.set("tab", next);
+    url.searchParams.delete("via"); // it described how this entry was reached, not the next one
     if (blockId) url.searchParams.set("block", blockId); else url.searchParams.delete("block");
     const current = window.history.state;
     const deep = Boolean(current?.subjectDeep) || (screen !== "overview" && current?.subjectDepth === undefined);
@@ -88,6 +90,7 @@ function ProjectContent({ id }: { id: string }) {
     const url = new URL(window.location.href);
     url.searchParams.delete("tab");
     url.searchParams.delete("block");
+    url.searchParams.delete("via");
     window.history.replaceState(null, "", url);
   }, []);
   // "Xem nguồn" on a map node: open the notes at the passage the node came from.
@@ -127,13 +130,13 @@ function ProjectContent({ id }: { id: string }) {
     sessions={sessions} onOpenSession={openSession} openFailed={openFailed} onSend={send} sendError={sendError}
     reader={{ pages: reader.data, failed: reader.error !== null }} block={block}
     onLearnMore={text => void learn.leave(`/?${new URLSearchParams({ q: text, via: "pack_learn_more", project: id })}`, false)} learnFailed={learn.failed} onViewSource={viewSource} onUploaded={setSheet}
-    review={{ cards: review.data?.cards ?? null, failed: review.error !== null }} onStartProblem={startProblem} reviewStartFailed={reviewStartFailed} />
+    review={{ cards: review.data?.cards ?? null, failed: review.error !== null }} onStartProblem={startProblem} reviewStartFailed={reviewStartFailed} onReviewProgress={bumpReview} />
     : <div className={styles.page}>{error && <p className={styles.error} role="alert">{error === "missing" ? copy.projectNotFound : copy.projectLoadFailed}</p>}</div>;
 
   return <>
     <Shell work={view} layer={null} floatingPanels showCornerActions={!desktop} inert={side.drawerOpen && !desktop}
     sidebar={<Sidebar side={side} progress={{ active: false }} awayFromHome activeProjectId={id} refreshKey={`project-${id}`}
-      onNewProblem={() => void fresh.leave("/", true)} onOpenSession={openSession} />}
+      onNewProblem={() => void fresh.leave("/", true)} onOpenSession={openSession} reviewTick={reviewTick} />}
     side={desktop ? side.mode : undefined} />
     {sheet && <PackSheet initial={sheet} onClose={closeSheet} onSettled={settled} inProject />}
   </>;

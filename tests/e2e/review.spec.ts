@@ -6,20 +6,26 @@ import { MATH, projectViews, projectsFixture, reviewCards, sessionsFixture } fro
 const [choice] = reviewCards;
 const answered: { id: string; body: { answer: string; attempt: number } }[] = [];
 const created: unknown[] = [];
+const events: { type: string; props: Record<string, unknown> }[] = [];
+let remaining = 0; // what the count endpoint reports; each first attempt takes one off
 
 async function mockReview(page: Page, cards = reviewCards) {
   answered.length = 0;
   created.length = 0;
+  events.length = 0;
+  remaining = cards.length;
   await page.route("**/api/projects", route => route.fulfill({ json: { projects: projectsFixture } }));
   await page.route("**/api/projects/*", route => route.fulfill({ json: projectViews[route.request().url().split("/").pop()!] }));
   await page.route("**/api/sessions/current", route => route.fulfill({ status: 204 }));
   await page.route("**/api/sessions?project_id=*", route => route.fulfill({ json: { sessions: sessionsFixture.filter(s => s.project_id === MATH), next_before: null } }));
   await page.route("**/api/review?*", route => route.fulfill({ json: { due: cards.length, cards } }));
-  await page.route("**/api/review/count", route => route.fulfill({ json: { projects: [{ project_id: MATH, due: cards.length }] } }));
+  await page.route("**/api/review/count", route => route.fulfill({ json: { projects: remaining ? [{ project_id: MATH, due: remaining }] : [] } }));
+  await page.route("**/api/events", route => { const sent = route.request().postDataJSON()?.events ?? []; events.push(...sent); return route.fulfill({ json: { accepted: sent.length, rejected: [] } }); });
   await page.route("**/api/review/*/answer", route => {
     const id = route.request().url().split("/").slice(-2)[0];
     const body = route.request().postDataJSON();
     answered.push({ id, body });
+    if (body.attempt === 1) remaining = Math.max(0, remaining - 1);
     const correct = id === choice.id ? body.answer === "1" : body.answer === "5";
     return route.fulfill({ json: { correct, explanation_md: "Vì $x^2 - 5x + 6 = (x-2)(x-3)$ nên hai nghiệm là $2$ và $3$.", box: correct ? 2 : 1, due_at: new Date(Date.now() + (correct ? 3 : 1) * 86_400_000).toISOString() } });
   });
@@ -127,3 +133,36 @@ test("home: no chip when nothing is due", async ({ page }) => {
   await expect(page.getByRole("heading", { name: copy.entryTitle })).toBeVisible();
   await expect(page.getByRole("link", { name: /Ôn tập hôm nay/ })).toHaveCount(0);
 });
+
+for (const theme of ["light", "dark"] as const) {
+  test(`sidebar badge, ${theme}: phone drawer shows a small count beside the subject, it opens the review as via sidebar; desktop recounts after an answer`, async ({ page }) => {
+    await mockReview(page);
+    await page.addInitScript(t => { try { window.localStorage.setItem("df-sidebar", "open"); window.localStorage.setItem("df-theme", t); } catch { /* storage blocked */ } }, theme);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/projects/${MATH}`);
+    await page.getByRole("button", { name: copy.historyOpen }).click();
+    const badge = page.getByRole("link", { name: copy.reviewDueLabel("Toán", 3) });
+    await expect(badge).toBeVisible();
+    await expect(badge).toHaveText("3");
+    await expect(page.getByRole("link", { name: /^Ôn tập/ })).toHaveCount(1); // Vật lí has none due: no badge
+    const [row, box, name] = await Promise.all([page.getByRole("link", { name: /Toán/ }).first().boundingBox(), badge.boundingBox(), page.getByRole("navigation", { name: copy.projectsLabel }).getByText("Toán", { exact: true }).boundingBox()]);
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+    expect(box!.width).toBeLessThanOrEqual(64);
+    expect(row!.x + row!.width).toBeLessThanOrEqual(box!.x + 1); // beside the project link, not over it
+    expect(name!.width).toBeGreaterThan(30);
+    await inside(page, 390);
+    await page.screenshot({ path: `test-results/review-sidebar-phone-${theme}.png` });
+    await badge.click();
+    await expect(page).toHaveURL(/tab=review/);
+    await expect(page.getByText(copy.reviewCount(1, 3))).toBeVisible();
+    await expect.poll(() => events.find(e => e.type === "review_opened")?.props).toEqual({ project_id: MATH, due: 3, via: "sidebar" });
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`/projects/${MATH}?tab=review`);
+    const side = page.getByRole("navigation", { name: copy.projectsLabel });
+    await expect(side.getByRole("link", { name: copy.reviewDueLabel("Toán", 3) })).toHaveText("3");
+    await page.getByRole("radio").nth(1).click();
+    await expect(side.getByRole("link", { name: copy.reviewDueLabel("Toán", 2) })).toHaveText("2");
+    await page.screenshot({ path: `test-results/review-sidebar-desktop-${theme}.png` });
+  });
+}

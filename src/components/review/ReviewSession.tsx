@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { answerReview, type ReviewCard } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { reviewWhen } from "@/lib/review";
@@ -12,14 +12,17 @@ export type ReviewSessionProps = {
   onStartProblem: (card: ReviewCard) => Promise<boolean>; // true when the page is navigating away
   startFailed: boolean;
   onExit: () => void; // "Về môn học"
+  onProgress?: () => void; // an answer was graded, or the end screen showed: what is still due has changed
 };
 
 // Today's cards one at a time. A quiz is answered here; a problem hands over to a new session; "Để sau" leaves a card due.
-export function ReviewSession({ cards, onStartProblem, startFailed, onExit }: ReviewSessionProps) {
+export function ReviewSession({ cards, onStartProblem, startFailed, onExit, onProgress }: ReviewSessionProps) {
   const [index, setIndex] = useState(0);
   const [next, setNext] = useState<string | null>(null); // the earliest due_at among the cards answered now
   const card = cards[index];
   const advance = () => setIndex(i => i + 1);
+  const finished = !card;
+  useEffect(() => { if (finished) onProgress?.(); }, [finished]); // eslint-disable-line react-hooks/exhaustive-deps -- once per end screen
 
   if (!card) {
     const when = next && reviewWhen(next);
@@ -32,13 +35,13 @@ export function ReviewSession({ cards, onStartProblem, startFailed, onExit }: Re
   return <section className={styles.session}>
     <p className={styles.meta}><span>{copy.reviewCount(index + 1, cards.length)}</span><span className={styles.node}>{card.node_name}</span></p>
     {card.kind === "quiz" && card.quiz
-      ? <QuizCard key={card.id} card={card} onNext={(dueAt) => { setNext(n => !n || dueAt < n ? dueAt : n); advance(); }} />
+      ? <QuizCard key={card.id} card={card} onAnswered={onProgress} onNext={(dueAt) => { setNext(n => !n || dueAt < n ? dueAt : n); advance(); }} />
       : <ProblemCard key={card.id} card={card} onStart={onStartProblem} startFailed={startFailed} onSkip={advance} />}
   </section>;
 }
 
 // The learn doc's quiz block, fed by the card: the answer goes to the review endpoint instead of the doc's check, and the explanation arrives with the verdict.
-function QuizCard({ card, onNext }: { card: ReviewCard; onNext: (dueAt: string) => void }) {
+function QuizCard({ card, onNext, onAnswered }: { card: ReviewCard; onNext: (dueAt: string) => void; onAnswered?: () => void }) {
   const attempts = useRef(0);
   const [explanation, setExplanation] = useState("");
   const [finished, setFinished] = useState<string | null>(null); // due_at once the card is done
@@ -51,12 +54,13 @@ function QuizCard({ card, onNext }: { card: ReviewCard; onNext: (dueAt: string) 
     check: async (_blockId, answer) => {
       const r = await answerReview(card.id, answer, attempts.current + 1); // a failed call is not an attempt
       attempts.current += 1;
+      onAnswered?.();
       setExplanation(r.explanation_md ?? "");
       // One retry, like a learn doc: a second answer ends the card whatever it was.
       if (r.correct || attempts.current >= 2) setFinished(r.due_at);
       return { ok: r.correct, state: r.correct ? "ok" : "review", done: r.correct };
     },
-  }), [card.id]);
+  }), [card.id, onAnswered]);
   return <>
     <Quiz block={block} ctx={ctx} />
     {finished && <div className={styles.actions}><button type="button" className={styles.primary} autoFocus onClick={() => onNext(finished)}>{copy.reviewNext}</button></div>}

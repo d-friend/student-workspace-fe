@@ -40,6 +40,11 @@ test("a photo of notes from home becomes a subject project with a map; the notes
   const id = await uploadFromHome(page);
   await expect(page.getByRole("heading", { name: "Vật lí", level: 1 })).toBeVisible();
 
+  // The overview counts the photo; the map is one tap away, as its own page.
+  await expect(page.getByText(copy.projectCountPhotos(1))).toBeVisible();
+  await page.getByRole("button", { name: copy.projectViewLabel(copy.projectMapRow) }).click();
+  await expect(page.getByRole("heading", { name: copy.projectMapRow, level: 1 })).toBeVisible();
+
   // The map: chapter > lesson > concept, hollow because nothing has been studied yet.
   const tree = page.getByRole("tree", { name: "Vật lí" });
   for (const name of ["Điện học", "Định luật Ôm", "Tính cường độ dòng điện"]) await expect(tree.getByRole("treeitem", { name })).toBeVisible();
@@ -51,14 +56,16 @@ test("a photo of notes from home becomes a subject project with a map; the notes
   await notes.getByRole("button", { name: copy.packViewSource }).click();
 
   // Nguồn: the photo beside what was read from it, KaTeX included, scrolled to the node's first passage.
-  await expect(page.getByRole("tab", { name: "Nguồn" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { name: copy.projectNotesRow, level: 1 })).toBeVisible();
   await expect(page.getByRole("img", { name: copy.packPhotoAlt(1) })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Định luật Ôm", level: 3 })).toBeVisible();
   await expect(page.getByText("[Hình: mạch điện gồm nguồn")).toBeVisible();
   await expect(page.locator(".katex").first()).toBeVisible();
   await expect(page.locator("[data-highlight]")).toBeVisible();
 
-  await page.getByRole("tab", { name: "Bản đồ" }).click();
+  await page.getByRole("button", { name: copy.projectBack("Vật lí") }).click(); // back to the overview, past the map and the notes
+  await expect(page.getByRole("heading", { name: "Vật lí", level: 1 })).toBeVisible();
+  await page.getByRole("button", { name: copy.projectViewLabel(copy.projectMapRow) }).click();
   await page.getByRole("tree", { name: "Vật lí" }).getByRole("treeitem", { name: "Định luật Ôm" }).click();
   await page.getByRole("region", { name: copy.packFromNotes }).getByRole("button", { name: copy.packLearnMore }).click();
   await page.waitForURL("/");
@@ -68,8 +75,9 @@ test("a photo of notes from home becomes a subject project with a map; the notes
   // The session was created inside the project, so the project lists it and the sidebar says whose it is.
   await expect.poll(async () => (await (await page.request.get(`/api/sessions?project_id=${id}`)).json()).sessions.length).toBe(1);
   await expect(page.getByRole("navigation", { name: copy.projectsLabel }).getByRole("link", { name: /Vật lí/ })).toBeVisible();
-  await page.goto(`/projects/${id}?tab=sessions`);
-  await expect(page.getByRole("tabpanel").getByRole("button", { name: /Mình muốn hiểu kĩ hơn/ })).toBeVisible();
+  await page.goto(`/projects/${id}`);
+  await expect(page.getByRole("heading", { name: copy.projectRecent, level: 2 })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("button", { name: /Mình muốn hiểu kĩ hơn/ })).toBeVisible();
 });
 
 test("the API answers the contract the page is built on", async ({ page }) => {
@@ -144,15 +152,34 @@ test("Cập nhật vở inside a project never asks for a subject, even for a pa
   expect(project.name).toBe("Vật lí"); // an unsure page does not move or rename the project
 });
 
+test("text and a photo typed on the subject page reach the chat as one message in a session filed in the subject", async ({ page }) => {
+  const id = await uploadFromHome(page);
+  await expect(page.getByRole("heading", { name: "Vật lí", level: 1 })).toBeVisible();
+  await page.locator("input[type=file]:not([capture])").first().setInputFiles(PHOTO); // the composer's + : a problem photo, not notes
+  await expect(page.getByRole("img", { name: copy.photoChip })).toHaveCount(1);
+  await page.getByRole("textbox").fill("Giúp mình bài trong ảnh");
+  const created = page.waitForRequest(r => r.method() === "POST" && new URL(r.url()).pathname === "/api/sessions");
+  const turn = page.waitForRequest(r => r.method() === "POST" && /\/api\/sessions\/[^/]+\/turns$/.test(new URL(r.url()).pathname));
+  await page.getByRole("button", { name: copy.send, exact: true }).click();
+  expect((await created).postDataJSON()).toMatchObject({ project_id: id, started_via: "photo" });
+  const content = (await turn).postDataJSON().message.content as { type: string; text?: string }[];
+  expect(content.filter(b => b.type === "image")).toHaveLength(1);
+  expect(content.find(b => b.type === "text")?.text).toContain("Giúp mình bài trong ảnh");
+  await page.waitForURL(url => url.pathname === "/" && url.search === "");
+  await expect(page.getByText("Giúp mình bài trong ảnh").first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("img", { name: copy.photoChip }).first()).toBeVisible(); // the photo is in the bubble
+  expect(await page.evaluate(() => sessionStorage.getItem("dfriend.handoff.photos"))).toBeNull(); // consumed once
+  await expect.poll(async () => (await (await page.request.get(`/api/sessions?project_id=${id}`)).json()).sessions.length).toBe(1);
+});
+
 test("a new session started inside a project is filed there, and one student cannot read or touch another's project", async ({ page, browser, baseURL }) => {
   const id = await uploadFromHome(page);
-  await page.getByRole("tab", { name: "Phiên học" }).click();
-  await page.getByRole("button", { name: copy.projectNewSession }).click();
-  await page.waitForURL("/");
   const created = page.waitForRequest(r => r.method() === "POST" && new URL(r.url()).pathname === "/api/sessions");
-  await page.getByLabel(copy.inputLabel).fill("Cho hai điện trở nối tiếp, tính điện trở tương đương");
-  await page.keyboard.press("Enter");
+  await page.getByRole("textbox").fill("Cho hai điện trở nối tiếp, tính điện trở tương đương");
+  await page.getByRole("button", { name: copy.send, exact: true }).click(); // from the subject page's composer
   expect((await created).postDataJSON()).toMatchObject({ project_id: id });
+  await page.waitForURL(url => url.pathname === "/" && url.search === ""); // home consumed the handoff
+  await expect(page.getByText("Cho hai điện trở nối tiếp, tính điện trở tương đương").first()).toBeVisible({ timeout: 15_000 });
   await expect.poll(async () => (await (await page.request.get(`/api/sessions?project_id=${id}`)).json()).sessions.length).toBe(1);
   const [{ id: sessionId, project_id }] = (await (await page.request.get(`/api/sessions?project_id=${id}`)).json()).sessions;
   expect(project_id).toBe(id);

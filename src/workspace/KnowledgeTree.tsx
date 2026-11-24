@@ -85,7 +85,7 @@ export function KnowledgeTree({ data, selected, onSelect, rootLabel = copy.treeR
     const observer = new ResizeObserver(() => {
       if (Math.abs(vp.clientWidth - width) < 1) return;
       width = vp.clientWidth;
-      if (fitted.current) refit.current(READABLE_K);
+      if (fitted.current) refit.current(); // no readable floor: a map that is clipped is worse than a small one, and zoom is a tap away
     });
     observer.observe(vp);
     return () => observer.disconnect();

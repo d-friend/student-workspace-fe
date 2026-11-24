@@ -181,7 +181,7 @@ test("a project map names the root after the subject and keeps its clicks out of
   expect(track).not.toHaveBeenCalled();
 });
 
-test("the map fits again when its box changes width (a node panel opens beside it), not when only the height changes", () => {
+test("the map fits again when its box changes width (a node panel opens beside it), however small that makes it, not when only the height changes", () => {
   let width = 1000, height = 600;
   const observers: (() => void)[] = [];
   vi.stubGlobal("ResizeObserver", class { constructor(cb: () => void) { observers.push(cb); } observe() {} disconnect() {} });
@@ -191,16 +191,23 @@ test("the map fits again when its box changes width (a node panel opens beside i
   vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(function (this: HTMLElement) { return inTree(this) ? width : 0; });
   vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) { return inTree(this) ? height : 0; });
   const resize = () => act(() => observers.forEach(cb => cb()));
+  // The right edge, on screen, of the node furthest right: canvas translate + scale applied to each node's own translate and width.
+  const rightEdge = () => {
+    const [x, scale] = /translate\(([-\d.]+)px, [-\d.]+px\) scale\(([\d.]+)\)/.exec(transform())!.slice(1).map(Number);
+    const lefts = [...document.querySelectorAll<HTMLElement>("[data-node-id]")].map(n => Number(/translate\(([-\d.]+)px/.exec(n.style.transform)![1]));
+    return x + (Math.max(...lefts) + 100) * scale;
+  };
   try {
     render(<KnowledgeTree data={data()} selected={null} onSelect={() => {}} />);
     const open = transform();
+    expect(rightEdge()).toBeLessThanOrEqual(width);
     height = 300;
     resize();
     expect(transform()).toBe(open);
-    width = 300;
+    width = 400; // narrower than the readable floor (0.7) can fit, wider than the smallest scale (0.2)
     resize();
     expect(transform()).not.toBe(open);
-    expect(transform()).toContain("translate(24px"); // too wide for the room: starts at the left edge instead of centred
+    expect(rightEdge()).toBeLessThanOrEqual(width);
     width = 1000;
     height = 600;
     resize();

@@ -52,7 +52,6 @@ it("a failed progress fetch leaves starters usable without an error or impressio
   render(<Page />);
   await waitFor(() => expect(api.getProgress).toHaveBeenCalledOnce());
   expect(screen.getByText(copy.starter1)).toBeTruthy();
-  expect(screen.getByText(copy.starter2)).toBeTruthy();
   expect(screen.queryByText(copy.entryNext)).toBeNull();
   expect(screen.queryByRole("link", { name: copy.progressNav })).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();

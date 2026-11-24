@@ -1,4 +1,5 @@
 .emptyThread {
+  container-type: inline-size; /* the cards adapt to the room they have (a sidebar takes some), not to the window */
   flex: 1 0 auto;
   min-width: 0;
   display: flex;
@@ -27,94 +28,6 @@
   color: var(--muted);
 }
 
-.try {
-  margin-top: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.label {
-  margin: 0 0 0 4px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.seeAll { display: inline-flex; align-items: center; min-height: 44px; flex: none; color: var(--text); font-size: 14px; font-weight: 600; text-decoration: underline; }
-.seeAll:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-.cards {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.card {
-  font: inherit;
-  min-height: 44px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 16px 18px;
-  text-align: left;
-  color: var(--text);
-  background: var(--panel);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  transition:
-    border-color 0.2s,
-    transform 0.2s;
-}
-
-.card:hover {
-  border-color: var(--control-border);
-  transform: translateY(-2px);
-}
-
-.cardText {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.cardTitle {
-  font-size: 15px;
-  line-height: 1.45;
-  font-weight: 500;
-}
-
-.cardSub {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.arrow {
-  flex: none;
-  color: var(--muted);
-}
-
-.surprise {
-  font: inherit;
-  align-self: flex-start;
-  min-height: 44px;
-  padding: 10px 18px;
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 600;
-  background: var(--panel);
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-}
-
-.surprise:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
 .foot {
   margin: auto 0 0;
   padding: 24px 0 4px;
@@ -123,35 +36,80 @@
   color: var(--muted);
 }
 
-.upload { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; margin-top: 4px; }
-.uploadHint { margin: 0 0 0 4px; font-size: 14px; line-height: 1.5; color: var(--muted); }
-.blocks { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
-.block { min-width: 0; display: flex; flex-direction: column; }
-.blockHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
-.blockHead h2 { margin: 0 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-.compactRow { width: 100%; min-width: 0; min-height: 76px; align-items: center; }
-.compactRow:focus-visible, .shuffle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.rowText { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.nextMain { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 15px; line-height: 1.45; font-weight: 500; }
+/* Three cards, one size and style. Label on top, content, an arrow: the whole card is the action. */
+.tiles {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.tile {
+  font: inherit;
+  position: relative;
+  min-width: 0;
+  min-height: 88px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  text-align: left;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  transition: border-color 0.2s, transform 0.2s;
+}
+button.tile { cursor: pointer; }
+.tile:hover { border-color: var(--control-border); transform: translateY(-2px); }
+button.tile:disabled { opacity: 0.6; cursor: default; }
+button.tile:disabled:hover { transform: none; border-color: var(--hairline); }
+.cell { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cell > .tile { flex: 1; }
+
+.head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 18px; }
+.label { display: flex; align-items: center; min-height: 18px; }
+.head h2, .label { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+/* 44px to tap, 18px to look at: the negative margin keeps the head as short as its label. */
+.corner { display: inline-flex; align-items: center; justify-content: center; flex: none; box-sizing: border-box; min-width: 44px; min-height: 44px; margin: -13px -12px; padding: 0 12px; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--muted); font: 600 13px/1 var(--font-sans); text-decoration: underline; cursor: pointer; }
+button.corner { text-decoration: none; }
+.corner:hover { color: var(--text); }
+.corner:focus-visible, .main:focus-visible, button.tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
+button.main { cursor: pointer; }
+.text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 15px; line-height: 1.4; font-weight: 500; }
+.name, .nextMain .name { min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 15px; line-height: 1.4; font-weight: 500; }
+.meta { font-size: 12px; font-weight: 600; color: var(--muted); }
+.metaRow { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.date { flex: none; }
 .ellipsis { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.done { flex: none; color: var(--ok-text); }
-.nextDate { flex: none; color: var(--muted); font-size: 12px; }
-.surpriseRow { position: relative; min-width: 0; }
-.surpriseOpen { padding-right: 18px; }
-.emoji { flex: none; font-size: 24px; line-height: 1; }
-.surpriseTitle { flex: 1; min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 15px; line-height: 1.4; font-weight: 500; }
-.surpriseOpen .arrow { margin-left: 44px; }
-.shuffle { position: absolute; right: 48px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--muted); cursor: pointer; }
-.shuffle:hover { color: var(--text); background: var(--bg); }
-.skeleton { min-height: 76px; align-items: center; cursor: default; }
-.skeleton:hover { border-color: var(--hairline); transform: none; }
+.nextMain { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.done { flex: none; margin-top: 2px; color: var(--ok-text); }
+.emoji, .lead { flex: none; font-size: 24px; line-height: 1; }
+.lead { color: var(--muted); }
+.arrow { flex: none; color: var(--muted); }
+
+.skeleton { cursor: default; }
 .skeleton span { height: 16px; border-radius: var(--radius-sm); background: var(--hairline); }
-.skeleton span:first-child { width: 32px; height: 32px; flex: none; }
+.skeleton span:first-child { width: 28px; height: 28px; flex: none; }
 .skeleton span:last-child { width: 60%; }
-@media (min-width: 800px) { .blocks[data-progress] { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 639px) {
-  .cards { grid-template-columns: minmax(0, 1fr); }
-  .sub { font-size: 15px; }
-  .card { padding: 14px 16px; }
-  .shuffle { right: 46px; }
+
+.nextMain .name { -webkit-line-clamp: 1; } /* keeps the cards one height when a next step is long */
+@media (max-width: 639px) { .sub { font-size: 15px; } .tile:hover { transform: none; } }
+
+/* Room for two: the third card takes the second row. */
+@container (min-width: 420px) {
+  .tiles { margin-top: 24px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .tiles > :nth-child(3) { grid-column: 1 / -1; }
+  .tile { min-height: 112px; gap: 8px; padding: 14px 16px; }
+  .name, .nextMain .name { -webkit-line-clamp: 3; }
+}
+
+/* Room for three in a row. */
+@container (min-width: 640px) {
+  .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tiles > :nth-child(3) { grid-column: auto; }
+  .tile { min-height: 136px; }
 }

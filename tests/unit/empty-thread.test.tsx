@@ -25,20 +25,21 @@ function setup(extra: Partial<EmptyThreadProps> = {}) {
   return { props, ui: <EmptyThread {...props} /> };
 }
 
-test("shows the greeting, both starters and the footer", () => {
+test("shows the greeting, one sample starter and the footer", () => {
   render(setup().ui);
   expect(screen.getByRole("heading", { name: copy.entryTitle })).toBeTruthy();
   expect(screen.getByText(copy.entrySub)).toBeTruthy();
   expect(screen.getByText(copy.entryFoot)).toBeTruthy();
   expect(screen.getByText(copy.starter1)).toBeTruthy();
-  expect(screen.getByText(copy.starter2)).toBeTruthy();
+  expect(screen.getByRole("heading", { name: copy.samplesLabel })).toBeTruthy();
+  expect(screen.getAllByRole("button", { name: /./ }).filter(b => b.textContent?.includes(copy.starter1))).toHaveLength(1); // one sample, not two
 });
 
-test("a starter starts its sample", () => {
+test("the sample card starts the derivative sample", () => {
   const s = setup();
   render(s.ui);
-  fireEvent.click(screen.getByText(copy.starter2));
-  expect(s.props.onStarter).toHaveBeenCalledWith("geometry");
+  fireEvent.click(screen.getByText(copy.starter1));
+  expect(s.props.onStarter).toHaveBeenCalledExactlyOnceWith("derivative");
 });
 
 const progressItem: ProgressItem = {
@@ -53,16 +54,14 @@ test("progress shows the next-step card and its resume link", () => {
   expect(screen.getByRole("heading", { name: copy.entryNext })).toBeTruthy();
   expect(screen.queryByText(copy.samplesLabel)).toBeNull();
   expect(screen.queryByText(copy.starter1)).toBeNull();
-  expect(screen.queryByText(copy.starter2)).toBeNull();
   expect(screen.getByRole("link", { name: copy.progressSeeAll }).getAttribute("href")).toBe("/progress");
   fireEvent.click(within(screen.getByRole("region", { name: copy.entryNext })).getByRole("button"));
   expect(onOpen).toHaveBeenCalledOnce();
 });
 
-test("null progress keeps both starters", () => {
+test("null progress keeps the sample starter", () => {
   render(setup({ progress: null }).ui);
   expect(screen.getByText(copy.starter1)).toBeTruthy();
-  expect(screen.getByText(copy.starter2)).toBeTruthy();
   expect(screen.queryByRole("link", { name: copy.progressSeeAll })).toBeNull();
 });
 
@@ -152,4 +151,35 @@ test("shuffle failure also shows the random fallback", async () => {
   await screen.findByText(surprise.title);
   fireEvent.click(screen.getByRole("button", { name: copy.surpriseShuffle }));
   expect(await screen.findByRole("button", { name: copy.surprise })).toBeTruthy();
+});
+
+const section = (name: string) => screen.getByRole("region", { name });
+const before = (a: Node, b: Node) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+test.each([false, true])("three cards in a row, next step (or the sample), surprise, upload, with progress=%s", async (hasProgress) => {
+  render(setup({ onPackUploaded: vi.fn(), progress: hasProgress ? { item: progressItem, onOpen: vi.fn() } : null }).ui);
+  await screen.findByText(surprise.title);
+  const first = section(hasProgress ? copy.entryNext : copy.samplesLabel);
+  const second = section(copy.surpriseHeading);
+  const third = screen.getByRole("button", { name: new RegExp(copy.packUpload) });
+  expect(before(first, second) && before(second, third)).toBe(true);
+  expect(first.parentElement).toBe(second.parentElement);
+  expect(third.parentElement!.parentElement).toBe(first.parentElement);
+  expect(within(third).getByText(copy.homeUploadHint)).toBeTruthy();
+  expect(screen.getByText(copy.entryFoot)).toBeTruthy();
+});
+
+test("the whole upload card opens the file chooser; the input still takes several photos", () => {
+  const click = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
+  render(setup({ onPackUploaded: vi.fn() }).ui);
+  const input = screen.getByLabelText(copy.packUploadHint) as HTMLInputElement;
+  expect([input.type, input.multiple, input.accept]).toEqual(["file", true, "image/*"]);
+  fireEvent.click(screen.getByRole("button", { name: new RegExp(copy.packUpload) }));
+  expect(click).toHaveBeenCalledTimes(1);
+  click.mockRestore();
+});
+
+test("without a way to hand the pack over there is no upload card", () => {
+  render(setup().ui);
+  expect(screen.queryByRole("button", { name: new RegExp(copy.packUpload) })).toBeNull();
 });

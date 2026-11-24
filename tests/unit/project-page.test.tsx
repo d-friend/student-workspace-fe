@@ -26,7 +26,7 @@ beforeEach(() => {
   setLocale("vi");
   window.localStorage.setItem("df-sidebar", "open");
   Element.prototype.scrollIntoView = vi.fn();
-  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  vi.stubGlobal("matchMedia", vi.fn((query: string) => ({ matches: !query.includes("max-width"), addEventListener: vi.fn(), removeEventListener: vi.fn() })));
   assign = vi.fn();
   const realWindow = window;
   vi.stubGlobal("window", new Proxy(realWindow, {

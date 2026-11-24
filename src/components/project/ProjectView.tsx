@@ -85,5 +85,5 @@ export function ProjectView(props: ProjectViewProps) {
     {tabs}
     {body}
   </div>;
-  return <div className={styles.page}>{header}{tabs}{body}</div>;
+  return <div className={styles.page}><div className={styles.topBand} aria-hidden="true" />{header}{tabs}{body}</div>;
 }

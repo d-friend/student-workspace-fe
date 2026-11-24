@@ -148,6 +148,17 @@ test("phone: the node's notes open under its row in the outline and fit the widt
   for (const button of await notes.getByRole("button").all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 });
 
+test("phone: scrolled content goes under an opaque band, not behind the menu, feedback and theme buttons", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/projects/${MATH}?tab=sources`);
+  await expect(page.getByRole("img", { name: copy.packPhotoAlt(1) })).toBeVisible();
+  const scrolled = await page.evaluate(() => { const main = document.querySelector("main")!; main.scrollTop = 200; return main.scrollTop; });
+  expect(scrolled).toBeGreaterThan(100);
+  // Left of the buttons, in the strip they sit in: nothing from the page can show there.
+  const at = await page.evaluate(() => document.elementFromPoint(195, 30)?.closest("[role=tabpanel], [role=tablist], h1") !== null);
+  expect(at).toBe(false);
+});
+
 test("Học thêm on a map node opens home with the node's name and the project", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/projects/${MATH}`);

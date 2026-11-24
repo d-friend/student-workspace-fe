@@ -141,6 +141,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
   let ready = false;
   let started = false;
+  let detached = false; // the tree unmounted this workspace: it must not act on the page any more
   let nextId = 1;
   let turnNo = 0;
   let newProblems = 0;
@@ -809,10 +810,12 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
   // Registered before the first track() call, so the tracker's own hidden-flush runs after this one.
   function attach(): () => void {
+    detached = false; // Strict Mode detaches and re-attaches the same workspace
     window.addEventListener("message", onMessage);
     window.addEventListener("pagehide", recordHidden);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
+      detached = true;
       window.removeEventListener("message", onMessage);
       window.removeEventListener("pagehide", recordHidden);
       document.removeEventListener("visibilitychange", onVisibility);
@@ -912,6 +915,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
       } catch {
         // Start empty.
       }
+      // LocaleBoundary remounts the tree after hydration for a non-Vietnamese browser. This workspace may be gone by now,
+      // and the one that replaced it needs the ?q= / ?project= handoff, which is consumed once.
+      if (detached) return;
       // The composer is live while the two requests above run: never replace a turn that already started.
       let applied: typeof saved = null;
       if (epoch === mine && saved && !busy && messages.length === 0) {

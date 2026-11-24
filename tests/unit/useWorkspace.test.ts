@@ -2264,6 +2264,33 @@ describe("problem handed over from the landing page (?q=)", () => {
     expect(open.api.createSession).toHaveBeenLastCalledWith("typed");
   });
 
+  it("a workspace unmounted before its start-up finishes leaves the handoff to the one that replaces it", async () => {
+    // LocaleBoundary remounts the tree right after hydration for a non-Vietnamese browser, while the first instance is still starting.
+    history.replaceState(null, "", "/?q=" + encodeURIComponent("Mình muốn hiểu kĩ hơn: Viète.") + "&via=pack_learn_more&project=" + PROJECT);
+    let release!: () => void;
+    const t = setup(undefined, new Promise<null>((resolve) => { release = () => resolve(null); }));
+    t.detach();
+    const next = t.make();
+    cleanup.push(next.detach);
+    release();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.api.createSession).toHaveBeenCalledTimes(1);
+    expect(t.api.createSession).toHaveBeenCalledWith("pack_learn_more", PROJECT);
+    expect(t.state().bubbles).toEqual([]);
+    expect(next.ws.getState().bubbles[0]).toMatchObject({ kind: "student", text: "Mình muốn hiểu kĩ hơn: Viète." });
+  });
+
+  it("still starts when React Strict Mode detaches and re-attaches the same workspace", async () => {
+    history.replaceState(null, "", "/?q=" + encodeURIComponent("bài") + "&project=" + PROJECT);
+    let release!: () => void;
+    const t = setup(undefined, new Promise<null>((resolve) => { release = () => resolve(null); }));
+    t.detach();
+    cleanup.push(t.ws.attach());
+    release();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.api.createSession).toHaveBeenCalledWith("typed", PROJECT);
+  });
+
   it("ignores an unknown via", async () => {
     history.replaceState(null, "", "/?q=" + encodeURIComponent("bài") + "&via=nope");
     const t = await boot();

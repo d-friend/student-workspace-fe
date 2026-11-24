@@ -1,5 +1,5 @@
 import { IconPhotoPlus } from "@tabler/icons-react";
-import { type ChangeEvent, useRef, useState } from "react";
+import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
 import { createPack, type Pack } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { MAX_PACK_PHOTOS, uploadError } from "@/lib/pack";
@@ -9,7 +9,11 @@ import styles from "./Pack.module.css";
 // "Tải vở / sách" on home, "Cập nhật vở" inside a project (projectId set: the server skips the subject stage). Photos of notes, up to 10.
 // The page owns the status sheet, so it survives this button moving between layouts.
 // `rowClassName`: the small "Thêm" action in a subject page's side column, named for what it adds.
-export function PackUpload({ onUploaded, projectId, rowClassName }: { onUploaded: (pack: Pack) => void; projectId?: string; rowClassName?: string }) {
+// `card`: home's upload card, where the whole card is the button. Its content gets `busy` so it can say it is uploading.
+export function PackUpload({ onUploaded, projectId, rowClassName, card }: {
+  onUploaded: (pack: Pack) => void; projectId?: string; rowClassName?: string;
+  card?: { className: string; cellClassName: string; children: (busy: boolean) => ReactNode };
+}) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,8 +39,10 @@ export function PackUpload({ onUploaded, projectId, rowClassName }: { onUploaded
     }
   };
 
-  return <div className={rowClassName ? undefined : styles.upload} style={rowClassName ? { display: "contents" } : undefined}>
-    {rowClassName
+  return <div className={card ? card.cellClassName : rowClassName ? undefined : styles.upload} style={rowClassName ? { display: "contents" } : undefined}>
+    {card
+      ? <button type="button" className={card.className} aria-busy={busy || undefined} disabled={busy || unavailable} onClick={() => input.current?.click()}>{card.children(busy)}</button>
+      : rowClassName
       ? <button type="button" className={rowClassName} aria-label={copy.projectAddLabel} disabled={busy || unavailable} onClick={() => input.current?.click()}>
         {busy ? copy.packUploading : copy.projectAdd}
       </button>

@@ -49,18 +49,17 @@ it("shows a hint for a column containing only workspace cards", () => {
   expect(screen.queryByText(copy.chatEmptyHint)).toBeNull();
 });
 
-it("shows starters, Surprise and the footer inside the empty log until the first message", async () => {
+it("shows the sample, Surprise and the footer inside the empty log until the first message", async () => {
   const { ui } = setup();
   const { rerender } = render(ui([]));
   const log = within(screen.getByRole("log"));
   expect(log.getByRole("heading", { name: copy.entryTitle })).toBeTruthy();
   expect(log.getByText(copy.starter1)).toBeTruthy();
-  expect(log.getByText(copy.starter2)).toBeTruthy();
   expect(await log.findByText(surprise.title)).toBeTruthy();
   expect(log.getByText(copy.entryFoot)).toBeTruthy();
   rerender(ui([{ kind: "student", id: 1, turn: 1, text: "Chào bạn", photos: [], failed: null }]));
   expect(log.getByText("Chào bạn")).toBeTruthy();
-  for (const text of [copy.entryTitle, copy.starter1, copy.starter2, surprise.title, copy.entryFoot]) {
+  for (const text of [copy.entryTitle, copy.starter1, surprise.title, copy.entryFoot]) {
     expect(log.queryByText(text)).toBeNull();
   }
   expect(screen.getAllByRole("textbox", { name: copy.inputLabel })).toHaveLength(1);

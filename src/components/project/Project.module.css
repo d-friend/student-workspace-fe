@@ -77,6 +77,7 @@ button.sideMain:focus-visible, .sideAction:focus-visible, .back:focus-visible { 
 @media (min-width: 800px) {
   .panel { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; color: var(--text); }
   .barName { font-size: 24px; }
+  .back { margin-left: -4px; } /* the arrow, not the button's padding, lines up with the content */
   .body { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 16px 24px 32px; }
   .body[data-screen="map"] { padding: 16px 24px 24px; overflow: hidden; }
   .mapLayout { flex: 1 1 auto; flex-direction: row; min-height: 0; }

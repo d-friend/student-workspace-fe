@@ -55,6 +55,7 @@ test("on desktop the subject name and its counts are in the panel's top bar, and
   expect(within(bar).getByText(`${mine.length} phiên · ${notePhotos} ảnh vở`)).toBeDefined();
   expect(screen.getAllByText(`${mine.length} phiên · ${notePhotos} ảnh vở`)).toHaveLength(1);
   expect(document.querySelector("[data-panel-header]")!.contains(h1)).toBe(true);
+  expect(document.querySelector("[data-panel-header]")!.hasAttribute("data-flush")).toBe(true); // starts at the content's edge, not the doc column's
   const body = document.querySelector("[data-screen]")!;
   expect(body.firstElementChild!.contains(box())).toBe(true);
 });

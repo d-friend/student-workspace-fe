@@ -5,8 +5,9 @@ import { ThemeToggle } from "./ThemeToggle";
 import styles from "./Shell.module.css";
 
 // `tabsRef` receives the slot where the workspace's tab strip is rendered, so tabs and buttons share one bar.
-export function PanelActions({ tabsRef, children }: { tabsRef?: Ref<HTMLDivElement>; children?: ReactNode }) {
-  return <div className={styles.panelActions} data-panel-header><div ref={tabsRef} className={styles.tabsSlot}>{children}</div><FeedbackButton /><ThemeToggle /></div>;
+// `flush`: start the slot at the panel's content edge instead of the doc column's (a left-aligned page, like a subject's).
+export function PanelActions({ tabsRef, children, flush = false }: { tabsRef?: Ref<HTMLDivElement>; children?: ReactNode; flush?: boolean }) {
+  return <div className={styles.panelActions} data-panel-header data-flush={flush || undefined}><div ref={tabsRef} className={styles.tabsSlot}>{children}</div><FeedbackButton /><ThemeToggle /></div>;
 }
 
 // The main content is inert while the mobile sidebar is open.

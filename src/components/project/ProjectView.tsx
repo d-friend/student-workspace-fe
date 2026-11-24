@@ -89,7 +89,7 @@ export function ProjectView(props: ProjectViewProps) {
   </div>;
 
   if (desktop) return <div className={styles.panel} data-shell-panel>
-    <PanelActions>{bar}</PanelActions>
+    <PanelActions flush>{bar}</PanelActions>
     {body}
   </div>;
   return <div className={styles.page}><div className={styles.topBand}>{bar}</div>{body}</div>;

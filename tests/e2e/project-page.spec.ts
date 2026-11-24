@@ -59,7 +59,8 @@ test("phone: tabs fit the width, the map is usable and the reader stacks photo o
   const tabs = await page.getByRole("tab").evaluateAll(els => els.map(el => { const r = el.getBoundingClientRect(); return { x: r.x, right: r.right, h: r.height }; }));
   expect(tabs).toHaveLength(3);
   for (const t of tabs) { expect(t.x).toBeGreaterThanOrEqual(0); expect(t.right).toBeLessThanOrEqual(390); expect(t.h).toBeGreaterThanOrEqual(44); }
-  await expect(page.getByRole("treeitem", { name: "Công thức nghiệm" })).toBeVisible();
+  await expect(page.getByRole("tree")).toHaveCount(0); // below 640px the map is an outline
+  await expect(page.getByRole("navigation", { name: copy.projectOutlineLabel }).getByRole("button", { name: "Công thức nghiệm", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 
   await page.getByRole("tab", { name: "Nguồn" }).click();
@@ -133,17 +134,29 @@ test("desktop: a map node opens its notes beside the map, Xem nguồn jumps to t
   await expect(page.getByRole("region", { name: copy.packFromNotes })).toHaveCount(0);
 });
 
-test("phone: the node's notes appear under the map and fit the width", async ({ page }) => {
+test("phone: the node's notes open under its row in the outline and fit the width", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/projects/${MATH}`);
-  await page.getByRole("treeitem", { name: "Công thức nghiệm" }).click();
+  const row = page.getByRole("navigation", { name: copy.projectOutlineLabel }).getByRole("button", { name: "Công thức nghiệm", exact: true });
+  await row.click();
   const notes = page.getByRole("region", { name: copy.packFromNotes });
   await expect(notes).toBeVisible();
-  const [mapBox, noteBox] = await Promise.all([page.getByRole("tree", { name: "Toán" }).boundingBox(), notes.boundingBox()]);
-  expect(noteBox!.y).toBeGreaterThanOrEqual(mapBox!.y + mapBox!.height - 1);
+  const [rowBox, noteBox] = await Promise.all([row.boundingBox(), notes.boundingBox()]);
+  expect(noteBox!.y).toBeGreaterThanOrEqual(rowBox!.y + rowBox!.height - 1);
   expect(noteBox!.x + noteBox!.width).toBeLessThanOrEqual(390);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   for (const button of await notes.getByRole("button").all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+});
+
+test("phone: scrolled content goes under an opaque band, not behind the menu, feedback and theme buttons", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/projects/${MATH}?tab=sources`);
+  await expect(page.getByRole("img", { name: copy.packPhotoAlt(1) })).toBeVisible();
+  const scrolled = await page.evaluate(() => { const main = document.querySelector("main")!; main.scrollTop = 200; return main.scrollTop; });
+  expect(scrolled).toBeGreaterThan(100);
+  // Left of the buttons, in the strip they sit in: nothing from the page can show there.
+  const at = await page.evaluate(() => document.elementFromPoint(195, 30)?.closest("[role=tabpanel], [role=tablist], h1") !== null);
+  expect(at).toBe(false);
 });
 
 test("Học thêm on a map node opens home with the node's name and the project", async ({ page }) => {

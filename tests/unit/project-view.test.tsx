@@ -142,3 +142,32 @@ test("Cập nhật vở sits next to the subject name and hands the uploaded pac
   expect(screen.getByRole("button", { name: copy.projectUpdateNotes })).toBeDefined();
   expect(screen.getByLabelText(copy.packUploadHint)).toBeDefined();
 });
+
+// Below 640px the map is an outline (the mind map cannot be read there); tapping a name opens the same node panel under its row.
+const phone = () => vi.stubGlobal("matchMedia", vi.fn((query: string) => ({ matches: query.includes("max-width: 639px"), addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+
+test("on a phone the map is a collapsible outline, not the mind map: chapters open, deeper levels fold", () => {
+  phone();
+  render(<ProjectView {...props()} />);
+  expect(screen.queryByRole("tree")).toBeNull();
+  const outline = screen.getByRole("navigation", { name: copy.projectOutlineLabel });
+  expect(within(outline).getByRole("button", { name: "Phương trình bậc hai" })).toBeDefined();
+  expect(within(outline).queryByRole("button", { name: "Biệt thức Δ" })).toBeNull(); // a concept under a closed lesson
+  fireEvent.click(within(outline).getByRole("button", { name: copy.treeToggle("Công thức nghiệm") }));
+  expect(within(outline).getByRole("button", { name: "Biệt thức Δ" })).toBeDefined();
+  fireEvent.click(within(outline).getByRole("button", { name: copy.treeToggle("Công thức nghiệm") }));
+  expect(within(outline).queryByRole("button", { name: "Biệt thức Δ" })).toBeNull();
+});
+
+test("on a phone, tapping an outline row opens the node panel under that row", () => {
+  phone();
+  render(<ProjectView {...props()} />);
+  const row = screen.getByRole("button", { name: "Công thức nghiệm" });
+  fireEvent.click(row);
+  const notes = screen.getByRole("region", { name: copy.packFromNotes });
+  expect(within(notes).getByText("Công thức nghiệm")).toBeDefined();
+  expect(row.getAttribute("aria-current")).toBe("true");
+  expect(row.closest("li")!.contains(notes)).toBe(true);
+  fireEvent.click(within(notes).getByRole("button", { name: copy.treeClear }));
+  expect(screen.queryByRole("region", { name: copy.packFromNotes })).toBeNull();
+});

@@ -75,6 +75,7 @@ test("project: Cập nhật vở uploads into the project, never asks for a subj
   await expect(sheet.getByRole("status")).toHaveText(copy.packDone(1, 1), { timeout: 10_000 });
   expect(created!.project_id).toBe(MATH);
   await expect(sheet.getByText(copy.packAskSubject)).toHaveCount(0);
+  await expect(sheet.getByRole("link")).toHaveCount(0); // already in the subject: nothing to open
   await expect.poll(() => projectLoads).toBeGreaterThan(before); // the map and pack list were fetched again
   await sheet.getByRole("button", { name: copy.packClose }).click();
   await expect(sheet).toHaveCount(0);

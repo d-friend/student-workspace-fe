@@ -2264,6 +2264,48 @@ describe("problem handed over from the landing page (?q=)", () => {
     expect(open.api.createSession).toHaveBeenLastCalledWith("typed");
   });
 
+  it("a workspace unmounted before its start-up finishes leaves the handoff to the one that replaces it", async () => {
+    // LocaleBoundary remounts the tree right after hydration for a non-Vietnamese browser, while the first instance is still starting.
+    history.replaceState(null, "", "/?q=" + encodeURIComponent("Mình muốn hiểu kĩ hơn: Viète.") + "&via=pack_learn_more&project=" + PROJECT);
+    let release!: () => void;
+    const t = setup(undefined, new Promise<null>((resolve) => { release = () => resolve(null); }));
+    t.detach();
+    const next = t.make();
+    cleanup.push(next.detach);
+    release();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.api.createSession).toHaveBeenCalledTimes(1);
+    expect(t.api.createSession).toHaveBeenCalledWith("pack_learn_more", PROJECT);
+    expect(t.state().bubbles).toEqual([]);
+    expect(next.ws.getState().bubbles[0]).toMatchObject({ kind: "student", text: "Mình muốn hiểu kĩ hơn: Viète." });
+  });
+
+  it("a workspace unmounted before its start-up finishes leaves the recorded absence to the one that replaces it", async () => {
+    localStorage.setItem("dfriend.hiddenAt", String(1000 - 31 * 60_000));
+    let release!: (s: Current | null) => void;
+    const saved: Current = { sessionId: "srv1", messages: [{ role: "user", content: "bài cũ" }, { role: "assistant", content: HTML_REPLY }], html: "<p>x</p>", tabs: [], activeId: null };
+    const t = setup(undefined, new Promise<Current | null>((resolve) => { release = resolve; }));
+    t.detach();
+    const next = t.make();
+    cleanup.push(next.detach);
+    release(saved);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.api.endSession).toHaveBeenCalledWith("srv1", "abandoned"); // away 31 minutes: ended, not restored
+    expect(next.ws.getState().hasMessages).toBe(false);
+    expect(localStorage.getItem("dfriend.hiddenAt")).toBeNull();
+  });
+
+  it("still starts when React Strict Mode detaches and re-attaches the same workspace", async () => {
+    history.replaceState(null, "", "/?q=" + encodeURIComponent("bài") + "&project=" + PROJECT);
+    let release!: () => void;
+    const t = setup(undefined, new Promise<null>((resolve) => { release = () => resolve(null); }));
+    t.detach();
+    cleanup.push(t.ws.attach());
+    release();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.api.createSession).toHaveBeenCalledWith("typed", PROJECT);
+  });
+
   it("ignores an unknown via", async () => {
     history.replaceState(null, "", "/?q=" + encodeURIComponent("bài") + "&via=nope");
     const t = await boot();

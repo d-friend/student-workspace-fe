@@ -1,18 +1,19 @@
 import { useSyncExternalStore } from "react";
 
-// From 800px the chat can sit beside the workspace.
-const QUERY = "(min-width: 800px)";
-
-const subscribe = (cb: () => void) => {
-  const mq = matchMedia(QUERY);
-  mq.addEventListener("change", cb);
-  return () => mq.removeEventListener("change", cb);
-};
-
-export function useDesktop(): boolean {
+function useMedia(query: string): boolean {
   return useSyncExternalStore(
-    subscribe,
-    () => matchMedia(QUERY).matches,
+    (cb) => {
+      const mq = matchMedia(query);
+      mq.addEventListener("change", cb);
+      return () => mq.removeEventListener("change", cb);
+    },
+    () => matchMedia(query).matches,
     () => false,
   );
 }
+
+// From 800px the chat can sit beside the workspace.
+export const useDesktop = () => useMedia("(min-width: 800px)");
+
+// Below 640px a horizontal mind map cannot be read, so a project's map becomes an outline.
+export const useNarrow = () => useMedia("(max-width: 639px)");

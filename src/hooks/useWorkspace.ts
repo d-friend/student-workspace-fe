@@ -141,6 +141,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
   let ready = false;
   let started = false;
+  let detached = false; // the tree unmounted this workspace: it must not act on the page any more
   let nextId = 1;
   let turnNo = 0;
   let newProblems = 0;
@@ -809,10 +810,12 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
   // Registered before the first track() call, so the tracker's own hidden-flush runs after this one.
   function attach(): () => void {
+    detached = false; // Strict Mode detaches and re-attaches the same workspace
     window.addEventListener("message", onMessage);
     window.addEventListener("pagehide", recordHidden);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
+      detached = true;
       window.removeEventListener("message", onMessage);
       window.removeEventListener("pagehide", recordHidden);
       document.removeEventListener("visibilitychange", onVisibility);
@@ -895,7 +898,6 @@ export function createWorkspace(deps: WorkspaceDeps) {
     try {
       const value = localStorage.getItem("dfriend.hiddenAt");
       if (value !== null && value.trim() !== "" && Number.isFinite(Number(value))) storedHiddenAt = Number(value);
-      localStorage.removeItem("dfriend.hiddenAt");
     } catch {
       // Start as usual when storage is unavailable.
     }
@@ -911,6 +913,14 @@ export function createWorkspace(deps: WorkspaceDeps) {
         saved = await api.currentSession();
       } catch {
         // Start empty.
+      }
+      // LocaleBoundary remounts the tree after hydration for a non-Vietnamese browser. This workspace may be gone by now,
+      // and the one that replaced it needs the ?q= / ?project= handoff and the recorded absence, which are consumed once.
+      if (detached) return;
+      try {
+        localStorage.removeItem("dfriend.hiddenAt");
+      } catch {
+        // Storage may be unavailable.
       }
       // The composer is live while the two requests above run: never replace a turn that already started.
       let applied: typeof saved = null;

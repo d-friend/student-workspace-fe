@@ -1,6 +1,8 @@
 .head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-width: 0; }
 .title { margin: 0; font: 800 40px/1.1 var(--font-display), var(--font-sans); letter-spacing: -0.01em; overflow-wrap: anywhere; }
 .page { box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; align-self: flex-start; width: 100%; min-width: 0; padding: 80px 16px calc(80px + env(safe-area-inset-bottom)); color: var(--text); }
+/* The menu, feedback and theme buttons are fixed over the page; this opaque band keeps the content from scrolling up behind them. */
+.topBand { position: fixed; z-index: 1; top: 0; left: 0; right: 0; height: 68px; background: var(--bg); border-bottom: 1px solid var(--hairline); }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--hairline); }
 .tab { flex: 1 1 0; min-height: 44px; padding: 8px 12px; border: 0; border-bottom: 3px solid transparent; background: none; color: var(--muted); font: 600 15px/1.3 var(--font-sans); cursor: pointer; }
 .tab[aria-selected="true"] { border-bottom-color: var(--accent); color: var(--text); }
@@ -39,6 +41,20 @@
 .block[data-highlight] { border-left-color: var(--brand); background: var(--idea-bg); }
 .block:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .blockActions { display: flex; margin-top: 8px; }
+.outlineList { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.outlineItem > .outlineList { margin-left: 14px; padding-left: 8px; border-left: 2px solid var(--tree-edge); }
+.outlineRow { display: flex; align-items: center; min-width: 0; }
+.outlineToggle { flex: none; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 44px; height: 44px; padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer; }
+.outlineToggle svg { transition: transform 150ms ease; }
+.outlineToggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+.outlineName { display: flex; flex: 1 1 auto; align-items: center; gap: 8px; box-sizing: border-box; min-width: 0; min-height: 44px; padding: 8px 12px; border: 1px solid transparent; border-radius: var(--radius-md); background: none; color: var(--text); text-align: left; font: 500 15px/1.35 var(--font-sans); overflow-wrap: anywhere; cursor: pointer; }
+.outlineItem[data-role="chapter"] > .outlineRow .outlineName { font-weight: 700; }
+.outlineName[aria-current="true"] { border-color: var(--accent); background: var(--bg); }
+.outlineName:focus-visible, .outlineToggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.outlineDot { flex: none; box-sizing: border-box; width: 12px; height: 12px; border: 2px solid var(--ok-text); border-radius: 50%; background: color-mix(in srgb, var(--ok-text) var(--fill, 0%), transparent); }
+.outlineDot[data-hollow] { border-style: dashed; background: none; }
+.outlineItem > .nodePanel { margin: 4px 0 8px 44px; }
+@media (prefers-reduced-motion: reduce) { .outlineToggle svg { transition: none; } }
 @media (max-width: 799px) { .title { font-size: 32px; } }
 @media (min-width: 800px) {
   .panel { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; color: var(--text); }

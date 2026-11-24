@@ -94,3 +94,19 @@ test("closes on Escape and on the button, leaving the pack running", () => {
   fireEvent.click(screen.getByRole("button", { name: copy.packClose }));
   expect(onClose).toHaveBeenCalledTimes(2);
 });
+
+test("from home, a finished sheet says which subject the notes were filed into, and opens it", async () => {
+  vi.mocked(api.getPack).mockResolvedValue(pack());
+  show(pack({ status: "ready", files: [ok("f1")], nodes: [node("a", true)], project_id: "proj1", subject: { id: "s1", name: "Vật lí", by: "auto", confidence: 0.9 } }));
+  expect(screen.getByText(copy.packFiledInto("Vật lí"))).toBeDefined();
+  fireEvent.click(screen.getByRole("link", { name: copy.packOpenProject }));
+  expect(track).toHaveBeenCalledWith("project_opened", { project_id: "proj1", via: "pack_sheet" });
+});
+
+test("inProject: the finished sheet only closes", async () => {
+  vi.mocked(api.getPack).mockResolvedValue(pack());
+  const initial = pack({ status: "ready", files: [ok("f1")], nodes: [node("a", true)], project_id: "proj1", subject: { id: "s1", name: "Vật lí", by: "auto", confidence: 0.9 } });
+  render(<PackSheet initial={initial} onClose={vi.fn()} onSettled={vi.fn()} inProject />);
+  expect(screen.queryByRole("link")).toBeNull();
+  expect(screen.queryByText(copy.packFiledInto("Vật lí"))).toBeNull();
+});

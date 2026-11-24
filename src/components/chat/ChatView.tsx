@@ -13,6 +13,7 @@ import { OptChips } from "@/components/rail/OptChips";
 import { PhotoGrid } from "@/components/rail/PhotoGrid";
 import { RestateChips } from "@/components/rail/RestateChips";
 import { WatchingCue } from "@/components/rail/WatchingCue";
+import { MathInline } from "@/workspace/md";
 import { EmptyThread, type EmptyThreadProps } from "./EmptyThread";
 import styles from "./ChatView.module.css";
 
@@ -101,7 +102,7 @@ export function ChatView({
             return (
               <Bubble key={b.id} variant="student">
                 <PhotoGrid photos={b.photos} />
-                {b.text && <div>{b.text}</div>}
+                {b.text && <div><MathInline text={b.text} /></div>}
                 {b.failed !== null && <div className={styles.studentError}>{b.failed}</div>}
                 {b.failed !== null && b.id === lastStudentId && (
                   <button type="button" className={styles.retry} disabled={state.busy} onClick={() => actions.onRetry(b.id)}>{copy.retry}</button>

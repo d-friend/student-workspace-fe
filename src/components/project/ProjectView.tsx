@@ -53,22 +53,26 @@ export function ProjectView(props: ProjectViewProps) {
   ].filter(Boolean).join(" · ");
 
   const overview = screen === "overview";
-  const header = overview
-    ? <div className={styles.head}><h1 className={styles.title}>{project.name}</h1></div>
-    : <div className={styles.head} data-full>
+  // The title lives in the top bar: on desktop in the panel header, on a phone in a band behind the menu, feedback and theme buttons.
+  // Desktop also shows the counts there, muted; a phone has no room, so they open the content instead.
+  const bar = overview
+    ? <div className={styles.barTitle}>
+      <h1 className={styles.barName}>{project.name}</h1>
+      {desktop && counts && <span className={styles.barMeta}>{counts}</span>}
+    </div>
+    : <div className={styles.barTitle}>
       <button type="button" className={styles.back} aria-label={copy.projectBack(project.name)} onClick={props.onBack}>
-        <IconArrowLeft size={18} aria-hidden="true" />{project.name}
+        <IconArrowLeft size={18} aria-hidden="true" /><span>{project.name}</span>
       </button>
-      <h1 className={styles.title}>{screen === "map" ? copy.projectMapRow : copy.projectNotesRow}</h1>
+      <h1 className={styles.barName}>{screen === "map" ? copy.projectMapRow : copy.projectNotesRow}</h1>
     </div>;
 
   const nodePanel = selectedNode && <div ref={panel} className={styles.nodePanel}>
     <NodePanel node={selectedNode} onViewSource={props.onViewSource} onLearnMore={props.onLearnMore} learnFailed={props.learnFailed} onClose={() => setSelected(null)} />
   </div>;
   const body = <div className={styles.body} data-screen={screen}>
-    {header}
     {overview && <>
-      {counts && <p className={styles.summary}>{counts}</p>}
+      {!desktop && counts && <p className={styles.summary}>{counts}</p>}
       <ProjectOverview project={project} sessions={props.sessions} onOpenSession={props.onOpenSession} openFailed={props.openFailed}
         onSend={props.onSend} sendError={props.sendError} onUploaded={props.onUploaded} onOpen={props.onOpen} />
     </>}
@@ -85,8 +89,8 @@ export function ProjectView(props: ProjectViewProps) {
   </div>;
 
   if (desktop) return <div className={styles.panel} data-shell-panel>
-    <PanelActions />
+    <PanelActions>{bar}</PanelActions>
     {body}
   </div>;
-  return <div className={styles.page}><div className={styles.topBand} aria-hidden="true" />{body}</div>;
+  return <div className={styles.page}><div className={styles.topBand}>{bar}</div>{body}</div>;
 }

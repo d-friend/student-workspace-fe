@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { TreeNode, TreeResponse } from "@/lib/api";
 import { copy, setLocale } from "@/lib/copy";
@@ -179,4 +179,34 @@ test("a project map names the root after the subject and keeps its clicks out of
   fireEvent.click(item("Viète"));
   expect(onSelect).toHaveBeenCalledWith("math.q.v");
   expect(track).not.toHaveBeenCalled();
+});
+
+test("the map fits again when its box changes width (a node panel opens beside it), not when only the height changes", () => {
+  let width = 1000, height = 600;
+  const observers: (() => void)[] = [];
+  vi.stubGlobal("ResizeObserver", class { constructor(cb: () => void) { observers.push(cb); } observe() {} disconnect() {} });
+  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(100);
+  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(40);
+  const inTree = (el: HTMLElement) => el.getAttribute("role") === "tree";
+  vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(function (this: HTMLElement) { return inTree(this) ? width : 0; });
+  vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) { return inTree(this) ? height : 0; });
+  const resize = () => act(() => observers.forEach(cb => cb()));
+  try {
+    render(<KnowledgeTree data={data()} selected={null} onSelect={() => {}} />);
+    const open = transform();
+    height = 300;
+    resize();
+    expect(transform()).toBe(open);
+    width = 300;
+    resize();
+    expect(transform()).not.toBe(open);
+    expect(transform()).toContain("translate(24px"); // too wide for the room: starts at the left edge instead of centred
+    width = 1000;
+    height = 600;
+    resize();
+    expect(transform()).toBe(open); // the same box fits the same way
+  } finally {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
 });

@@ -74,6 +74,23 @@ export function KnowledgeTree({ data, selected, onSelect, rootLabel = copy.treeR
     requestAnimationFrame(() => requestAnimationFrame(() => setSettled(true)));
   }, [sizes, fit]);
 
+  // A project's node panel opens and closes beside the map, changing its width: fit again so the map stays whole. Height is left alone
+  // (a phone's URL bar resizes it while the student pans). shortcut: any width change resets a manual pan/zoom; upgrade if that annoys.
+  const refit = useRef(fit);
+  useEffect(() => { refit.current = fit; }, [fit]);
+  useEffect(() => {
+    const vp = viewport.current;
+    if (!vp || typeof ResizeObserver === "undefined") return;
+    let width = vp.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (Math.abs(vp.clientWidth - width) < 1) return;
+      width = vp.clientWidth;
+      if (fitted.current) refit.current(READABLE_K);
+    });
+    observer.observe(vp);
+    return () => observer.disconnect();
+  }, []);
+
   const zoomAt = useCallback((cx: number, cy: number, factor: number) => setView(v => {
     const k = clamp(v.k * factor, MIN_K, MAX_K), f = k / v.k;
     return { k, x: cx - (cx - v.x) * f, y: cy - (cy - v.y) * f };

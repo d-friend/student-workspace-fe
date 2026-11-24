@@ -18,7 +18,7 @@ import {
   type WorkspaceEvent,
 } from "@/lib/frame";
 import { isRestate, parse, type Parsed } from "@/lib/parse";
-import { MAX_PHOTOS, readPhoto as realReadPhoto, type PhotoResult } from "@/lib/photo";
+import { MAX_PHOTOS, readPhoto as realReadPhoto, takeHandoffPhotos, type PhotoResult } from "@/lib/photo";
 import { track as realTrack, type TrackEvents, type TrackFn } from "@/lib/track";
 import { matchQueued, type QueuedAnswer } from "@/workspace/queued";
 import type { BlockCtx, CheckResponse, Phase, SavedBlockState, Workspace } from "@/workspace/types";
@@ -961,20 +961,24 @@ export function createWorkspace(deps: WorkspaceDeps) {
         history.replaceState(null, "", url);
         if (!applied && /^[0-9a-f-]{36}$/i.test(project)) nextProject = project;
       }
-      // The landing page hands over the problem it was typed as ?q=. Consume it once (reload must not resend).
+      // The landing page and a subject page hand over the problem as ?q=, and the subject page its photos in sessionStorage.
+      // Consume both once (a reload must not resend).
       const q = new URLSearchParams(location.search).get("q")?.trim();
+      const handed = takeHandoffPhotos();
       if (q) {
         const url = new URL(location.href);
         if (url.searchParams.get("via") === "pack_learn_more") nextVia = "pack_learn_more";
         url.searchParams.delete("q");
         url.searchParams.delete("via");
         history.replaceState(null, "", url);
+      }
+      if (q || handed.length) {
+        if (q) input = q;
+        photos = [...photos, ...handed].slice(0, MAX_PHOTOS);
         if (applied || busy) {
-          // A problem is already open: prefill the composer rather than replace it.
-          input = q;
+          // A problem is already open: prefill the composer and its tray rather than replace it.
           publish();
         } else {
-          input = q;
           void actions.submit();
         }
       }

@@ -1,5 +1,4 @@
 import type { MapItem, MapRole, Mastery, PackBlock, ReaderPage, TreeNode, TreeResponse } from "./api";
-import { copy } from "./copy";
 
 // The project map is drawn by the knowledge-tree component, so each map node is shown as a tree node. Roles stand in for levels:
 // a chapter looks like a subject (bold), a lesson like a topic, a concept or detail like a type (the leaves that fold first).
@@ -37,7 +36,10 @@ export function findBlock(pages: ReaderPage[], blockId: string): PackBlock | nul
   return null;
 }
 
-export const TABS = ["map", "sessions", "sources"] as const;
-export type ProjectTab = (typeof TABS)[number];
-export const tabOf = (value: string | null): ProjectTab => TABS.find(tab => tab === value) ?? "map";
-export const tabLabel = (tab: ProjectTab): string => copy.projectTabs[tab];
+// The subject page shows the overview, or the map or the notes reader as a full page. ?tab=map|sources picks those; anything else (including the
+// old ?tab=sessions) is the overview.
+export const SCREENS = ["overview", "map", "sources"] as const;
+export type ProjectScreen = (typeof SCREENS)[number];
+export const screenOf = (value: string | null): ProjectScreen => value === "map" || value === "sources" ? value : "overview";
+// project_tab_viewed only knows map | sessions | sources: the overview reports as "sessions".
+export const trackedTab = (screen: ProjectScreen): "map" | "sessions" | "sources" => screen === "overview" ? "sessions" : screen;

@@ -1,41 +1,42 @@
-import { type KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from "react";
+import { IconArrowLeft } from "@tabler/icons-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PanelActions } from "@/components/Shell";
 import { useDesktop, useNarrow } from "@/hooks/useDesktop";
 import type { ProjectSessions } from "@/hooks/useProjectSessions";
 import { NodePanel } from "@/components/pack/NodePanel";
-import { PackUpload } from "@/components/pack/PackUpload";
 import type { Pack, Project, ReaderPage } from "@/lib/api";
 import { copy } from "@/lib/copy";
-import { mapAsTree, TABS, type ProjectTab } from "@/lib/projectMap";
+import { mapAsTree, type ProjectScreen } from "@/lib/projectMap";
 import { KnowledgeTree } from "@/workspace/KnowledgeTree";
 import { ProjectOutline } from "./ProjectOutline";
+import { ProjectOverview } from "./ProjectOverview";
 import { ProjectReader } from "./ProjectReader";
-import { ProjectSessionList } from "./ProjectSessionList";
 import styles from "./Project.module.css";
 
 export type ProjectViewProps = {
   project: Project;
-  tab: ProjectTab;
-  onTab: (tab: ProjectTab) => void;
+  screen: ProjectScreen;
+  onOpen: (screen: "map" | "sources") => void; // from the overview; the page pushes history so back returns to it
+  onBack: () => void; // "← subject": back to the overview
   sessions: ProjectSessions;
   onOpenSession: (id: string) => void;
   openFailed: boolean;
-  onNewSession: () => void;
-  newFailed: boolean;
+  onSend: (text: string, photos: string[]) => Promise<boolean>;
+  sendError: string | null;
   reader: { pages: ReaderPage[] | null; failed: boolean };
   block: string | null; // the passage the reader scrolls to and marks
   onLearnMore: (text: string) => void;
   learnFailed: boolean;
   onViewSource: (blockId: string) => void; // "Xem nguồn" on a map node: open the reader at that passage
-  onUploaded: (pack: Pack) => void; // "Cập nhật vở": the page owns the status sheet
+  onUploaded: (pack: Pack) => void; // "Thêm": the page owns the status sheet
 };
 
-// A subject project: its name, then three tabs (Bản đồ, Phiên học, Nguồn). Pure on its props, so a fixture page can draw it with no backend.
+// A subject page: the overview (start a session, notes and map rows, recent sessions), or the map or the notes reader as a full page of their own.
+// Pure on its props, so a fixture page can draw it with no backend.
 export function ProjectView(props: ProjectViewProps) {
-  const { project, tab, onTab } = props;
+  const { project, screen } = props;
   const desktop = useDesktop();
   const narrow = useNarrow();
-  const id = useId();
   const [selected, setSelected] = useState<string | null>(null);
   const tree = useMemo(() => mapAsTree(project.map), [project.map]);
   const selectedNode = project.map.find(n => n.id === selected) ?? null;
@@ -45,28 +46,33 @@ export function ProjectView(props: ProjectViewProps) {
     if (selected && !desktop) panel.current?.scrollIntoView?.({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: narrow ? "nearest" : "start" });
   }, [selected, desktop, narrow]);
 
-  const onKeyDown = (e: KeyboardEvent) => {
-    const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-    if (!step) return;
-    e.preventDefault();
-    const next = TABS[(TABS.indexOf(tab) + step + TABS.length) % TABS.length];
-    onTab(next);
-    document.getElementById(`${id}-tab-${next}`)?.focus();
-  };
+  const photos = project.packs.reduce((sum, pack) => sum + (pack.photos ?? 0), 0);
+  const counts = [
+    props.sessions.ready && props.sessions.sessions.length > 0 ? copy.projectCountSessions(props.sessions.sessions.length, props.sessions.hasMore) : null,
+    photos > 0 ? copy.projectCountPhotos(photos) : null,
+  ].filter(Boolean).join(" · ");
 
-  const header = <div className={styles.head}>
-    <h1 className={styles.title}>{project.name}</h1>
-    <PackUpload projectId={project.id} onUploaded={props.onUploaded} />
-  </div>;
-  const tabs = <div role="tablist" aria-label={copy.projectTabsLabel} className={styles.tabs} onKeyDown={onKeyDown}>
-    {TABS.map(t => <button key={t} type="button" role="tab" id={`${id}-tab-${t}`} className={styles.tab}
-      aria-selected={tab === t} aria-controls={`${id}-panel`} tabIndex={tab === t ? 0 : -1} onClick={() => onTab(t)}>{copy.projectTabs[t]}</button>)}
-  </div>;
+  const overview = screen === "overview";
+  const header = overview
+    ? <div className={styles.head}><h1 className={styles.title}>{project.name}</h1></div>
+    : <div className={styles.head} data-full>
+      <button type="button" className={styles.back} aria-label={copy.projectBack(project.name)} onClick={props.onBack}>
+        <IconArrowLeft size={18} aria-hidden="true" />{project.name}
+      </button>
+      <h1 className={styles.title}>{screen === "map" ? copy.projectMapRow : copy.projectNotesRow}</h1>
+    </div>;
+
   const nodePanel = selectedNode && <div ref={panel} className={styles.nodePanel}>
     <NodePanel node={selectedNode} onViewSource={props.onViewSource} onLearnMore={props.onLearnMore} learnFailed={props.learnFailed} onClose={() => setSelected(null)} />
   </div>;
-  const body = <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-tab-${tab}`} className={styles.body} data-tab={tab}>
-    {tab === "map" && (project.map.length
+  const body = <div className={styles.body} data-screen={screen}>
+    {header}
+    {overview && <>
+      {counts && <p className={styles.summary}>{counts}</p>}
+      <ProjectOverview project={project} sessions={props.sessions} onOpenSession={props.onOpenSession} openFailed={props.openFailed}
+        onSend={props.onSend} sendError={props.sendError} onUploaded={props.onUploaded} onOpen={props.onOpen} />
+    </>}
+    {screen === "map" && (project.map.length
       ? narrow
         ? <ProjectOutline map={project.map} selected={selected} onSelect={setSelected} panel={nodePanel} />
         : <div className={styles.mapLayout}>
@@ -74,16 +80,13 @@ export function ProjectView(props: ProjectViewProps) {
           {nodePanel}
         </div>
       : <p className={styles.empty}>{copy.projectMapEmpty}</p>)}
-    {tab === "sessions" && <ProjectSessionList sessions={props.sessions} onOpen={props.onOpenSession} openFailed={props.openFailed}
-      onNew={props.onNewSession} newFailed={props.newFailed} />}
-    {tab === "sources" && <ProjectReader projectName={project.name} packs={project.packs} pages={props.reader.pages} failed={props.reader.failed} block={props.block}
+    {screen === "sources" && <ProjectReader projectName={project.name} packs={project.packs} pages={props.reader.pages} failed={props.reader.failed} block={props.block}
       onLearnMore={props.onLearnMore} learnFailed={props.learnFailed} />}
   </div>;
 
   if (desktop) return <div className={styles.panel} data-shell-panel>
-    <PanelActions>{header}</PanelActions>
-    {tabs}
+    <PanelActions />
     {body}
   </div>;
-  return <div className={styles.page}><div className={styles.topBand} aria-hidden="true" />{header}{tabs}{body}</div>;
+  return <div className={styles.page}><div className={styles.topBand} aria-hidden="true" />{body}</div>;
 }

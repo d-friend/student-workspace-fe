@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { MapItem, ReaderPage } from "@/lib/api";
-import { headingAbove, mapAsTree, masteryRate, pageNumbers, tabOf } from "@/lib/projectMap";
+import { headingAbove, mapAsTree, masteryRate, pageNumbers, screenOf, trackedTab } from "@/lib/projectMap";
 
 const item = (id: string, parent_id: string | null, role: MapItem["role"], ordinal: number, over: Partial<MapItem> = {}): MapItem => ({
   id, parent_id, role, name: id, summary: "", block_ids: [], node_id: null, ordinal, mastery: null, mastery_node_id: null, ...over,
@@ -38,6 +38,10 @@ test("photos are numbered from one across the reader", () => {
   expect([...pageNumbers([page("a", []), page("b", [])])]).toEqual([["a", 1], ["b", 2]]);
 });
 
-test("an unknown tab falls back to the map", () => {
-  expect([tabOf("sources"), tabOf("sessions"), tabOf("map"), tabOf("x"), tabOf(null)]).toEqual(["sources", "sessions", "map", "map", "map"]);
+test("?tab=map and ?tab=sources open those pages; anything else, the old ?tab=sessions included, is the overview", () => {
+  expect([screenOf("sources"), screenOf("map"), screenOf("sessions"), screenOf("x"), screenOf(null)]).toEqual(["sources", "map", "overview", "overview", "overview"]);
+});
+
+test("project_tab_viewed knows map, sessions and sources: the overview reports as sessions", () => {
+  expect(["overview", "map", "sources"].map(s => trackedTab(s as "overview" | "map" | "sources"))).toEqual(["sessions", "map", "sources"]);
 });

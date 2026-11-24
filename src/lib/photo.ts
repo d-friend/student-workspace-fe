@@ -39,3 +39,41 @@ export async function readPhoto(file: Blob): Promise<PhotoResult> {
     processMs: Math.round(performance.now() - started),
   };
 }
+
+// The subject page sends a problem to home as ?q=, but photos are too big for a URL: they cross the full page load in sessionStorage.
+const HANDOFF_PHOTOS = "dfriend.handoff.photos";
+
+// Data URLs as readPhoto's output gives them, with the prefix put back. False when the browser refuses the write (quota, private mode).
+export function stashHandoffPhotos(photos: string[]): boolean {
+  try {
+    sessionStorage.setItem(HANDOFF_PHOTOS, JSON.stringify(photos.map((data) => JPEG_PREFIX + data)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// The page did not navigate after all: nothing may be left for the next visit to home to send.
+export function discardHandoffPhotos(): void {
+  try {
+    sessionStorage.removeItem(HANDOFF_PHOTOS);
+  } catch {
+    // Nothing was stored if storage refuses.
+  }
+}
+
+// Reads and removes the handed-over photos, as base64 without the prefix. Anything that is not a JPEG data URL is dropped.
+export function takeHandoffPhotos(): string[] {
+  try {
+    const raw = sessionStorage.getItem(HANDOFF_PHOTOS);
+    sessionStorage.removeItem(HANDOFF_PHOTOS);
+    const list: unknown = raw === null ? [] : JSON.parse(raw);
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter((url): url is string => typeof url === "string" && url.startsWith(JPEG_PREFIX) && url.length > JPEG_PREFIX.length)
+      .map((url) => url.slice(JPEG_PREFIX.length))
+      .slice(0, MAX_PHOTOS);
+  } catch {
+    return [];
+  }
+}

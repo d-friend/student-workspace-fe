@@ -81,10 +81,10 @@ test("project: Cập nhật vở uploads into the project, never asks for a subj
   await expect(sheet).toHaveCount(0);
 });
 
-test("phone: the update button fits and stays reachable beside the subject name", async ({ page }) => {
+test("phone: Thêm fits and stays reachable in the notes row", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/projects/${MATH}`);
-  const button = page.getByRole("button", { name: copy.projectUpdateNotes });
+  const button = page.getByRole("button", { name: copy.projectAddLabel });
   await expect(button).toBeVisible();
   const box = (await button.boundingBox())!;
   expect(box.x).toBeGreaterThanOrEqual(0);

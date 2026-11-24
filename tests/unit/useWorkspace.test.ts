@@ -2306,6 +2306,81 @@ describe("problem handed over from the landing page (?q=)", () => {
     expect(t.api.createSession).toHaveBeenCalledWith("typed", PROJECT);
   });
 
+  describe("photos handed over from a subject page (sessionStorage)", () => {
+    const KEY = "dfriend.handoff.photos";
+    const url = (data: string) => "data:image/jpeg;base64," + data;
+    const stash = (...items: unknown[]) => sessionStorage.setItem(KEY, JSON.stringify(items));
+    const sent = (t: Awaited<ReturnType<typeof boot>>) => (t.api.turn.mock.calls[0][1] as { content: { type: string; text?: string }[] }).content;
+    afterEach(() => sessionStorage.clear());
+
+    it("sends photos alone as the first turn, once, and removes them", async () => {
+      history.replaceState(null, "", "/?project=" + PROJECT);
+      stash(url("AAA"), url("BBB"));
+      const t = await boot();
+      expect(t.api.createSession).toHaveBeenCalledWith("photo", PROJECT);
+      expect(t.api.turn).toHaveBeenCalledTimes(1);
+      expect(sent(t).filter((b) => b.type === "image")).toHaveLength(2);
+      expect(t.state().bubbles[0]).toMatchObject({ kind: "student", photos: ["AAA", "BBB"] });
+      expect(sessionStorage.getItem(KEY)).toBeNull();
+      const again = await boot(); // a reload: nothing left to hand over
+      expect(again.api.turn).not.toHaveBeenCalled();
+    });
+
+    it("sends photos with the ?q= text in one turn", async () => {
+      history.replaceState(null, "", "/?project=" + PROJECT + "&q=" + encodeURIComponent("Tính góc A"));
+      stash(url("AAA"));
+      const t = await boot();
+      expect(t.api.turn).toHaveBeenCalledTimes(1);
+      expect(sent(t).find((b) => b.type === "text")?.text).toContain("Tính góc A");
+      expect(sent(t).filter((b) => b.type === "image")).toHaveLength(1);
+      expect(t.api.createSession).toHaveBeenCalledWith("photo", PROJECT);
+    });
+
+    it("prefills the composer and its tray when a problem is already open", async () => {
+      history.replaceState(null, "", "/?q=" + encodeURIComponent("bài mới"));
+      stash(url("AAA"));
+      const t = await boot(undefined, { sessionId: "srv1", messages: [{ role: "user", content: "bài cũ" }, { role: "assistant", content: HTML_REPLY }], html: "<p>x</p>", tabs: [], activeId: null });
+      expect(t.api.turn).not.toHaveBeenCalled();
+      expect(t.state()).toMatchObject({ input: "bài mới", photos: ["AAA"] });
+      expect(sessionStorage.getItem(KEY)).toBeNull();
+    });
+
+    it("drops anything that is not a JPEG data URL, and sends nothing when none is left", async () => {
+      stash(url("AAA"), "data:image/png;base64,XXX", 7, null, url(""), "AAA");
+      const t = await boot();
+      expect(t.api.turn).toHaveBeenCalledTimes(1);
+      expect(t.state().bubbles[0]).toMatchObject({ kind: "student", photos: ["AAA"] });
+      sessionStorage.setItem(KEY, "{not json");
+      const bad = await boot();
+      expect(bad.api.turn).not.toHaveBeenCalled();
+      expect(sessionStorage.getItem(KEY)).toBeNull();
+      stash("data:image/png;base64,XXX");
+      const none = await boot();
+      expect(none.api.turn).not.toHaveBeenCalled();
+    });
+
+    it("keeps at most MAX_PHOTOS", async () => {
+      stash(...Array.from({ length: MAX_PHOTOS + 3 }, (_, i) => url("P" + i)));
+      const t = await boot();
+      expect(t.state().bubbles[0]).toMatchObject({ kind: "student" });
+      expect(sent(t).filter((b) => b.type === "image")).toHaveLength(MAX_PHOTOS);
+    });
+
+    it("a workspace unmounted before its start-up finishes leaves the photos to the one that replaces it", async () => {
+      history.replaceState(null, "", "/?project=" + PROJECT);
+      stash(url("AAA"));
+      let release!: () => void;
+      const t = setup(undefined, new Promise<null>((resolve) => { release = () => resolve(null); }));
+      t.detach();
+      const next = t.make();
+      cleanup.push(next.detach);
+      release();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(t.api.turn).toHaveBeenCalledTimes(1);
+      expect(next.ws.getState().bubbles[0]).toMatchObject({ kind: "student", photos: ["AAA"] });
+    });
+  });
+
   it("ignores an unknown via", async () => {
     history.replaceState(null, "", "/?q=" + encodeURIComponent("bài") + "&via=nope");
     const t = await boot();

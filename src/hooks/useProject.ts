@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, getProject, getReader, type Project, type ReaderPage } from "@/lib/api";
+import { ApiError, getProject, getReader, getReview, type Project, type ReaderPage, type ReviewDay } from "@/lib/api";
 
 type Loaded<T> = { data: T | null; error: "missing" | "failed" | null; ready: boolean; reload: () => void };
 
@@ -22,6 +22,9 @@ function useLoaded<T>(key: string | null, load: (key: string) => Promise<T>): Lo
 }
 
 export const useProject = (id: string) => useLoaded<Project>(id, getProject);
+
+// Today's review cards for the subject: the overview row counts them, ?tab=review walks through them.
+export const useReview = (id: string) => useLoaded<ReviewDay>(id, getReview);
 
 // The Nguồn reader loads when the tab is first opened (enabled), not with the page: it is the heaviest call.
 export const useReader = (id: string, enabled: boolean) => useLoaded<ReaderPage[]>(enabled ? id : null, getReader);

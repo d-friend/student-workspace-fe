@@ -101,7 +101,7 @@ const noop = () => {};
 const viewProps = (over: Partial<ProjectViewProps> = {}): ProjectViewProps => ({
   project: mathProject, screen: "map", onOpen: noop, onBack: noop,
   sessions: { sessions: sessionsFixture.filter(s => s.project_id === MATH), ready: true, failed: false, hasMore: false, loadingMore: false, more: noop }, onOpenSession: noop, openFailed: false,
-  onSend: async () => false, sendError: null, reader: { pages: mathReader, failed: false }, block: null, onLearnMore: noop, learnFailed: false, onViewSource: noop, onUploaded: noop, ...over,
+  onSend: async () => false, sendError: null, reader: { pages: mathReader, failed: false }, block: null, onLearnMore: noop, learnFailed: false, onViewSource: noop, onUploaded: noop, review: { cards: null, failed: false }, onStartProblem: async () => false, reviewStartFailed: false, ...over,
 });
 
 test("picking a node on the map opens its panel; the close button and picking the root close it", async () => {

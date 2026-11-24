@@ -13,7 +13,7 @@ const mine = sessionsFixture.filter(s => s.project_id === MATH);
 const props = (over: Partial<ProjectViewProps> = {}): ProjectViewProps => ({
   project: mathProject, screen: "map", onOpen: noop, onBack: noop,
   sessions: { sessions: mine, ready: true, failed: false, hasMore: false, loadingMore: false, more: noop }, onOpenSession: noop, openFailed: false,
-  onSend: async () => false, sendError: null, reader: { pages: mathReader, failed: false }, block: null, onLearnMore: noop, learnFailed: false, onViewSource: noop, onUploaded: noop, ...over,
+  onSend: async () => false, sendError: null, reader: { pages: mathReader, failed: false }, block: null, onLearnMore: noop, learnFailed: false, onViewSource: noop, onUploaded: noop, review: { cards: null, failed: false }, onStartProblem: async () => false, reviewStartFailed: false, ...over,
 });
 const wide = vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
 beforeEach(() => {

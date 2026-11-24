@@ -10,12 +10,13 @@ import { Sidebar } from "@/components/sidebar/Sidebar";
 import { useSidebar } from "@/components/sidebar/useSidebar";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useLeaveSession } from "@/hooks/useLeaveSession";
-import { useProject, useReader } from "@/hooks/useProject";
+import { useProject, useReader, useReview } from "@/hooks/useProject";
 import { useProjectSessions } from "@/hooks/useProjectSessions";
-import { type Pack, resumeSession } from "@/lib/api";
+import { type Pack, type ReviewCard, resumeSession } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { discardHandoffPhotos, stashHandoffPhotos } from "@/lib/photo";
 import { screenOf, trackedTab, type ProjectScreen } from "@/lib/projectMap";
+import { similarProblemUrl } from "@/lib/review";
 import { track } from "@/lib/track";
 import styles from "@/components/project/Project.module.css";
 
@@ -35,6 +36,10 @@ function ProjectContent({ id }: { id: string }) {
   const [sheet, setSheet] = useState<Pack | null>(null); // the upload status sheet
   const sessions = useProjectSessions(id, true);
   const reader = useReader(id, readerWanted);
+  const review = useReview(id);
+  const reviewVia = useRef(query.get("via") === "home_chip" ? "home_chip" as const : "project_row" as const); // the home chip links here with ?via=
+  const reviewTracked = useRef(false);
+  const [reviewStartFailed, setReviewStartFailed] = useState(false);
   const fresh = useLeaveSession();
   const learn = useLeaveSession();
   const side = useSidebar();
@@ -45,8 +50,21 @@ function ProjectContent({ id }: { id: string }) {
   useEffect(() => {
     if (!project || tracked.current === screen) return;
     tracked.current = screen;
-    track("project_tab_viewed", { project_id: id, tab: trackedTab(screen) });
+    if (screen !== "review") track("project_tab_viewed", { project_id: id, tab: trackedTab(screen) });
   }, [project, screen, id]);
+
+  // One review_opened per visit to the review screen, once its cards are known. Leaving it reloads the cards, so the overview row counts what is still due.
+  const { reload: reloadReview } = review;
+  useEffect(() => {
+    if (screen !== "review") {
+      if (reviewTracked.current) { reviewTracked.current = false; reloadReview(); }
+      return;
+    }
+    if (reviewTracked.current || !review.data) return;
+    reviewTracked.current = true;
+    track("review_opened", { project_id: id, due: review.data.cards.length, via: reviewVia.current });
+    reviewVia.current = "project_row";
+  }, [screen, review.data, id, reloadReview]);
 
   // A new screen starts at its top, whatever the one before was scrolled to.
   useEffect(() => { document.querySelector("main")?.scrollTo?.(0, 0); }, [screen]);
@@ -54,7 +72,7 @@ function ProjectContent({ id }: { id: string }) {
   // Opening the map or the notes pushes a history entry, so the phone's back gesture and the browser's back button return to the overview.
   // `subjectDepth` counts the entries pushed since the first one; "← subject" goes back that many, so it lands on the overview even after map > Xem nguồn.
   // `subjectDeep` marks a first entry that was itself the map or the notes (a link, a reload): there is no overview behind it to go back to.
-  const push = useCallback((next: "map" | "sources", blockId?: string) => {
+  const push = useCallback((next: "map" | "sources" | "review", blockId?: string) => {
     const url = new URL(window.location.href);
     url.searchParams.set("tab", next);
     if (blockId) url.searchParams.set("block", blockId); else url.searchParams.delete("block");
@@ -97,10 +115,19 @@ function ProjectContent({ id }: { id: string }) {
     return navigating;
   }, [id, fresh]);
 
+  // A problem card: the Học thêm path, with the card id so the new session is linked to it.
+  const startProblem = useCallback(async (card: ReviewCard) => {
+    setReviewStartFailed(false);
+    const navigating = await fresh.leave(similarProblemUrl(id, card), false);
+    if (!navigating) setReviewStartFailed(true);
+    return navigating;
+  }, [id, fresh]);
+
   const view = project ? <ProjectView project={project} screen={screen} onOpen={push} onBack={back}
     sessions={sessions} onOpenSession={openSession} openFailed={openFailed} onSend={send} sendError={sendError}
     reader={{ pages: reader.data, failed: reader.error !== null }} block={block}
-    onLearnMore={text => void learn.leave(`/?${new URLSearchParams({ q: text, via: "pack_learn_more", project: id })}`, false)} learnFailed={learn.failed} onViewSource={viewSource} onUploaded={setSheet} />
+    onLearnMore={text => void learn.leave(`/?${new URLSearchParams({ q: text, via: "pack_learn_more", project: id })}`, false)} learnFailed={learn.failed} onViewSource={viewSource} onUploaded={setSheet}
+    review={{ cards: review.data?.cards ?? null, failed: review.error !== null }} onStartProblem={startProblem} reviewStartFailed={reviewStartFailed} />
     : <div className={styles.page}>{error && <p className={styles.error} role="alert">{error === "missing" ? copy.projectNotFound : copy.projectLoadFailed}</p>}</div>;
 
   return <>

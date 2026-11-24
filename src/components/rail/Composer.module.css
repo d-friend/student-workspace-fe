@@ -48,6 +48,12 @@
   border-radius: var(--radius-lg);
 }
 
+/* A placeholder longer than the field stays on one line with an ellipsis, instead of wrapping and being clipped. */
+.field:placeholder-shown {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .add,
 .send {
   font: inherit;

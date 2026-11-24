@@ -34,6 +34,9 @@ test("desktop: the overview has the composer and Gần đây beside the notes an
   await expect(page.getByRole("textbox")).toHaveAttribute("placeholder", copy.projectPlaceholder("Toán"));
   await expect(page.getByRole("button", { name: /Hai vòi nước/ }).last()).toBeVisible();
   await expect(page.getByRole("button", { name: /Vật rơi từ độ cao/ })).toHaveCount(1); // only in the sidebar: it belongs to Vật lí
+  // The title starts where the content does, not a doc column further in.
+  const [title, card] = await Promise.all([page.getByRole("heading", { name: "Toán", level: 1 }).boundingBox(), page.getByRole("region", { name: copy.projectPlaceholder("Toán") }).boundingBox()]);
+  expect(Math.abs(title!.x - card!.x)).toBeLessThanOrEqual(1);
   // Two columns: the side rows sit to the right of the composer.
   const [composer, side] = await Promise.all([page.getByRole("textbox").boundingBox(), page.getByRole("button", { name: new RegExp(copy.projectNotesRow) }).boundingBox()]);
   expect(side!.x).toBeGreaterThan(composer!.x + composer!.width);

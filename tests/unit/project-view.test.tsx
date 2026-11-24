@@ -35,6 +35,31 @@ test("the overview: the subject name is the heading, with a line counting sessio
   expect(screen.queryByRole("tab")).toBeNull();
 });
 
+const desktop = () => vi.stubGlobal("matchMedia", vi.fn((query: string) => ({ matches: query.includes("min-width: 800px"), addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+
+test("on a phone the subject name is the heading in the top band, one truncating line, and the counts open the content", () => {
+  overview();
+  const h1 = screen.getByRole("heading", { level: 1, name: "Toán" });
+  const band = document.querySelector("[class*=topBand]")!;
+  expect(band.contains(h1)).toBe(true);
+  const counts = screen.getByText(`${mine.length} phiên · ${notePhotos} ảnh vở`);
+  expect(band.contains(counts)).toBe(false);
+  expect(counts.compareDocumentPosition(box()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); // above the composer
+});
+
+test("on desktop the subject name and its counts are in the panel's top bar, and the content starts with the composer", () => {
+  desktop();
+  overview();
+  const h1 = screen.getByRole("heading", { level: 1, name: "Toán" });
+  const bar = h1.parentElement!;
+  expect(within(bar).getByText(`${mine.length} phiên · ${notePhotos} ảnh vở`)).toBeDefined();
+  expect(screen.getAllByText(`${mine.length} phiên · ${notePhotos} ảnh vở`)).toHaveLength(1);
+  expect(document.querySelector("[data-panel-header]")!.contains(h1)).toBe(true);
+  expect(document.querySelector("[data-panel-header]")!.hasAttribute("data-flush")).toBe(true); // starts at the content's edge, not the doc column's
+  const body = document.querySelector("[data-screen]")!;
+  expect(body.firstElementChild!.contains(box())).toBe(true);
+});
+
 test("the count line leaves out a part that is 0, and the sessions while they load; a long history gets a +", () => {
   const sessions = (over = {}) => ({ sessions: mine, ready: true, failed: false, hasMore: false, loadingMore: false, more: noop, ...over });
   const { rerender } = overview({ project: { ...mathProject, packs: [] } });
@@ -158,6 +183,17 @@ test("the map and the notes are full pages with a way back to the overview, name
   expect(screen.getByRole("heading", { level: 1, name: copy.projectNotesRow })).toBeDefined();
   expect(screen.getByRole("button", { name: copy.projectBack("Toán") })).toBeDefined();
   expect(screen.queryByRole("textbox")).toBeNull(); // the composer belongs to the overview
+  const band = document.querySelector("[class*=topBand]")!; // the back control and the view name sit in the bar, like the overview's title
+  expect(band.contains(screen.getByRole("button", { name: copy.projectBack("Toán") }))).toBe(true);
+  expect(band.contains(screen.getByRole("heading", { level: 1 }))).toBe(true);
+});
+
+test("on desktop a full page also has its back control and view name in the panel's top bar", () => {
+  desktop();
+  render(<ProjectView {...props({ screen: "map" })} />);
+  const header = document.querySelector("[data-panel-header]")!;
+  expect(header.contains(screen.getByRole("button", { name: copy.projectBack("Toán") }))).toBe(true);
+  expect(header.contains(screen.getByRole("heading", { level: 1, name: copy.projectMapRow }))).toBe(true);
 });
 
 test("Bản đồ draws the map as a tree rooted at the subject, with chapters, lessons, concepts and details", () => {

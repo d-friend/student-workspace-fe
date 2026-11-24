@@ -21,6 +21,9 @@
   border-radius: var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);
 }
 
+/* A stacked (display-style) fraction is taller than a text line: without the extra height it overlaps the lines around it. */
+.student :global(.katex) { line-height: 2.4; }
+
 .agent {
   align-self: flex-start;
   background: var(--agent);

@@ -88,6 +88,6 @@ function ProjectContent({ id }: { id: string }) {
     sidebar={<Sidebar side={side} progress={{ active: false }} awayFromHome activeProjectId={id} refreshKey={`project-${id}`}
       onNewProblem={() => void fresh.leave("/", true)} onOpenSession={openSession} />}
     side={desktop ? side.mode : undefined} />
-    {sheet && <PackSheet initial={sheet} onClose={closeSheet} onSettled={settled} />}
+    {sheet && <PackSheet initial={sheet} onClose={closeSheet} onSettled={settled} inProject />}
   </>;
 }

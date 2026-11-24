@@ -9,7 +9,8 @@ import { SubjectChooser } from "./SubjectChooser";
 import styles from "./Pack.module.css";
 
 // The status of a pack just uploaded: reading photos (2/5), finding the subject, updating the tree, done. Closing it leaves the pack running.
-export function PackSheet({ initial, onClose, onSettled }: { initial: Pack; onClose: () => void; onSettled: () => void }) {
+// inProject: the upload came from the subject's own page, so there is nowhere else to open and no subject to announce.
+export function PackSheet({ initial, onClose, onSettled, inProject = false }: { initial: Pack; onClose: () => void; onSettled: () => void; inProject?: boolean }) {
   const { pack, set } = usePack(initial.id, initial);
   const current = pack ?? initial;
   const stage = packStage(current);
@@ -54,6 +55,7 @@ export function PackSheet({ initial, onClose, onSettled }: { initial: Pack; onCl
     <section ref={dialog} tabIndex={-1} className={styles.sheet} role="dialog" aria-modal="true" aria-labelledby="pack-sheet-title">
       <h2 id="pack-sheet-title" className={styles.sheetTitle}>{copy.packSheetTitle}</h2>
       <p className={styles.status} role="status" aria-live="polite" data-stage={stage}>{stage === "needs_subject" ? null : line}</p>
+      {!inProject && (stage === "ready" || stage === "partial") && current.subject && <p className={styles.filed}>{copy.packFiledInto(current.subject.name)}</p>}
       {!done && stage !== "needs_subject" && <div className={styles.bar} aria-hidden="true"><span /></div>}
       {stage === "needs_subject" && <SubjectChooser options={current.guesses ?? copy.packSubjectStandard}
         busy={busy} onChoose={subject => void act(() => setPackSubject(current.id, subject))} />}
@@ -63,7 +65,7 @@ export function PackSheet({ initial, onClose, onSettled }: { initial: Pack; onCl
       {failed && <p className={styles.error} role="alert">{copy.packUploadFailed}</p>}
       <div className={styles.actions}>
         {canRetry && <button type="button" className={styles.primary} disabled={busy} onClick={retry}>{copy.packRetry}</button>}
-        {(stage === "ready" || stage === "partial") && (current.project_id
+        {!inProject && (stage === "ready" || stage === "partial") && (current.project_id
           ? <Link className={styles.primary} href={`/projects/${current.project_id}`}
             onClick={() => track("project_opened", { project_id: current.project_id!, via: "pack_sheet" })}>{copy.packOpenProject}</Link>
           : <Link className={styles.primary} href={`/packs/${current.id}?via=status_sheet`}>{copy.packOpen}</Link>)}

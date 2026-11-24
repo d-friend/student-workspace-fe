@@ -101,14 +101,14 @@ test("Cập nhật vở uploads into the project, opens the sheet without asking
   expect(screen.getByRole("status").textContent).toBe(copy.packDone(1, 1));
 });
 
-test("the sheet ends on the project: its link opens the subject and counts as a pack_sheet open", async () => {
+test("inside the project the finished sheet does not offer to open the subject it is already in, nor announce it", async () => {
   vi.mocked(api.createPack).mockResolvedValue(readyPack());
   await loaded();
   fireEvent.change(uploadInput(), { target: { files: files(1) } });
-  const link = await screen.findByRole("link", { name: copy.packOpenProject });
-  expect(link.getAttribute("href")).toBe(`/projects/${MATH}`);
-  fireEvent.click(link);
-  expect(track).toHaveBeenCalledWith("project_opened", { project_id: MATH, via: "pack_sheet" });
+  await waitFor(() => expect(screen.getByRole("status").textContent).toBe(copy.packDone(1, 1)));
+  expect(screen.queryByRole("link", { name: copy.packOpenProject })).toBeNull();
+  expect(screen.queryByText(/Đã xếp vào môn/)).toBeNull();
+  expect(screen.getByRole("button", { name: copy.packClose })).toBeDefined();
 });
 
 test("more than ten photos are refused before anything is read; an unreadable one is named", async () => {

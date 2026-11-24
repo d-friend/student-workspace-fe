@@ -1,18 +1,14 @@
-import { IconCheck, IconPlus } from "@tabler/icons-react";
+import { IconCheck } from "@tabler/icons-react";
 import type { ProjectSessions } from "@/hooks/useProjectSessions";
 import { copy } from "@/lib/copy";
 import { progressDateLabel } from "@/lib/progress";
 import { MdInline } from "@/workspace/md";
 import styles from "./Project.module.css";
 
-// "Phiên học": this project's sessions, newest first, and the way to start a new one inside it.
-export function ProjectSessionList({ sessions, onOpen, openFailed, onNew, newFailed }: {
-  sessions: ProjectSessions; onOpen: (id: string) => void; openFailed: boolean; onNew: () => void; newFailed: boolean;
-}) {
+// "Gần đây": this project's sessions, newest first. The overview's composer is the way to start a new one.
+export function ProjectSessionList({ sessions, onOpen, openFailed }: { sessions: ProjectSessions; onOpen: (id: string) => void; openFailed: boolean }) {
   const phases = { learn: copy.phaseLearn, solve: copy.phaseSolve, practice: copy.phasePractice };
   return <div className={styles.sessions} aria-busy={!sessions.ready}>
-    <button type="button" className={styles.primary} onClick={onNew}><IconPlus size={18} aria-hidden="true" />{copy.projectNewSession}</button>
-    {newFailed && <p className={styles.error} role="alert">{copy.projectNewFailed}</p>}
     {openFailed && <p className={styles.error} role="alert">{copy.projectSessionOpenFailed}</p>}
     {sessions.ready && sessions.failed && <p className={styles.error} role="alert">{copy.projectSessionsFailed}</p>}
     {sessions.ready && !sessions.failed && !sessions.sessions.length && <p className={styles.empty}>{copy.projectSessionsEmpty}</p>}

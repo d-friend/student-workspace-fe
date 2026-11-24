@@ -8,7 +8,8 @@ import styles from "./Pack.module.css";
 
 // "Tải vở / sách" on home, "Cập nhật vở" inside a project (projectId set: the server skips the subject stage). Photos of notes, up to 10.
 // The page owns the status sheet, so it survives this button moving between layouts.
-export function PackUpload({ onUploaded, projectId }: { onUploaded: (pack: Pack) => void; projectId?: string }) {
+// `rowClassName`: the small "Thêm" action in a subject page's side column, named for what it adds.
+export function PackUpload({ onUploaded, projectId, rowClassName }: { onUploaded: (pack: Pack) => void; projectId?: string; rowClassName?: string }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,10 +35,14 @@ export function PackUpload({ onUploaded, projectId }: { onUploaded: (pack: Pack)
     }
   };
 
-  return <div className={styles.upload}>
-    <button type="button" className={styles.uploadButton} disabled={busy || unavailable} onClick={() => input.current?.click()}>
-      <IconPhotoPlus size={20} aria-hidden="true" />{busy ? copy.packUploading : projectId ? copy.projectUpdateNotes : copy.packUpload}
-    </button>
+  return <div className={rowClassName ? undefined : styles.upload} style={rowClassName ? { display: "contents" } : undefined}>
+    {rowClassName
+      ? <button type="button" className={rowClassName} aria-label={copy.projectAddLabel} disabled={busy || unavailable} onClick={() => input.current?.click()}>
+        {busy ? copy.packUploading : copy.projectAdd}
+      </button>
+      : <button type="button" className={styles.uploadButton} disabled={busy || unavailable} onClick={() => input.current?.click()}>
+        <IconPhotoPlus size={20} aria-hidden="true" />{busy ? copy.packUploading : projectId ? copy.projectUpdateNotes : copy.packUpload}
+      </button>}
     <input ref={input} type="file" accept="image/*" multiple hidden aria-label={copy.packUploadHint} onChange={e => void onFiles(e)} />
     {error && <p className={styles.error} role="alert">{error}</p>}
   </div>;

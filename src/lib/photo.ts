@@ -53,6 +53,15 @@ export function stashHandoffPhotos(photos: string[]): boolean {
   }
 }
 
+// The page did not navigate after all: nothing may be left for the next visit to home to send.
+export function discardHandoffPhotos(): void {
+  try {
+    sessionStorage.removeItem(HANDOFF_PHOTOS);
+  } catch {
+    // Nothing was stored if storage refuses.
+  }
+}
+
 // Reads and removes the handed-over photos, as base64 without the prefix. Anything that is not a JPEG data URL is dropped.
 export function takeHandoffPhotos(): string[] {
   try {

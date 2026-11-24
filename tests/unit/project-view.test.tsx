@@ -1,42 +1,163 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { ProjectView, type ProjectViewProps } from "@/components/project/ProjectView";
 import { copy, setLocale } from "@/lib/copy";
+import { readPhoto } from "@/lib/photo";
 import { mathProject, mathReader, sessionsFixture, MATH } from "../../src/app/dev/fixtures/projects/projectsFixture";
 
 vi.mock("@/lib/track", () => ({ track: vi.fn() }));
+vi.mock("@/lib/photo", async original => ({ ...await original<typeof import("@/lib/photo")>(), readPhoto: vi.fn() }));
 
 const noop = () => {};
 const mine = sessionsFixture.filter(s => s.project_id === MATH);
 const props = (over: Partial<ProjectViewProps> = {}): ProjectViewProps => ({
-  project: mathProject, tab: "map", onTab: noop,
+  project: mathProject, screen: "map", onOpen: noop, onBack: noop,
   sessions: { sessions: mine, ready: true, failed: false, hasMore: false, loadingMore: false, more: noop }, onOpenSession: noop, openFailed: false,
-  onNewSession: noop, newFailed: false, reader: { pages: mathReader, failed: false }, block: null, onLearnMore: noop, learnFailed: false, onViewSource: noop, onUploaded: noop, ...over,
+  onSend: async () => false, sendError: null, reader: { pages: mathReader, failed: false }, block: null, onLearnMore: noop, learnFailed: false, onViewSource: noop, onUploaded: noop, ...over,
 });
+const wide = vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
 beforeEach(() => {
   setLocale("vi");
-  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  vi.stubGlobal("matchMedia", wide);
+  vi.mocked(readPhoto).mockReset().mockResolvedValue({ data: "QUJD", bytes: 3, width: 1, height: 1, processMs: 1 });
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+const notePhotos = mathProject.packs.reduce((sum, pack) => sum + (pack.photos ?? 0), 0);
+const overview = (over: Partial<ProjectViewProps> = {}) => render(<ProjectView {...props({ screen: "overview", ...over })} />);
+const photoInput = (container: HTMLElement) => container.querySelector("input[type=file]:not([capture])") as HTMLInputElement;
+const attach = (container: HTMLElement, n = 1) => fireEvent.change(photoInput(container), { target: { files: Array.from({ length: n }, (_, i) => new File(["x"], `p${i}.jpg`, { type: "image/jpeg" })) } });
+const box = () => screen.getByRole("textbox", { name: copy.inputLabel }) as HTMLTextAreaElement;
 
-test("the project name is the heading, and the three tabs are labelled with the selected one marked", () => {
-  render(<ProjectView {...props({ tab: "sessions" })} />);
+test("the overview: the subject name is the heading, with a line counting sessions and note photos, and no tabs", () => {
+  overview();
   expect(screen.getByRole("heading", { level: 1, name: "Toán" })).toBeDefined();
-  const tabs = screen.getAllByRole("tab");
-  expect(tabs.map(t => t.textContent)).toEqual(["Bản đồ", "Phiên học", "Nguồn"]);
-  expect(tabs.map(t => t.getAttribute("aria-selected"))).toEqual(["false", "true", "false"]);
-  expect(screen.getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tabs[1].id);
+  expect(screen.getByText(`${mine.length} phiên · ${notePhotos} ảnh vở`)).toBeDefined();
+  expect(screen.queryByRole("tab")).toBeNull();
 });
 
-test("clicking a tab, or the arrow keys, ask for that tab", () => {
-  const onTab = vi.fn();
-  render(<ProjectView {...props({ onTab })} />);
-  fireEvent.click(screen.getByRole("tab", { name: "Nguồn" }));
-  expect(onTab).toHaveBeenLastCalledWith("sources");
-  fireEvent.keyDown(screen.getByRole("tab", { name: "Bản đồ" }), { key: "ArrowLeft" });
-  expect(onTab).toHaveBeenLastCalledWith("sources"); // wraps
-  fireEvent.keyDown(screen.getByRole("tab", { name: "Bản đồ" }), { key: "ArrowRight" });
-  expect(onTab).toHaveBeenLastCalledWith("sessions");
+test("the count line leaves out a part that is 0, and the sessions while they load; a long history gets a +", () => {
+  const sessions = (over = {}) => ({ sessions: mine, ready: true, failed: false, hasMore: false, loadingMore: false, more: noop, ...over });
+  const { rerender } = overview({ project: { ...mathProject, packs: [] } });
+  expect(screen.getByText(`${mine.length} phiên`)).toBeDefined();
+  rerender(<ProjectView {...props({ screen: "overview", sessions: sessions({ sessions: [], ready: false }) })} />);
+  expect(screen.getByText(`${notePhotos} ảnh vở`)).toBeDefined();
+  rerender(<ProjectView {...props({ screen: "overview", sessions: sessions({ hasMore: true }) })} />);
+  expect(screen.getByText(`${mine.length}+ phiên · ${notePhotos} ảnh vở`)).toBeDefined();
+  rerender(<ProjectView {...props({ screen: "overview", project: { ...mathProject, packs: [] }, sessions: sessions({ sessions: [], ready: true }) })} />);
+  expect(document.querySelector("[class*=summary]")).toBeNull();
+});
+
+test("on the overview the composer comes first, then the notes and map rows, then Gần đây: upload and the map are not under the history", () => {
+  overview();
+  const composer = box();
+  const notes = screen.getByText(copy.projectNotesRow);
+  const map = screen.getByText(copy.projectMapRow);
+  const recent = screen.getByRole("heading", { level: 2, name: copy.projectRecent });
+  const before = (a: Node, b: Node) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+  expect(before(composer, notes) && before(notes, map) && before(map, recent)).toBe(true);
+  expect(composer.placeholder).toBe(copy.projectPlaceholder("Toán"));
+});
+
+test("Gần đây lists the sessions and opens one; there is no new-session button, the composer does that", () => {
+  const onOpenSession = vi.fn();
+  overview({ onOpenSession });
+  fireEvent.click(screen.getByRole("button", { name: /Hai vòi nước/ }));
+  expect(onOpenSession).toHaveBeenCalledWith("s1");
+  expect(screen.queryByRole("button", { name: /Phiên mới trong môn này/ })).toBeNull();
+});
+
+test("Gần đây shows the empty, failed and load-more states", () => {
+  const more = vi.fn();
+  const sessions = (over = {}) => ({ sessions: [], ready: true, failed: false, hasMore: false, loadingMore: false, more, ...over });
+  const { rerender } = overview({ sessions: sessions() });
+  expect(screen.getByText(copy.projectSessionsEmpty)).toBeDefined();
+  rerender(<ProjectView {...props({ screen: "overview", sessions: sessions({ failed: true }) })} />);
+  expect(screen.getByRole("alert").textContent).toBe(copy.projectSessionsFailed);
+  rerender(<ProjectView {...props({ screen: "overview", sessions: sessions({ sessions: mine, hasMore: true }), openFailed: true })} />);
+  expect(screen.getByRole("alert").textContent).toBe(copy.projectSessionOpenFailed);
+  fireEvent.click(screen.getByRole("button", { name: copy.historyMore }));
+  expect(more).toHaveBeenCalledTimes(1);
+});
+
+test("the Vở & sách row opens the notes; Thêm uploads and is a different control", () => {
+  const onOpen = vi.fn();
+  const { container } = overview({ onOpen });
+  fireEvent.click(screen.getByRole("button", { name: new RegExp(`${copy.projectNotesRow}.*${notePhotos} ảnh`) }));
+  expect(onOpen).toHaveBeenLastCalledWith("sources");
+  const add = screen.getByRole("button", { name: copy.projectAddLabel });
+  expect(add.textContent).toBe(copy.projectAdd);
+  expect(onOpen).toHaveBeenCalledTimes(1); // Thêm did not open anything
+  expect(container.querySelector("input[type=file][multiple]:not([capture])")).not.toBeNull();
+});
+
+test("the Bản đồ row opens the map with Xem; with no map it says to upload notes and offers nothing to open", () => {
+  const onOpen = vi.fn();
+  const { rerender } = overview({ onOpen });
+  fireEvent.click(screen.getByRole("button", { name: copy.projectViewLabel(copy.projectMapRow) }));
+  expect(onOpen).toHaveBeenLastCalledWith("map");
+  expect(screen.getByText(copy.projectMapItems(mathProject.map.length))).toBeDefined();
+  rerender(<ProjectView {...props({ screen: "overview", project: { ...mathProject, map: [], packs: [] } })} />);
+  expect(screen.getByText(copy.projectMapNone)).toBeDefined();
+  expect(screen.queryByRole("button", { name: copy.projectViewLabel(copy.projectMapRow) })).toBeNull();
+  expect(screen.queryByRole("button", { name: new RegExp(copy.projectNotesRow) })).toBeNull(); // no notes to read yet; Thêm remains
+  expect(screen.getByRole("button", { name: copy.projectAddLabel })).toBeDefined();
+});
+
+test("Gửi sends the text, trimmed, and keeps the composer busy while the page navigates", async () => {
+  let finish!: (navigating: boolean) => void;
+  const onSend = vi.fn(() => new Promise<boolean>(resolve => { finish = resolve; }));
+  overview({ onSend });
+  fireEvent.change(box(), { target: { value: "  Tính góc A  " } });
+  fireEvent.click(screen.getByRole("button", { name: copy.send }));
+  expect(onSend).toHaveBeenCalledWith("Tính góc A", []);
+  await waitFor(() => expect((screen.getByRole("button", { name: copy.send }) as HTMLButtonElement).disabled).toBe(true));
+  fireEvent.click(screen.getByRole("button", { name: copy.send }));
+  expect(onSend).toHaveBeenCalledTimes(1);
+  finish(false); // it stayed on the page: the text is still there, and sending works again
+  await waitFor(() => expect((screen.getByRole("button", { name: copy.send }) as HTMLButtonElement).disabled).toBe(false));
+  expect(box().value).toBe("  Tính góc A  ");
+});
+
+test("nothing is sent from an empty composer; photos alone are enough", async () => {
+  const onSend = vi.fn(async () => true);
+  const { container } = overview({ onSend });
+  fireEvent.click(screen.getByRole("button", { name: copy.send }));
+  expect(onSend).not.toHaveBeenCalled();
+  attach(container);
+  await waitFor(() => expect(screen.getAllByRole("img", { name: copy.photoChip })).toHaveLength(1));
+  fireEvent.click(screen.getByRole("button", { name: copy.send }));
+  expect(onSend).toHaveBeenCalledWith("", ["QUJD"]);
+});
+
+test("the + attaches problem photos: up to the chat's limit, an unreadable one is skipped with a note, and a photo can be removed", async () => {
+  const { container } = overview();
+  attach(container, 5);
+  await waitFor(() => expect(screen.getAllByRole("img", { name: copy.photoChip })).toHaveLength(4));
+  expect(screen.getByRole("alert").textContent).toBe(copy.photoLimit(4));
+  fireEvent.click(screen.getAllByRole("button", { name: copy.removePhoto })[0]);
+  expect(screen.getAllByRole("img", { name: copy.photoChip })).toHaveLength(3);
+  expect(screen.queryByRole("alert")).toBeNull();
+  vi.mocked(readPhoto).mockRejectedValueOnce(Error("decode"));
+  attach(container);
+  await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(copy.photoUnreadable));
+  expect(screen.getAllByRole("img", { name: copy.photoChip })).toHaveLength(3);
+});
+
+test("a send error from the page shows under the composer", () => {
+  overview({ sendError: copy.projectPhotoSaveFailed });
+  expect(screen.getByRole("alert").textContent).toBe(copy.projectPhotoSaveFailed);
+});
+
+test("the map and the notes are full pages with a way back to the overview, named for the subject", () => {
+  const onBack = vi.fn();
+  const { rerender } = render(<ProjectView {...props({ screen: "map", onBack })} />);
+  expect(screen.getByRole("heading", { level: 1, name: copy.projectMapRow })).toBeDefined();
+  fireEvent.click(screen.getByRole("button", { name: copy.projectBack("Toán") }));
+  expect(onBack).toHaveBeenCalledTimes(1);
+  rerender(<ProjectView {...props({ screen: "sources", onBack })} />);
+  expect(screen.getByRole("heading", { level: 1, name: copy.projectNotesRow })).toBeDefined();
+  expect(screen.getByRole("button", { name: copy.projectBack("Toán") })).toBeDefined();
+  expect(screen.queryByRole("textbox")).toBeNull(); // the composer belongs to the overview
 });
 
 test("Bản đồ draws the map as a tree rooted at the subject, with chapters, lessons, concepts and details", () => {
@@ -66,30 +187,8 @@ test("an empty map says so", () => {
   expect(screen.queryByRole("tree")).toBeNull();
 });
 
-test("Phiên học lists the sessions, opens one, and starts a new one in the project", () => {
-  const onOpenSession = vi.fn(), onNewSession = vi.fn();
-  render(<ProjectView {...props({ tab: "sessions", onOpenSession, onNewSession })} />);
-  fireEvent.click(screen.getByRole("button", { name: /Hai vòi nước/ }));
-  expect(onOpenSession).toHaveBeenCalledWith("s1");
-  fireEvent.click(screen.getByRole("button", { name: copy.projectNewSession }));
-  expect(onNewSession).toHaveBeenCalledTimes(1);
-});
-
-test("Phiên học shows the empty, failed and load-more states", () => {
-  const more = vi.fn();
-  const sessions = (over = {}) => ({ sessions: [], ready: true, failed: false, hasMore: false, loadingMore: false, more, ...over });
-  const { rerender } = render(<ProjectView {...props({ tab: "sessions", sessions: sessions() })} />);
-  expect(screen.getByText(copy.projectSessionsEmpty)).toBeDefined();
-  rerender(<ProjectView {...props({ tab: "sessions", sessions: sessions({ failed: true }) })} />);
-  expect(screen.getByRole("alert").textContent).toBe(copy.projectSessionsFailed);
-  rerender(<ProjectView {...props({ tab: "sessions", sessions: sessions({ sessions: mine, hasMore: true }), openFailed: true, newFailed: true })} />);
-  expect(screen.getAllByRole("alert").map(a => a.textContent)).toEqual([copy.projectNewFailed, copy.projectSessionOpenFailed]);
-  fireEvent.click(screen.getByRole("button", { name: copy.historyMore }));
-  expect(more).toHaveBeenCalledTimes(1);
-});
-
 test("Nguồn shows each photo with its passages, KaTeX included", () => {
-  const { container } = render(<ProjectView {...props({ tab: "sources" })} />);
+  const { container } = render(<ProjectView {...props({ screen: "sources" })} />);
   const photos = screen.getAllByRole("img");
   expect(photos.map(p => p.getAttribute("alt"))).toEqual([copy.packPhotoAlt(1), copy.packPhotoAlt(2), copy.packPhotoAlt(3)]);
   expect(photos[0].getAttribute("src")).toMatch(/^\/api\/packs\/aaaaaaaa-.*\/files\/f1$/);
@@ -100,7 +199,7 @@ test("Nguồn shows each photo with its passages, KaTeX included", () => {
 
 test("tapping a passage offers Học thêm, which sends the passage with the heading above it", () => {
   const onLearnMore = vi.fn();
-  const { container } = render(<ProjectView {...props({ tab: "sources", onLearnMore })} />);
+  const { container } = render(<ProjectView {...props({ screen: "sources", onLearnMore })} />);
   expect(screen.queryByRole("button", { name: copy.packLearnMore })).toBeNull();
   fireEvent.click(container.querySelector("#block-b5")!);
   fireEvent.click(screen.getByRole("button", { name: copy.packLearnMore }));
@@ -112,7 +211,7 @@ test("tapping a passage offers Học thêm, which sends the passage with the hea
 });
 
 test("Enter on a focused passage opens the offer", () => {
-  const { container } = render(<ProjectView {...props({ tab: "sources" })} />);
+  const { container } = render(<ProjectView {...props({ screen: "sources" })} />);
   fireEvent.keyDown(container.querySelector("#block-b2")!, { key: "Enter" });
   expect(screen.getByRole("button", { name: copy.packLearnMore })).toBeDefined();
 });
@@ -120,27 +219,21 @@ test("Enter on a focused passage opens the offer", () => {
 test("Nguồn marks the passage 'Xem nguồn' points at, and scrolls to it", () => {
   const scroll = vi.fn();
   Element.prototype.scrollIntoView = scroll;
-  const { container } = render(<ProjectView {...props({ tab: "sources", block: "b4" })} />);
+  const { container } = render(<ProjectView {...props({ screen: "sources", block: "b4" })} />);
   expect(container.querySelector("#block-b4")!.hasAttribute("data-highlight")).toBe(true);
   expect(scroll).toHaveBeenCalledTimes(1);
 });
 
 test("Nguồn shows loading, empty and failed states", () => {
-  const { rerender, container } = render(<ProjectView {...props({ tab: "sources", reader: { pages: null, failed: false } })} />);
+  const { rerender, container } = render(<ProjectView {...props({ screen: "sources", reader: { pages: null, failed: false } })} />);
   expect(container.querySelector("[aria-busy=true]")).not.toBeNull();
-  rerender(<ProjectView {...props({ tab: "sources", project: { ...mathProject, packs: [] }, reader: { pages: [], failed: false } })} />);
+  rerender(<ProjectView {...props({ screen: "sources", project: { ...mathProject, packs: [] }, reader: { pages: [], failed: false } })} />);
   expect(screen.getByText(copy.projectSourcesEmpty)).toBeDefined();
-  rerender(<ProjectView {...props({ tab: "sources", reader: { pages: [], failed: false } })} />); // packs with no readable page still list
+  rerender(<ProjectView {...props({ screen: "sources", reader: { pages: [], failed: false } })} />); // packs with no readable page still list
   expect(screen.queryByText(copy.projectSourcesEmpty)).toBeNull();
   expect(screen.getByText(copy.packListTitle)).toBeDefined();
-  rerender(<ProjectView {...props({ tab: "sources", reader: { pages: null, failed: true } })} />);
+  rerender(<ProjectView {...props({ screen: "sources", reader: { pages: null, failed: true } })} />);
   expect(screen.getByRole("alert").textContent).toBe(copy.projectSourcesFailed);
-});
-
-test("Cập nhật vở sits next to the subject name and hands the uploaded pack to the page", () => {
-  render(<ProjectView {...props()} />);
-  expect(screen.getByRole("button", { name: copy.projectUpdateNotes })).toBeDefined();
-  expect(screen.getByLabelText(copy.packUploadHint)).toBeDefined();
 });
 
 // Below 640px the map is an outline (the mind map cannot be read there); tapping a name opens the same node panel under its row.

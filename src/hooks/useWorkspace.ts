@@ -898,7 +898,6 @@ export function createWorkspace(deps: WorkspaceDeps) {
     try {
       const value = localStorage.getItem("dfriend.hiddenAt");
       if (value !== null && value.trim() !== "" && Number.isFinite(Number(value))) storedHiddenAt = Number(value);
-      localStorage.removeItem("dfriend.hiddenAt");
     } catch {
       // Start as usual when storage is unavailable.
     }
@@ -916,8 +915,13 @@ export function createWorkspace(deps: WorkspaceDeps) {
         // Start empty.
       }
       // LocaleBoundary remounts the tree after hydration for a non-Vietnamese browser. This workspace may be gone by now,
-      // and the one that replaced it needs the ?q= / ?project= handoff, which is consumed once.
+      // and the one that replaced it needs the ?q= / ?project= handoff and the recorded absence, which are consumed once.
       if (detached) return;
+      try {
+        localStorage.removeItem("dfriend.hiddenAt");
+      } catch {
+        // Storage may be unavailable.
+      }
       // The composer is live while the two requests above run: never replace a turn that already started.
       let applied: typeof saved = null;
       if (epoch === mine && saved && !busy && messages.length === 0) {

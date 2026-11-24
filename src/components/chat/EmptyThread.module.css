@@ -36,6 +36,23 @@
   color: var(--muted);
 }
 
+.chip {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  margin-top: 16px;
+  padding: 0 18px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  color: var(--accent);
+  font: 600 15px/1.4 var(--font-sans);
+  text-decoration: none;
+}
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 /* Three cards, one size and style. Label on top, content, an arrow: the whole card is the action. */
 .tiles {
   margin-top: 18px;

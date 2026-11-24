@@ -183,3 +183,13 @@ test("without a way to hand the pack over there is no upload card", () => {
   render(setup().ui);
   expect(screen.queryByRole("button", { name: new RegExp(copy.packUpload) })).toBeNull();
 });
+
+test("the review chip links to the subject with the most due cards, and is hidden at 0 or with no data", () => {
+  const { rerender } = render(setup({ review: { due: 4, projectId: "p-1" } }).ui);
+  const chip = screen.getByRole("link", { name: copy.homeReviewChip(4) });
+  expect(chip.getAttribute("href")).toBe("/projects/p-1?tab=review&via=home_chip");
+  rerender(setup({ review: { due: 0, projectId: "p-1" } }).ui);
+  expect(screen.queryByRole("link", { name: /Ôn tập hôm nay/ })).toBeNull();
+  rerender(setup({ review: null }).ui);
+  expect(screen.queryByRole("link", { name: /Ôn tập hôm nay/ })).toBeNull();
+});

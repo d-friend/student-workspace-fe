@@ -17,6 +17,7 @@ import { WorkspaceFrame } from "@/components/work/WorkspaceFrame";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useProgress } from "@/hooks/useProgress";
+import { useReviewDue } from "@/hooks/useReviewDue";
 import type { Pack } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { frameDoc } from "@/lib/frame";
@@ -42,6 +43,7 @@ function Home() {
   const [packSheet, setPackSheet] = useState<Pack | null>(null); // a notes upload from the empty state; the sheet outlives it
   const closePackSheet = useCallback(() => setPackSheet(null), []);
   const progress = useProgress();
+  const reviewDue = useReviewDue();
   const cards = useMemo(() => progressCards(progress.items), [progress.items]);
   const progressTracked = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -345,6 +347,7 @@ function Home() {
           onSurprise: (id) => void ws.startSurprise(id),
           progress: latest ? { item: latest, onOpen: () => void openProgressSession(latest, "reload") } : null,
           onPackUploaded: setPackSheet,
+          review: reviewDue,
         }}
         workspaceVisible={showWorkspace}
         onOpenLegacyWorkspace={legacyWorkspace ? openWorkspaceView : undefined}

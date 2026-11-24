@@ -96,11 +96,18 @@
 .sessionProject { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; line-height: 16px; }
 .projects { margin-bottom: 8px; }
 .projects .group { margin-top: 4px; }
-.projectRow { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 var(--side-row-inset); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-weight: 500; text-decoration: none; transition: background-color 150ms; }
+/* The row is the item; the due badge is a second link beside the project link (a link cannot hold a link), so the highlight sits on the item. */
+.projectItem { display: flex; align-items: center; border-radius: var(--radius-sm); transition: background-color 150ms; }
+.projectItem:hover { background: var(--side-hover); }
+.projectItem[data-current] { background: var(--side-selected); }
+.projectRow { display: flex; flex: 1 1 auto; align-items: center; gap: 8px; min-width: 0; min-height: 40px; padding: 0 var(--side-row-inset); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-weight: 500; text-decoration: none; }
 .projectRow svg { flex: none; color: var(--accent); }
-.projectRow:hover { background: var(--side-hover); }
-.projectRow[aria-current="page"] { background: var(--side-selected); font-weight: 600; }
-.projectRow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.projectRow[aria-current="page"] { font-weight: 600; }
+.projectRow:focus-visible, .due:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* A quiet count: muted text in a hairline pill, accent only on hover. The link is the full row height so a thumb finds it; the pill inside is small. */
+.due { display: flex; flex: none; align-items: center; justify-content: center; align-self: stretch; box-sizing: border-box; min-width: 44px; padding: 0 var(--side-row-inset) 0 4px; border-radius: var(--radius-sm); color: var(--muted); text-decoration: none; }
+.due span { box-sizing: border-box; min-width: 22px; padding: 1px 7px; border: 1px solid var(--hairline); border-radius: var(--radius-pill); font: 600 12px/1.5 var(--font-sans); text-align: center; font-variant-numeric: tabular-nums; }
+.due:hover span { border-color: var(--accent); color: var(--accent); }
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .more { width: 100%; min-height: 40px; margin-top: 8px; padding: 8px var(--side-row-inset); }
 .empty, .guest { font-size: 13px; line-height: 1.5; color: var(--muted); }
@@ -140,7 +147,7 @@
   .panel .newProblem, .panel .session, .progress, .more, .projectRow { min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .icon, .newProblem, .more, .session, .menu, .projectRow { transition: none; }
+  .icon, .newProblem, .more, .session, .menu, .projectItem { transition: none; }
 }
 
 .sessionRow {

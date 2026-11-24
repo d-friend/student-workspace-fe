@@ -15,17 +15,19 @@ export type EmptyThreadProps = {
   onSurprise: (id?: string) => void;
   progress?: { item: ProgressItem; onOpen: () => void } | null;
   onPackUploaded?: (pack: Pack) => void; // "Tải vở / sách": the page owns the status sheet
+  review?: { due: number; projectId: string } | null; // cards due today across subjects; the chip opens the one with the most
 };
 
 // Three cards of one size and style: a next step (or, with no progress yet, one sample), a surprise, and the notes upload.
 // Each is label on top, content, and an arrow: the card is the action.
-export function EmptyThread({ onStarter, onSurprise, progress, onPackUploaded }: EmptyThreadProps) {
+export function EmptyThread({ onStarter, onSurprise, progress, onPackUploaded, review }: EmptyThreadProps) {
   return (
     <section className={styles.emptyThread}>
       <div className={styles.hello}>
         <h1 className={styles.title}>{copy.entryTitle}</h1>
         <p className={styles.sub}>{copy.entrySub}</p>
       </div>
+      {review && review.due > 0 && <Link className={styles.chip} href={`/projects/${review.projectId}?tab=review&via=home_chip`}>{copy.homeReviewChip(review.due)}</Link>}
       <div className={styles.tiles}>
         {progress ? <NextStep {...progress} /> : <Sample onOpen={() => onStarter("derivative")} />}
         <Surprise onOpen={onSurprise} />

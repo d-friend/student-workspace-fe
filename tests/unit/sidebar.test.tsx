@@ -9,7 +9,7 @@ import type { SessionList, SessionSummary } from "@/lib/api";
 vi.mock("@/lib/track", () => ({ track: vi.fn() }));
 const fetchMock = vi.fn();
 // The Môn học list asks for /api/projects too; these tests count the account and history requests.
-const requests = () => fetchMock.mock.calls.filter(([path]) => !String(path).startsWith("/api/projects"));
+const requests = () => fetchMock.mock.calls.filter(([path]) => !/^\/api\/(projects|review\/count)/.test(String(path))); // the subject list and the review badges are not what these tests count
 const side = { mode: "open" as const, drawerOpen: false, toggle: vi.fn(), openDrawer: vi.fn(), closeDrawer: vi.fn() };
 let desktop = true;
 let signedIn = false;

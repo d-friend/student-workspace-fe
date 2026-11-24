@@ -36,10 +36,10 @@ export function findBlock(pages: ReaderPage[], blockId: string): PackBlock | nul
   return null;
 }
 
-// The subject page shows the overview, or the map or the notes reader as a full page. ?tab=map|sources picks those; anything else (including the
+// The subject page shows the overview, or the map or the notes reader as a full page. ?tab=map|sources|review picks those; anything else (including the
 // old ?tab=sessions) is the overview.
-export const SCREENS = ["overview", "map", "sources"] as const;
+export const SCREENS = ["overview", "map", "sources", "review"] as const;
 export type ProjectScreen = (typeof SCREENS)[number];
-export const screenOf = (value: string | null): ProjectScreen => value === "map" || value === "sources" ? value : "overview";
-// project_tab_viewed only knows map | sessions | sources: the overview reports as "sessions".
-export const trackedTab = (screen: ProjectScreen): "map" | "sessions" | "sources" => screen === "overview" ? "sessions" : screen;
+export const screenOf = (value: string | null): ProjectScreen => value === "map" || value === "sources" || value === "review" ? value : "overview";
+// project_tab_viewed only knows map | sessions | sources: the overview reports as "sessions", and review has its own review_opened.
+export const trackedTab = (screen: Exclude<ProjectScreen, "review">): "map" | "sessions" | "sources" => screen === "overview" ? "sessions" : screen;

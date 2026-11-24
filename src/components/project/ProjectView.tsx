@@ -4,7 +4,8 @@ import { PanelActions } from "@/components/Shell";
 import { useDesktop, useNarrow } from "@/hooks/useDesktop";
 import type { ProjectSessions } from "@/hooks/useProjectSessions";
 import { NodePanel } from "@/components/pack/NodePanel";
-import type { Pack, Project, ReaderPage } from "@/lib/api";
+import { ReviewSession } from "@/components/review/ReviewSession";
+import type { Pack, Project, ReaderPage, ReviewCard } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { mapAsTree, type ProjectScreen } from "@/lib/projectMap";
 import { KnowledgeTree } from "@/workspace/KnowledgeTree";
@@ -16,7 +17,7 @@ import styles from "./Project.module.css";
 export type ProjectViewProps = {
   project: Project;
   screen: ProjectScreen;
-  onOpen: (screen: "map" | "sources") => void; // from the overview; the page pushes history so back returns to it
+  onOpen: (screen: "map" | "sources" | "review") => void; // from the overview; the page pushes history so back returns to it
   onBack: () => void; // "← subject": back to the overview
   sessions: ProjectSessions;
   onOpenSession: (id: string) => void;
@@ -29,6 +30,10 @@ export type ProjectViewProps = {
   learnFailed: boolean;
   onViewSource: (blockId: string) => void; // "Xem nguồn" on a map node: open the reader at that passage
   onUploaded: (pack: Pack) => void; // "Thêm": the page owns the status sheet
+  review: { cards: ReviewCard[] | null; failed: boolean }; // today's cards; null while they load
+  onStartProblem: (card: ReviewCard) => Promise<boolean>; // a problem card: a new session in the subject, true when the page is navigating
+  reviewStartFailed: boolean;
+  onReviewProgress?: () => void; // the page refreshes the sidebar badges
 };
 
 // A subject page: the overview (start a session, notes and map rows, recent sessions), or the map or the notes reader as a full page of their own.
@@ -64,7 +69,7 @@ export function ProjectView(props: ProjectViewProps) {
       <button type="button" className={styles.back} aria-label={copy.projectBack(project.name)} onClick={props.onBack}>
         <IconArrowLeft size={18} aria-hidden="true" /><span>{project.name}</span>
       </button>
-      <h1 className={styles.barName}>{screen === "map" ? copy.projectMapRow : copy.projectNotesRow}</h1>
+      <h1 className={styles.barName}>{screen === "map" ? copy.projectMapRow : screen === "review" ? copy.reviewRow : copy.projectNotesRow}</h1>
     </div>;
 
   const nodePanel = selectedNode && <div ref={panel} className={styles.nodePanel}>
@@ -74,7 +79,7 @@ export function ProjectView(props: ProjectViewProps) {
     {overview && <>
       {!desktop && counts && <p className={styles.summary}>{counts}</p>}
       <ProjectOverview project={project} sessions={props.sessions} onOpenSession={props.onOpenSession} openFailed={props.openFailed}
-        onSend={props.onSend} sendError={props.sendError} onUploaded={props.onUploaded} onOpen={props.onOpen} />
+        onSend={props.onSend} sendError={props.sendError} onUploaded={props.onUploaded} onOpen={props.onOpen} reviewDue={props.review.cards?.length ?? 0} />
     </>}
     {screen === "map" && (project.map.length
       ? narrow
@@ -84,6 +89,9 @@ export function ProjectView(props: ProjectViewProps) {
           {nodePanel}
         </div>
       : <p className={styles.empty}>{copy.projectMapEmpty}</p>)}
+    {screen === "review" && (props.review.failed
+      ? <p className={styles.error} role="alert">{copy.reviewLoadFailed}</p>
+      : props.review.cards && <ReviewSession cards={props.review.cards} onStartProblem={props.onStartProblem} startFailed={props.reviewStartFailed} onExit={props.onBack} onProgress={props.onReviewProgress} />)}
     {screen === "sources" && <ProjectReader projectName={project.name} packs={project.packs} pages={props.reader.pages} failed={props.reader.failed} block={props.block}
       onLearnMore={props.onLearnMore} learnFailed={props.learnFailed} />}
   </div>;

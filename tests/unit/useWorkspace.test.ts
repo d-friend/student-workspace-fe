@@ -2241,6 +2241,24 @@ describe("problem handed over from the landing page (?q=)", () => {
     expect(t.api.createSession).toHaveBeenLastCalledWith("typed");
   });
 
+  it("a review problem card starts a review session in its project, linked to the card, once", async () => {
+    const CARD = "aaaaaaaa-0000-4000-8000-000000000003";
+    history.replaceState(null, "", "/?q=" + encodeURIComponent("Cho mình một bài tương tự") + "&via=review&card=" + CARD + "&project=" + PROJECT);
+    const t = await boot();
+    expect(t.api.createSession).toHaveBeenCalledWith("review", PROJECT, CARD);
+    expect(location.search).toBe("");
+    t.ws.actions.newProblem();
+    t.ws.actions.setInput("bài khác");
+    await t.ws.actions.submit();
+    expect(t.api.createSession).toHaveBeenLastCalledWith("typed");
+  });
+
+  it("ignores a review card that is not an id", async () => {
+    history.replaceState(null, "", "/?q=" + encodeURIComponent("bài") + "&via=review&card=../x");
+    const t = await boot();
+    expect(t.api.createSession).toHaveBeenCalledWith("typed");
+  });
+
   it("an empty composer started from a project page files the first typed session there", async () => {
     history.replaceState(null, "", "/?project=" + PROJECT);
     const t = await boot();

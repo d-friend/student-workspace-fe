@@ -38,8 +38,8 @@ test("photos are numbered from one across the reader", () => {
   expect([...pageNumbers([page("a", []), page("b", [])])]).toEqual([["a", 1], ["b", 2]]);
 });
 
-test("?tab=map and ?tab=sources open those pages; anything else, the old ?tab=sessions included, is the overview", () => {
-  expect([screenOf("sources"), screenOf("map"), screenOf("sessions"), screenOf("x"), screenOf(null)]).toEqual(["sources", "map", "overview", "overview", "overview"]);
+test("?tab=map, ?tab=sources and ?tab=review open those pages; anything else, the old ?tab=sessions included, is the overview", () => {
+  expect([screenOf("sources"), screenOf("map"), screenOf("review"), screenOf("sessions"), screenOf("x"), screenOf(null)]).toEqual(["sources", "map", "review", "overview", "overview", "overview"]);
 });
 
 test("project_tab_viewed knows map, sessions and sources: the overview reports as sessions", () => {

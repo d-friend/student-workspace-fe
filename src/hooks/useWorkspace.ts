@@ -27,6 +27,7 @@ import type { BlockCtx, CheckResponse, Phase, SavedBlockState, Workspace } from 
 const statusLabel = (stage: "planning" | "searching" | "reading" | "simulating") =>
   ({ planning: copy.statusPlanning, searching: copy.statusSearching, reading: copy.statusReading, simulating: copy.statusSimulating })[stage];
 
+const UUID = /^[0-9a-f-]{36}$/i;
 const FLUSH_DELAY_MS = 800;
 const AWAY_MS = 30 * 60_000; // Absence after which a returning student starts on a new problem.
 const RECOVER_MS = 120_000; // how long to wait for a build that outlived its connection (the planner caps at 90 s)
@@ -157,6 +158,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let input = "";
   let nextVia: StartedVia | undefined; // set by a handoff (?via=) for the session the next submit creates
+  let nextCard: string | undefined; // set by a handoff (?card=) from a review problem card: the session the next submit creates is linked to it
   let nextProject: string | undefined; // set by a handoff (?project=) from a project page: the session the next submit creates is filed there
   let photos: string[] = [];
   let photoNoteId: number | null = null;
@@ -602,9 +604,10 @@ export function createWorkspace(deps: WorkspaceDeps) {
     try {
       if (sessionId === null) {
         const startedVia = via ?? (shots.length ? "photo" : "typed");
-        const created = await (nextProject ? api.createSession(startedVia, nextProject) : api.createSession(startedVia));
+        const created = await (nextCard ? api.createSession(startedVia, nextProject, nextCard) : nextProject ? api.createSession(startedVia, nextProject) : api.createSession(startedVia));
         if (epoch !== mine) return;
-        nextProject = undefined; // kept until it worked, so a failed first send still files the retry
+        nextProject = undefined;
+        nextCard = undefined; // kept until it worked, so a failed first send still files the retry
         sessionId = created.sessionId;
         sheet = null;
         sessionConfirmed = true;
@@ -959,7 +962,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
         const url = new URL(location.href);
         url.searchParams.delete("project");
         history.replaceState(null, "", url);
-        if (!applied && /^[0-9a-f-]{36}$/i.test(project)) nextProject = project;
+        if (!applied && UUID.test(project)) nextProject = project;
       }
       // The landing page and a subject page hand over the problem as ?q=, and the subject page its photos in sessionStorage.
       // Consume both once (a reload must not resend).
@@ -967,9 +970,13 @@ export function createWorkspace(deps: WorkspaceDeps) {
       const handed = takeHandoffPhotos();
       if (q) {
         const url = new URL(location.href);
-        if (url.searchParams.get("via") === "pack_learn_more") nextVia = "pack_learn_more";
+        const via = url.searchParams.get("via");
+        const card = url.searchParams.get("card");
+        if (via === "pack_learn_more") nextVia = "pack_learn_more";
+        if (via === "review" && card && !applied && UUID.test(card)) { nextVia = "review"; nextCard = card; }
         url.searchParams.delete("q");
         url.searchParams.delete("via");
+        url.searchParams.delete("card");
         history.replaceState(null, "", url);
       }
       if (q || handed.length) {
@@ -987,6 +994,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
   function resetToNew(reason: "new_problem" | "abandoned") {
     nextProject = undefined;
+    nextCard = undefined;
     epoch++;
     flushSaves();
     if (sessionId) api.endSession(sessionId, reason).catch(() => {});

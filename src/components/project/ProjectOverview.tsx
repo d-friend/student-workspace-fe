@@ -17,12 +17,13 @@ export type OverviewProps = {
   onSend: (text: string, photos: string[]) => Promise<boolean>;
   sendError: string | null;
   onUploaded: (pack: Pack) => void; // "Thêm": the page owns the status sheet
-  onOpen: (view: "map" | "sources") => void;
+  onOpen: (view: "map" | "sources" | "review") => void;
+  reviewDue: number; // cards due today; the row is hidden at 0
 };
 
 // What a student does in a subject, in the order they need it: start a session, upload notes or open the map, then pick up an old session.
 // On a phone the DOM order is the visual order, so the side rows sit above the history; from 800px a grid puts them beside it.
-export function ProjectOverview({ project, sessions, onOpenSession, openFailed, onSend, sendError, onUploaded, onOpen }: OverviewProps) {
+export function ProjectOverview({ project, sessions, onOpenSession, openFailed, onSend, sendError, onUploaded, onOpen, reviewDue }: OverviewProps) {
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<string[]>([]); // base64 JPEGs, as the chat holds them
   const [note, setNote] = useState<string | null>(null);
@@ -88,6 +89,11 @@ export function ProjectOverview({ project, sessions, onOpenSession, openFailed, 
           </button>
           : <span className={styles.sideMain}><span><b>{copy.projectMapRow}</b><i>{copy.projectMapNone}</i></span></span>}
       </div>
+      {reviewDue > 0 && <div className={styles.sideItem}>
+        <button type="button" className={styles.sideMain} aria-label={copy.reviewStartLabel} onClick={() => onOpen("review")}>
+          <span><b>{copy.reviewRow}</b><i>{copy.reviewToday(reviewDue)}</i></span><span className={styles.sideLink} aria-hidden="true">{copy.reviewStart}</span>
+        </button>
+      </div>}
     </div>
 
     <section className={styles.areaRecent}>

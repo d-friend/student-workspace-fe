@@ -4,8 +4,9 @@ import { IconLoader2 } from "@tabler/icons-react";
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 import styles from "./Skeleton.module.css";
 
-const SHOW_AFTER_MS = 150; // a load faster than this never shows a skeleton
-const HOLD_MS = 300; // once shown, it stays at least this long, so it does not flicker away
+// showAfter: a load faster than this never shows a skeleton. hold: once shown, it stays at least this long, so it does not flicker away.
+// Production never changes these; the unit-test setup sets showAfter to null (never show), so a slow machine cannot make a test race a skeleton.
+export const loadingTiming: { showAfter: number | null; hold: number } = { showAfter: 150, hold: 300 };
 
 // "wait": busy, not yet shown. "show": on screen. "done": show the content.
 export function useLoadingPhase(busy: boolean): "wait" | "show" | "done" {
@@ -13,11 +14,12 @@ export function useLoadingPhase(busy: boolean): "wait" | "show" | "done" {
   const since = useRef(0);
   useEffect(() => {
     if (busy && !shown) {
-      const timer = setTimeout(() => { since.current = Date.now(); setShown(true); }, SHOW_AFTER_MS);
+      if (loadingTiming.showAfter === null) return;
+      const timer = setTimeout(() => { since.current = Date.now(); setShown(true); }, loadingTiming.showAfter);
       return () => clearTimeout(timer);
     }
     if (!busy && shown) {
-      const timer = setTimeout(() => setShown(false), Math.max(0, HOLD_MS - (Date.now() - since.current)));
+      const timer = setTimeout(() => setShown(false), Math.max(0, loadingTiming.hold - (Date.now() - since.current)));
       return () => clearTimeout(timer);
     }
   }, [busy, shown]);

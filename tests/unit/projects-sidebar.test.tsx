@@ -9,7 +9,7 @@ vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: str
 
 const project = (n: number): ProjectSummary => ({ id: `p${n}`, subject_node_id: `s${n}`, name: `Môn ${n}`, sessions: n, packs: 0, map_nodes: 0, last_active_at: "2026-11-24T10:00:00Z" });
 const many = (n: number) => Array.from({ length: n }, (_, i) => project(i + 1));
-beforeEach(() => setLocale("vi"));
+beforeEach(() => { sessionStorage.clear(); setLocale("vi"); });
 afterEach(cleanup);
 
 test("each subject links to its project page and reports the open", () => {

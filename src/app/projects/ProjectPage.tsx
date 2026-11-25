@@ -7,6 +7,8 @@ import { ProjectView } from "@/components/project/ProjectView";
 import { ProfileGate } from "@/components/ProfileGate";
 import { Shell } from "@/components/Shell";
 import { Sidebar } from "@/components/sidebar/Sidebar";
+import { ProjectSkeleton } from "@/components/project/ProjectSkeleton";
+import { Loading } from "@/components/Skeleton";
 import { useSidebar } from "@/components/sidebar/useSidebar";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useLeaveSession } from "@/hooks/useLeaveSession";
@@ -87,7 +89,7 @@ function ProjectContent({ id }: { id: string }) {
 
   const openSession = useCallback((sessionId: string) => {
     setOpenFailed(false);
-    resumeSession(sessionId).then(() => window.location.assign("/"), () => setOpenFailed(true));
+    return resumeSession(sessionId).then(() => { window.location.assign("/"); return true; }, () => { setOpenFailed(true); return false; });
   }, []);
 
   // The composer's Gửi: the same path as Học thêm (end the open session, then a full page load of home), with the photos carried in sessionStorage.
@@ -107,12 +109,15 @@ function ProjectContent({ id }: { id: string }) {
     if (project) void review.leave(reviewUrl(copy.reviewProjectMessage(project.name), "review", id), false);
   }, [id, project, review]);
 
-  const view = project ? <ProjectView project={project} screen={screen} onOpen={push} onBack={back}
-    sessions={sessions} onOpenSession={openSession} openFailed={openFailed} onSend={send} sendError={sendError}
-    reader={{ pages: reader.data, failed: reader.error !== null }} block={block}
-    onLearnMore={text => void learn.leave(`/?${new URLSearchParams({ q: text, via: "pack_learn_more", project: id })}`, false)} learnFailed={learn.failed} onViewSource={viewSource} onUploaded={setSheet}
-    reviewDue={due.data ?? 0} onReview={startReview} reviewFailed={review.failed} />
-    : <div className={styles.page}>{error && <p className={styles.error} role="alert">{error === "missing" ? copy.projectNotFound : copy.projectLoadFailed}</p>}</div>;
+  const view = error
+    ? <div className={styles.page}><p className={styles.error} role="alert">{error === "missing" ? copy.projectNotFound : copy.projectLoadFailed}</p></div>
+    : <Loading busy={!project} label={copy.loadingProject} skeleton={<ProjectSkeleton />}>
+      {project && <ProjectView project={project} screen={screen} onOpen={push} onBack={back}
+        sessions={sessions} onOpenSession={openSession} openFailed={openFailed} onSend={send} sendError={sendError}
+        reader={{ pages: reader.data, failed: reader.error !== null }} block={block}
+        onLearnMore={text => void learn.leave(`/?${new URLSearchParams({ q: text, via: "pack_learn_more", project: id })}`, false)} learnFailed={learn.failed} onViewSource={viewSource} onUploaded={setSheet}
+        reviewDue={due.data ?? 0} onReview={startReview} reviewFailed={review.failed} />}
+    </Loading>;
 
   return <>
     <Shell work={view} layer={null} floatingPanels showCornerActions={!desktop} inert={side.drawerOpen && !desktop}

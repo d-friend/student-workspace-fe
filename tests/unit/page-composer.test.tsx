@@ -35,6 +35,8 @@ beforeEach(() => { localStorage.removeItem("dfriend.chatCollapsed"); vi.mocked(u
 
 afterEach(() => {
   cleanup();
+  localStorage.removeItem("df-session");
+  delete document.documentElement.dataset.expect;
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
@@ -46,6 +48,30 @@ const progressItem: api.ProgressItem = {
   roadmap: "motion_current", stages: [0, 1], steps: { entries: [{ item: 0, state: "ok", tries: 1, hint: 0 }], done: false, free: false },
   quizzes: null, next: null,
 };
+
+// A browser with a saved-session hint holds the start screen (THEME_INIT marks <html> data-expect) until home hears from the server.
+// That hold must never outlive the answer, or the wait.
+it("with a saved-session hint, a failed session lookup still shows the start screen", async () => {
+  localStorage.setItem("df-session", "1");
+  document.documentElement.dataset.expect = "1";
+  vi.mocked(api.currentSession).mockRejectedValueOnce(new api.ApiError(500, "server_error", "x"));
+  render(<Page />);
+  expect(await screen.findByText(copy.starter1)).toBeTruthy();
+  expect(document.documentElement.dataset.expect).toBeUndefined();
+});
+
+it("with a saved-session hint, a session lookup that never answers gives up after 4 s and shows the start screen", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  localStorage.setItem("df-session", "1");
+  document.documentElement.dataset.expect = "1";
+  vi.mocked(api.currentSession).mockReturnValueOnce(new Promise(() => {}));
+  render(<Page />);
+  expect(screen.queryByText(copy.starter1)).toBeNull();
+  await act(async () => { await vi.advanceTimersByTimeAsync(4100); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(50); }); // the skeleton's own hold ends
+  expect(screen.getByText(copy.starter1)).toBeTruthy();
+  expect(document.documentElement.dataset.expect).toBeUndefined();
+});
 
 it("a failed progress fetch leaves starters usable without an error or impression", async () => {
   vi.mocked(api.getProgress).mockRejectedValueOnce(Error("offline"));

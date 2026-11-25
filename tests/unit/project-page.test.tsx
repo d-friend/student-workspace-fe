@@ -73,7 +73,11 @@ const readyPack = (extra: Partial<api.Pack> = {}): api.Pack => ({
   created_at: "2026-11-24T10:00:00Z", updated_at: "2026-11-24T10:00:00Z", photos: 1, concepts: 2,
   files: [file("f1")], blocks: [], nodes: [{ id: "n1", name: "Hệ thức Viète", role: "concept", created: true }, { id: "n2", name: "Biệt thức Δ", role: "concept", created: false }], ...extra,
 });
-const loaded = async () => { render(<ProjectPage />); await screen.findByRole("heading", { level: 1 }); };
+const loaded = async () => {
+  render(<ProjectPage />);
+  await screen.findByRole("heading", { level: 1 });
+  await waitFor(() => expect(screen.queryByRole("status", { name: copy.loadingProject })).toBeNull()); // a slow load holds its skeleton for 300 ms
+};
 
 test("a project that does not exist, or fails to load, says so", async () => {
   vi.mocked(api.getProject).mockRejectedValueOnce(new api.ApiError(404, "not_found", "x"));

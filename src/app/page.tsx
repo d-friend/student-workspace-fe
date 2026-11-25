@@ -11,6 +11,7 @@ import { useSidebar } from "@/components/sidebar/useSidebar";
 import { PetAnchorProvider } from "@/components/pet/PetAnchor";
 import { Pet } from "@/components/pet/Pet";
 import { PetLayer } from "@/components/pet/PetLayer";
+import { useLoadingPhase } from "@/components/Skeleton";
 import { BuildingSkeleton } from "@/components/work/BuildingSkeleton";
 import { SheetSwitcher } from "@/components/work/SheetSwitcher";
 import { WorkspaceFrame } from "@/components/work/WorkspaceFrame";
@@ -21,6 +22,7 @@ import { useLeaveSession } from "@/hooks/useLeaveSession";
 import { useReviewDue } from "@/hooks/useReviewDue";
 import type { Pack } from "@/lib/api";
 import { copy } from "@/lib/copy";
+import { clearOpening, releaseStartScreen, setSessionHint, useExpectingSession } from "@/lib/opening";
 import { frameDoc } from "@/lib/frame";
 import { JPEG_PREFIX } from "@/lib/photo";
 import { openProgressSession, progressCards } from "@/lib/progress";
@@ -38,6 +40,7 @@ export default function Page() {
 }
 
 const noop = () => {};
+const EXPECT_MS = 4000;
 
 function Home() {
   const ws = useWorkspace();
@@ -147,7 +150,23 @@ function Home() {
     }
   }
 
-  const showWorkspace = (desktop || view === "workspace") && (hasWorkspace || buildingId !== null);
+  // A session the student picked is on its way back: draw its shape (the workspace beside the chat on a desktop), not the start screen.
+  // Never hold the start screen for good: if home has not heard from the server in 4 s (a hung request), it shows anyway.
+  const [gaveUp, setGaveUp] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => { setGaveUp(true); releaseStartScreen(); }, EXPECT_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  const expecting = useExpectingSession() && !gaveUp;
+  const restoring = expecting && !ws.ready;
+  const restorePhase = useLoadingPhase(restoring);
+  useEffect(() => {
+    if (!ws.ready) return;
+    clearOpening();
+    releaseStartScreen();
+    setSessionHint(ws.sessionId !== null);
+  }, [ws.ready, ws.sessionId]);
+  const showWorkspace = (desktop || view === "workspace") && (hasWorkspace || buildingId !== null || (restoring && desktop));
   const hideChat = showWorkspace && (!desktop || chatCollapsed);
   const desktopCollapsed = desktop && showWorkspace && chatCollapsed;
   const showBuild = buildingId !== null && buildingId !== skippedBuildId;
@@ -309,10 +328,15 @@ function Home() {
         {desktopCollapsed && <PanelActions tabsRef={setTabsTarget} />}
         {/* Keep the current doc mounted across chat visits and while another workspace builds. */}
         {workspace && <div className={styles.viewWrap} data-visible={!showBuild} inert={showBuild} aria-hidden={showBuild || undefined}>{workspace}</div>}
+        {restoring && restorePhase !== "done" && !hasWorkspace && (
+          <div className={styles.buildScroll} role="status" aria-label={copy.loadingSession} data-wait={restorePhase === "wait" || undefined}>
+            <BuildingSkeleton variant="solve" />
+          </div>
+        )}
         {showBuild && (
           <div className={styles.buildScroll}>
             <BuildingSkeleton
-              variant={ws.buildingPhase === "learn" ? "learn" : "solve"}
+              variant={ws.buildingPhase === "learn" || ws.buildingPhase === "review" ? ws.buildingPhase : "solve"}
               preview={ws.preview}
               onQueue={ws.queueAnswer}
               problem={problem}
@@ -347,14 +371,15 @@ function Home() {
         composer={composer}
         composerRef={composerRef}
         emptyThread={{
-          onStarter: (starter) => void ws.startStarter(starter),
-          onSurprise: (id) => void ws.startSurprise(id),
+          onStarter: (starter) => ws.startStarter(starter),
+          onSurprise: (id) => ws.startSurprise(id),
           progress: latest ? { item: latest, onOpen: () => void openProgressSession(latest, "reload") } : null,
           onPackUploaded: setPackSheet,
           review: reviewDue,
           onReview: () => void ws.startReview("starter_review", copy.reviewHomeMessage),
           onReviewChip: () => reviewDue && void ws.startReview("review_chip", copy.reviewFollowupMessage(reviewDue.subject), reviewDue.projectId),
         }}
+        ready={ws.ready || !expecting}
         workspaceVisible={showWorkspace}
         onOpenLegacyWorkspace={legacyWorkspace ? openWorkspaceView : undefined}
         hidden={hideChat}

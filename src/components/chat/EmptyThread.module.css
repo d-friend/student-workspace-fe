@@ -109,9 +109,6 @@ button.main { cursor: pointer; }
 .arrow { flex: none; color: var(--muted); }
 
 .skeleton { cursor: default; }
-.skeleton span { height: 16px; border-radius: var(--radius-sm); background: var(--hairline); }
-.skeleton span:first-child { width: 28px; height: 28px; flex: none; }
-.skeleton span:last-child { width: 60%; }
 
 .nextMain .name { -webkit-line-clamp: 1; } /* keeps the cards one height when a next step is long */
 @media (max-width: 639px) { .sub { font-size: 15px; } .tile:hover { transform: none; } }
@@ -132,3 +129,6 @@ button.main { cursor: pointer; }
 @container (min-width: 640px) {
   .tile { min-height: 136px; }
 }
+
+/* A browser with a session to restore: the server-rendered start screen stays hidden until home knows whether it is needed (THEME_INIT sets data-expect). */
+:global(html[data-expect]) .emptyThread { visibility: hidden; }

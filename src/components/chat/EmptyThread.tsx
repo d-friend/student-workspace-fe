@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { IconArrowRight, IconArrowsShuffle, IconCalendarEvent, IconCheck, IconPhotoPlus } from "@tabler/icons-react";
+import { Spin, Bone } from "@/components/Skeleton";
 import { copy } from "@/lib/copy";
 import { PackUpload } from "@/components/pack/PackUpload";
 import { getSurpriseCard, type Pack, type ProgressItem, type SurpriseCard } from "@/lib/api";
@@ -11,8 +12,8 @@ import styles from "./EmptyThread.module.css";
 type Starter = "derivative" | "geometry";
 
 export type EmptyThreadProps = {
-  onStarter: (starter: Starter) => void;
-  onSurprise: (id?: string) => void;
+  onStarter: (starter: Starter) => void | Promise<void>;
+  onSurprise: (id?: string) => void | Promise<void>;
   progress?: { item: ProgressItem; onOpen: () => void } | null;
   onPackUploaded?: (pack: Pack) => void; // "Tải vở / sách": the page owns the status sheet
   onReview?: () => void; // "Sắp kiểm tra?": a new session that opens with a request to review
@@ -41,8 +42,8 @@ export function EmptyThread({ onStarter, onSurprise, progress, onPackUploaded, r
             <span className={styles.label}>{copy.packUpload}</span>
             <span className={styles.main}>
               <IconPhotoPlus size={24} aria-hidden="true" className={styles.lead} />
-              <span className={`${styles.text} ${styles.name}`}>{busy ? copy.packUploading : copy.homeUploadHint}</span>
-              <IconArrowRight size={20} aria-hidden="true" className={styles.arrow} />
+              <span className={`${styles.text} ${styles.name}`}>{copy.homeUploadHint}</span>
+              {busy ? <span className={styles.arrow}><Spin /></span> : <IconArrowRight size={20} aria-hidden="true" className={styles.arrow} />}
             </span>
           </>,
         }} />}
@@ -60,15 +61,28 @@ export function EmptyThread({ onStarter, onSurprise, progress, onPackUploaded, r
   );
 }
 
-function Sample({ onOpen }: { onOpen: () => void }) {
-  return <section className={styles.tile} aria-label={copy.samplesLabel}>
+// A tile whose action waits on the network: ignores a second tap and shows progress where its arrow is.
+function usePending<A extends unknown[]>(act: (...args: A) => void | Promise<void>) {
+  const [pending, setPending] = useState(false);
+  const run = async (...args: A) => {
+    if (pending) return;
+    setPending(true);
+    try { await act(...args); } finally { setPending(false); }
+  };
+  return [pending, run] as const;
+}
+const arrow = (pending: boolean) => pending ? <span className={styles.arrow}><Spin /></span> : <IconArrowRight size={20} aria-hidden="true" className={styles.arrow} />;
+
+function Sample({ onOpen }: { onOpen: () => void | Promise<void> }) {
+  const [pending, open] = usePending(onOpen);
+  return <section className={styles.tile} aria-label={copy.samplesLabel} aria-busy={pending || undefined}>
     <div className={styles.head}><h2>{copy.samplesLabel}</h2></div>
-    <button type="button" className={styles.main} onClick={onOpen}>
+    <button type="button" className={styles.main} aria-disabled={pending || undefined} onClick={() => void open()}>
       <span className={styles.text}>
         <span className={styles.name}>{copy.starter1}</span>
         <span className={styles.meta}>{copy.starter1Sub}</span>
       </span>
-      <IconArrowRight size={20} aria-hidden="true" className={styles.arrow} />
+      {arrow(pending)}
     </button>
   </section>;
 }
@@ -100,7 +114,8 @@ function NextStep({ item, onOpen }: { item: ProgressItem; onOpen: () => void }) 
   </section>;
 }
 
-function Surprise({ onOpen }: { onOpen: (id?: string) => void }) {
+function Surprise({ onOpen }: { onOpen: (id?: string) => void | Promise<void> }) {
+  const [opening, open] = usePending(onOpen);
   const [state, setState] = useState<{ card: SurpriseCard | null; loading: boolean }>({ card: null, loading: true });
   const request = useRef<Promise<SurpriseCard> | null>(null);
   const inFlight = useRef(false);
@@ -129,14 +144,14 @@ function Surprise({ onOpen }: { onOpen: (id?: string) => void }) {
       inFlight.current = false;
     }
   };
-  if (!state.loading && !state.card) return <section className={styles.tile} aria-label={copy.surpriseHeading}>
+  if (!state.loading && !state.card) return <section className={styles.tile} aria-label={copy.surpriseHeading} aria-busy={opening || undefined}>
     <div className={styles.head}><h2>{copy.surpriseHeading}</h2></div>
-    <button type="button" className={styles.main} onClick={() => onOpen()}>
+    <button type="button" className={styles.main} aria-disabled={opening || undefined} onClick={() => void open()}>
       <span className={styles.text}><span className={styles.name}>{copy.surprise}</span></span>
-      <IconArrowRight size={20} aria-hidden="true" className={styles.arrow} />
+      {arrow(opening)}
     </button>
   </section>;
-  return <section className={styles.tile} aria-label={copy.surpriseHeading} aria-busy={state.loading}>
+  return <section className={styles.tile} aria-label={copy.surpriseHeading} aria-busy={state.loading || opening || undefined}>
     <div className={styles.head}>
       <h2>{copy.surpriseHeading}</h2>
       {!state.loading && <button type="button" className={styles.corner} aria-label={copy.surpriseShuffle}
@@ -145,11 +160,11 @@ function Surprise({ onOpen }: { onOpen: (id?: string) => void }) {
       </button>}
     </div>
     {state.loading ? <div className={`${styles.main} ${styles.skeleton}`} role="status" aria-label={copy.surpriseLoading}>
-      <span /><span />
-    </div> : <button type="button" className={styles.main} title={state.card!.teaser} onClick={() => onOpen(state.card!.id)}>
+      <Bone w={28} h={28} style={{ flex: "none" }} /><Bone w="60%" h={16} />
+    </div> : <button type="button" className={styles.main} title={state.card!.teaser} aria-disabled={opening || undefined} onClick={() => void open(state.card!.id)}>
       <span className={styles.emoji} aria-hidden="true">{state.card!.emoji}</span>
       <span className={styles.text}><span className={styles.name}><MdInline text={state.card!.title} /></span></span>
-      <IconArrowRight size={20} aria-hidden="true" className={styles.arrow} />
+      {arrow(opening)}
     </button>}
   </section>;
 }

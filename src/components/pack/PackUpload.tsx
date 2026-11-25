@@ -1,6 +1,7 @@
 import { IconPhotoPlus } from "@tabler/icons-react";
 import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
 import { createPack, type Pack } from "@/lib/api";
+import { InPlace } from "@/components/Skeleton";
 import { copy } from "@/lib/copy";
 import { MAX_PACK_PHOTOS, uploadError } from "@/lib/pack";
 import { readPhoto } from "@/lib/photo";
@@ -44,10 +45,10 @@ export function PackUpload({ onUploaded, projectId, rowClassName, card }: {
       ? <button type="button" className={card.className} aria-busy={busy || undefined} disabled={busy || unavailable} onClick={() => input.current?.click()}>{card.children(busy)}</button>
       : rowClassName
       ? <button type="button" className={rowClassName} aria-label={copy.projectAddLabel} disabled={busy || unavailable} onClick={() => input.current?.click()}>
-        {busy ? copy.packUploading : copy.projectAdd}
+        <InPlace busy={busy}>{copy.projectAdd}</InPlace>
       </button>
       : <button type="button" className={styles.uploadButton} disabled={busy || unavailable} onClick={() => input.current?.click()}>
-        <IconPhotoPlus size={20} aria-hidden="true" />{busy ? copy.packUploading : projectId ? copy.projectUpdateNotes : copy.packUpload}
+        <IconPhotoPlus size={20} aria-hidden="true" /><InPlace busy={busy}>{projectId ? copy.projectUpdateNotes : copy.packUpload}</InPlace>
       </button>}
     <input ref={input} type="file" accept="image/*" multiple hidden aria-label={copy.packUploadHint} onChange={e => void onFiles(e)} />
     {error && <p className={styles.error} role="alert">{error}</p>}

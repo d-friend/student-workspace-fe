@@ -14,6 +14,7 @@ import { PhotoGrid } from "@/components/rail/PhotoGrid";
 import { RestateChips } from "@/components/rail/RestateChips";
 import { WatchingCue } from "@/components/rail/WatchingCue";
 import { MathInline } from "@/workspace/md";
+import { Bone, Loading } from "@/components/Skeleton";
 import { EmptyThread, type EmptyThreadProps } from "./EmptyThread";
 import styles from "./ChatView.module.css";
 
@@ -54,8 +55,17 @@ function WorkspaceCard({ card, status, busy, onOpen, onRebuild }: {
   );
 }
 
+// The chat before the saved session is back: what a conversation looks like, so the empty start screen is not drawn for a session that is on its way.
+function ChatSkeleton() {
+  return <div className={styles.restoring}>
+    <Bone w="58%" h={44} style={{ alignSelf: "flex-end", borderRadius: "var(--radius-lg)" }} />
+    <Bone w="74%" h={64} style={{ borderRadius: "var(--radius-lg)" }} />
+    <Bone w="46%" h={44} style={{ borderRadius: "var(--radius-lg)" }} />
+  </div>;
+}
+
 export function ChatView({
-  state, actions, composer, composerRef, emptyThread, quote, onDismissQuote, workspaceVisible = false, onOpenLegacyWorkspace, hidden = false, showHeader = true, onCollapse,
+  state, actions, composer, composerRef, emptyThread, quote, onDismissQuote, workspaceVisible = false, onOpenLegacyWorkspace, hidden = false, showHeader = true, onCollapse, ready = true,
 }: {
   state: ChatState;
   actions: ChatActions;
@@ -69,6 +79,7 @@ export function ChatView({
   hidden?: boolean;
   showHeader?: boolean;
   onCollapse?: () => void;
+  ready?: boolean; // false until the saved session is back: the empty start screen waits for it
 }) {
   const { bubbles } = state;
   const lastAgent = bubbles.findLast((b) => b.kind === "agent");
@@ -95,7 +106,7 @@ export function ChatView({
         </p>
       )}
       <ChatLog empty={empty} visible={!hidden} tick={bubbles}>
-        {empty && <EmptyThread {...emptyThread} />}
+        {empty && <Loading busy={!ready} label={copy.loadingSession} skeleton={<ChatSkeleton />}><EmptyThread {...emptyThread} /></Loading>}
         {bubbles.map((b) => {
           if (b.kind === "reset") return <div key={b.id} className={styles.divider}>{copy.workspaceResetDivider(b.title)}</div>;
           if (b.kind === "student") {

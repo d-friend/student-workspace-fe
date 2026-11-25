@@ -7,7 +7,7 @@ import { copy, getLocale } from "@/lib/copy";
 import { groupSessions } from "./groupSessions";
 import styles from "./Sidebar.module.css";
 
-export function SessionList({ sessions, onChoose, onDelete, disabled = false, deleteDisabled = false, projectNames }: { sessions: SessionSummary[]; onChoose: (id: string) => void; onDelete?: (id: string) => void; disabled?: boolean; deleteDisabled?: boolean; projectNames?: ReadonlyMap<string, string> }) {
+export function SessionList({ sessions, onChoose, onDelete, disabled = false, deleteDisabled = false, projectNames, openingId = null }: { sessions: SessionSummary[]; onChoose: (id: string) => void; onDelete?: (id: string) => void; disabled?: boolean; deleteDisabled?: boolean; projectNames?: ReadonlyMap<string, string>; openingId?: string | null }) {
   const [revealed, setRevealed] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gesture = useRef<{ id: string; x: number; y: number; held: boolean } | null>(null);
@@ -55,9 +55,9 @@ export function SessionList({ sessions, onChoose, onDelete, disabled = false, de
         const project = session.project_id ? projectNames?.get(session.project_id) : undefined;
         const metadata = [date, ...phaseLabels, ...(session.tabs.length > 1 ? [session.tabs.length] : []), ...(project ? [copy.sessionInProject(project)] : [])].join(" · ");
         return (
-          <div key={session.id} className={styles.sessionRow} data-session-row={session.id} data-actions={revealed === session.id || undefined}>
+          <div key={session.id} className={styles.sessionRow} data-session-row={session.id} data-actions={revealed === session.id || undefined} data-pending={openingId === session.id || undefined}>
             <button type="button" className={styles.session} title={`${title} · ${metadata}`}
-              aria-current={session.current ? "true" : undefined} disabled={disabled}
+              aria-current={session.current ? "true" : undefined} aria-busy={openingId === session.id || undefined} disabled={disabled}
               onPointerDown={event => startHold(event, session.id)}
               onPointerUp={stopTimer}
               onPointerCancel={() => { stopTimer(); gesture.current = null; }}

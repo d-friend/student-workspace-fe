@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import { IconUser } from "@tabler/icons-react";
 import { ApiError, authMethods, demoSignIn, emailStart, emailVerify, getMe, logout, type AuthMethods, type Me } from "@/lib/api";
+import { clearCaches } from "@/lib/sideCache";
 import { copy } from "@/lib/copy";
 import styles from "./AccountMenu.module.css";
 
@@ -114,6 +115,7 @@ export function AccountMenu({ rail = false, onStatus }: { rail?: boolean; onStat
     if (step === "email") void sendCode();
     else void run(async () => {
       await emailVerify(email.trim(), code);
+      clearCaches();
       window.location.reload();
     });
   };
@@ -124,7 +126,7 @@ export function AccountMenu({ rail = false, onStatus }: { rail?: boolean; onStat
   const ageOk = years >= 6 && years <= 99;
   const minor = ageOk && years < 16;
   const googleReady = ageOk && (!minor || (parent && read));
-  const startGoogle = () => window.location.assign(`/api/auth/google/start?age=${years}${minor ? "&consent=1" : ""}`);
+  const startGoogle = () => { clearCaches(); window.location.assign(`/api/auth/google/start?age=${years}${minor ? "&consent=1" : ""}`); };
   const legalLinks = (
     <>
       <a href={`${copy.authLegalBase}/terms`}>{copy.authTerms}</a>{" "}
@@ -181,6 +183,7 @@ export function AccountMenu({ rail = false, onStatus }: { rail?: boolean; onStat
                   event.preventDefault();
                   void run(async () => {
                     await demoSignIn(email.trim(), password);
+                    clearCaches();
                     window.location.reload();
                   });
                 }}>
@@ -226,6 +229,7 @@ export function AccountMenu({ rail = false, onStatus }: { rail?: boolean; onStat
             {me.signed_in && (
               <button type="button" disabled={busy} onClick={() => void run(async () => {
                 await logout();
+                clearCaches();
                 window.location.reload();
               })}>{copy.authLogout}</button>
             )}

@@ -35,11 +35,7 @@
 }
 
 .block {
-  display: block;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(90deg, var(--hairline), var(--agent), var(--hairline));
-  background-size: 200% 100%;
-  animation: shimmer 1.6s ease-in-out infinite;
+  composes: block from "../Skeleton.module.css";
 }
 
 .label {
@@ -105,20 +101,7 @@
   border-radius: var(--radius-lg);
 }
 
-@keyframes shimmer {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: -100% 0;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .block {
-    animation: none;
-  }
-
   .wrap {
     animation: fadeIn 0.15s ease-out;
   }
@@ -133,4 +116,93 @@
 .previewTitle {
   margin: 0;
   font: 700 24px/1.3 var(--font-display), var(--font-sans);
+}
+
+/* Review: the segmented bar over lessons of a note card and a mistake card, in the real tab's sizes. */
+.bar {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.seg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  box-sizing: border-box;
+  min-height: 52px;
+  padding: 6px 4px;
+  border-bottom: 2px solid transparent;
+}
+
+.seg[data-active] {
+  border-bottom-color: var(--control-border);
+}
+
+.segLabel {
+  width: 64px;
+  height: 14px;
+}
+
+.segCount {
+  width: 28px;
+  height: 12px;
+}
+
+.sectionLabel {
+  width: 64px;
+  height: 12px;
+}
+
+.lesson {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lessonName {
+  width: 48%;
+  height: 24px;
+}
+
+.noteCard,
+.mistakeCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+}
+
+.noteCard {
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+}
+
+.mistakeCard {
+  background: var(--review-bg);
+  border: 1px solid var(--review-border);
+}
+
+.mistakeLabel {
+  width: 130px;
+  height: 16px;
+}
+
+.button {
+  width: 180px;
+  height: 44px;
+  border-radius: var(--radius-md);
+}
+
+/* The review tab's bar sits right under the header, as the real one does. */
+.wrap[data-variant="review"] {
+  padding-top: 0;
+}
+
+.wrap[data-variant="review"] .stack {
+  margin-top: 0;
 }

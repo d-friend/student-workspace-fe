@@ -11,12 +11,22 @@ import { useProjects } from "@/hooks/useProjects";
 import { useReviewCounts } from "@/hooks/useReviewCounts";
 import { ApiError, deleteSession, listSessions, resumeSession, type ProjectSummary, type SessionList as SessionPage, type SessionSummary } from "@/lib/api";
 import { copy } from "@/lib/copy";
+import { readCache, writeCache } from "@/lib/sideCache";
 import { track } from "@/lib/track";
+import { Bone, Loading } from "@/components/Skeleton";
 import { AccountMenu, type AccountStatus } from "./AccountMenu";
 import { ProjectList } from "./ProjectList";
 import { SessionList } from "./SessionList";
 import type { useSidebar } from "./useSidebar";
 import styles from "./Sidebar.module.css";
+
+// The history before its first page is there: a group heading and a few session rows.
+function HistorySkeleton() {
+  return <section>
+    <h2 className={styles.group}><Bone w={64} h={12} /></h2>
+    {["78%", "62%", "70%", "54%"].map((w, i) => <div key={i} className={styles.skeletonRow}><Bone w={w} h={14} /></div>)}
+  </section>;
+}
 
 // Once for this page load, even if the sidebar remounts.
 let historyLoaded = false;
@@ -25,7 +35,7 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
   side: ReturnType<typeof useSidebar>;
   onNewProblem: () => void;
   refreshKey: string;
-  onOpenSession?: (id: string) => void;
+  onOpenSession?: (id: string) => void | Promise<boolean>; // false: it failed, nothing navigates
   progress?: { active?: boolean } | null;
   busy?: boolean; // Keep deletion blocked while a turn is streaming.
   menuTarget?: HTMLElement | null;
@@ -40,6 +50,7 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
   const [page, setPage] = useState<SessionPage>(() => ({ sessions: preload?.sessions ?? [], next_before: null }));
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [opening, setOpening] = useState<string | null>(null); // the session whose resume is in flight; the page reloads when it lands
   const [deleteError, setDeleteError] = useState<"historyDeleteFailed" | "historyDeleteBusy" | null>(null);
   const deletePending = useRef(false);
   const [account, setAccount] = useState<AccountStatus>({ signedIn: false, enabled: false });
@@ -55,6 +66,14 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
   const counted = useReviewCounts(visible && !preload, `${refreshKey}|${reviewTick}`);
   const due = preload?.due ?? counted;
   const projectNames = useMemo(() => new Map(projects.map(project => [project.id, project.name])), [projects]);
+
+  // After a hard reload the last history shows until the fresh page lands. Read after mount, so the server and first client render agree.
+  useEffect(() => {
+    if (preload) return;
+    const cached = readCache<SessionPage>("history");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (cached) setPage(current => current.sessions.length ? current : cached);
+  }, [preload]);
 
   useEffect(() => {
     const revealAccount = (event: Event) => {
@@ -78,6 +97,7 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
     listSessions().catch((): SessionPage => ({ sessions: [], next_before: null })).then(result => {
       if (!active || request.current !== id) return;
       setPage(result);
+      writeCache("history", result);
       setLoading(false);
       pending.current = false;
       if (!desktop) phoneTracked.current = true;
@@ -120,15 +140,20 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
   }, [desktop, side.drawerOpen, closeDrawer]);
 
   // Opening a past session resumes it, then a reload runs the app's normal restore. A failed resume leaves things as they were.
-  const open = (id: string) => {
+  // Returns true when it started opening: on a phone the drawer then stays open (the row shows progress) until the page navigates.
+  const open = (id: string): boolean => {
     const session = page.sessions.find(row => row.id === id);
-    if (!session || (session.current && !away)) return;
+    if (!session || (session.current && !away)) return false;
     const createdAt = Date.parse(session.created_at);
     // Measure age from creation, so resuming does not make an old session look new.
     const ageDays = Number.isFinite(createdAt) ? Math.max(0, Math.floor((Date.now() - createdAt) / 86_400_000)) : 0;
     track("history_session_viewed", { tabs: session.tabs.length, age_days: ageDays }, id);
-    if (onOpenSession) return onOpenSession(id);
-    resumeSession(id).then(() => window.location.reload(), () => {});
+    if (opening) return true;
+    setOpening(id);
+    // Success navigates away, so the row stays marked until the page unloads; only a failure clears it.
+    const done = onOpenSession ? Promise.resolve(onOpenSession(id)) : resumeSession(id).then(() => window.location.reload(), () => false);
+    void done.then(ok => { if (ok === false) { setOpening(null); if (!desktop) closeDrawer(); } });
+    return true;
   };
 
   const remove = async (id: string) => {
@@ -193,11 +218,13 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
             track("project_opened", { project_id: project.id, via: "sidebar" });
             if (!desktop) closeDrawer();
           }} due={due} onReview={() => { if (!desktop) closeDrawer(); }} />
-          <SessionList sessions={page.sessions} projectNames={projectNames} disabled={deleting || loading} deleteDisabled={busy || deleting || loading} onDelete={id => void remove(id)} onChoose={id => {
-            // On /progress even the current session needs a navigation back to its workspace.
-            if (away || !page.sessions.find(row => row.id === id)?.current) open(id);
-            if (!desktop) closeDrawer();
-          }} />
+          <Loading busy={loading && !page.sessions.length} label={copy.loadingHistory} skeleton={<HistorySkeleton />}>
+            <SessionList sessions={page.sessions} projectNames={projectNames} openingId={opening} disabled={deleting || loading || opening !== null} deleteDisabled={busy || deleting || loading} onDelete={id => void remove(id)} onChoose={id => {
+              // On /progress even the current session needs a navigation back to its workspace.
+              const started = (away || !page.sessions.find(row => row.id === id)?.current) && open(id);
+              if (!started && !desktop) closeDrawer();
+            }} />
+          </Loading>
           {deleteError && <p className={styles.deleteError} role="alert">{copy[deleteError]}</p>}
           {!loading && !page.sessions.length && <p className={styles.empty}>{copy.historyEmpty}</p>}
           {page.next_before && <button type="button" className={styles.more} disabled={loading || deleting} onClick={() => void more()}>{copy.historyMore}</button>}

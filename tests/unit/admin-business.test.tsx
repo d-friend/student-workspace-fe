@@ -34,7 +34,7 @@ test("shows windowed people activity and links with no opens", () => {
   };
   const data: Business = {
     scorecard, scorecard_previous: { ...scorecard, active: 12, messages: 10 }, frequency: [], cohorts: [],
-    comebacks: { returning: 3, active: 15, doors: [{ door: "starter_surprise", return_days: 4, persons: 2 }, { door: "other", return_days: 1, persons: 1 }] },
+    comebacks: { returning: 3, active: 15, doors: [{ door: "starter_surprise", return_days: 4, persons: 2 }, { door: "opened_only", return_days: 1, persons: 1 }] },
     weekly: Array.from({ length: 12 }, (_, index) => ({ week: `2026-W${String(index + 1).padStart(2, "0")}`, start: `2026-01-${String(index + 1).padStart(2, "0")}`, partial: index === 11, active: index === 11 ? 5 : 8, new: 2, returning: 3, messages: 12, workspaces: 3 })),
     people: [{
       person_id: "person", guest_id: "guest", label: "Student", school: null, grade: null,
@@ -74,6 +74,7 @@ test("shows windowed people activity and links with no opens", () => {
   expect(within(comebacks).getByText("3 / 15 (—)")).toBeTruthy();
   expect(within(within(comebacks).getByRole("row", { name: /starter surprise/ })).getAllByRole("cell").map(cell => cell.textContent)).toEqual(["starter surprise", "4", "2"]);
   expect(within(comebacks).getByText(/The door is the first thing they did that day/)).toBeTruthy();
+  expect(within(comebacks).getByText("opened only")).toBeTruthy();
   const featuresSection = screen.getByRole("heading", { name: "Features", level: 2 }).closest("section")!;
   expect(within(featuresSection).getByText("Opened the same subject on 2+ days").nextElementSibling!.textContent).toBe("2 / 4 (—)");
   expect(within(featuresSection).getByText("Master replies with an observation").nextElementSibling!.textContent).toBe("5 / 20 (—)");

@@ -143,3 +143,25 @@ for (const { w, h } of SIZES) {
     });
   }
 }
+
+test.describe("keyboard", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("focus runs segmented bar → notes → quiz options → practice buttons", async ({ page }) => {
+    await open(page, "light");
+    await composer(page).fill("__review");
+    await composer(page).press("Enter");
+    const start = page.getByRole("button", { name: copy.reviewStartTest });
+    await expect(start).toBeVisible({ timeout: 30_000 });
+    await page.getByRole("navigation", { name: copy.reviewSegments }).getByRole("button").first().focus();
+    const seen: string[] = [];
+    for (let i = 0; i < 40; i++) {
+      seen.push(await page.evaluate(() => { const e = document.activeElement as HTMLElement; return `${e.getAttribute("role") ?? e.tagName.toLowerCase()}:${(e.getAttribute("aria-label") ?? e.innerText ?? "").replace(/\s+/g, " ").trim().slice(0, 40)}`; }));
+      await page.keyboard.press("Tab");
+    }
+    const at = (needle: RegExp) => seen.findIndex(s => needle.test(s));
+    const order = [/Ghi nhớ/, /Tự kiểm tra/, /Luyện đề/, new RegExp(copy.reviewStartTest), /radio:Bán kính/, /input:|textbox/, new RegExp(copy.reviewPractice)].map(at);
+    expect(order.every(i => i >= 0), seen.join("\n")).toBe(true);
+    expect(order, seen.join("\n")).toEqual([...order].sort((a, b) => a - b));
+  });
+});

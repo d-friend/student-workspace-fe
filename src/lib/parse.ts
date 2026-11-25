@@ -64,9 +64,11 @@ function hidePartial(chat: string): string {
   return chat.replace(TRAILING_PARTIAL_OPTS, "");
 }
 
+const MAX_OPTS = 4; // three everywhere, four in the review intake (when? and which part?)
+
 function parseOpts(list: string): string[] | null {
   const parts = list.split("|").map((x) => x.trim()).filter((x) => x && x.length <= 60);
-  return parts.length ? parts.slice(0, 3) : null;
+  return parts.length ? parts.slice(0, MAX_OPTS) : null;
 }
 
 export function parse(raw: string): Parsed {

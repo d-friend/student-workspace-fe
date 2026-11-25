@@ -24,5 +24,5 @@ export function examWhen(iso: string, now = new Date()): string | null {
 }
 
 // The URL home reads to start a review session: the message is sent as the student's first one, `via` becomes started_via, `project` files it.
-export const reviewUrl = (message: string, via: "review" | "review_chip", projectId: string): string =>
-  `/?${new URLSearchParams({ q: message, via, project: projectId })}`;
+export const reviewUrl = (message: string, via: "review" | "review_chip", projectId?: string): string =>
+  `/?${new URLSearchParams({ q: message, via, ...(projectId && { project: projectId }) })}`;

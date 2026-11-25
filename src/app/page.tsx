@@ -17,6 +17,7 @@ import { WorkspaceFrame } from "@/components/work/WorkspaceFrame";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useProgress } from "@/hooks/useProgress";
+import { useLeaveSession } from "@/hooks/useLeaveSession";
 import { useReviewDue } from "@/hooks/useReviewDue";
 import type { Pack } from "@/lib/api";
 import { copy } from "@/lib/copy";
@@ -44,6 +45,7 @@ function Home() {
   const closePackSheet = useCallback(() => setPackSheet(null), []);
   const progress = useProgress();
   const reviewDue = useReviewDue();
+  const leave = useLeaveSession();
   const cards = useMemo(() => progressCards(progress.items), [progress.items]);
   const progressTracked = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -258,6 +260,7 @@ function Home() {
           brokenTabs={ws.brokenTabs}
           onRebuild={ws.rebuildTab}
           busy={ws.busy}
+          onLeave={(url) => void leave.leave(url, false)}
           onSelectionAsk={showWorkspace && !showBuild && !side.drawerOpen ? (selection) => {
             setQuote(selection);
             ws.setInput(copy.selectionQuestion);
@@ -275,7 +278,8 @@ function Home() {
     onCorrectRestate: ws.correctRestate,
     onAcceptOffer: () => void ws.answerOffer(true),
     onOfferLater: () => void ws.answerOffer(false),
-    onOpt: (text: string) => void ws.answerOpt(text),
+    // "Chụp đề cương" is a request for the photo, not an answer to send: it opens the picker the student would use anyway.
+    onOpt: (text: string) => text === copy.reviewPhotoChip ? fileInput.current?.click() : void ws.answerOpt(text),
   };
   const workspaceTitle = showBuild
     ? ws.preview?.title ?? (buildingCard?.kind === "workspace" ? buildingCard.title : null) ?? ws.status ?? copy.building

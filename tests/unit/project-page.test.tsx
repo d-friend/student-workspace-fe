@@ -372,7 +372,7 @@ test("review: the project button starts a review session in the subject, with th
 test("review: with nothing due the button has no count line, and the sidebar badge goes to the project page", async () => {
   render(<ProjectPage />);
   const button = await screen.findByRole("button", { name: new RegExp(copy.reviewProjectButton) });
-  expect(button.textContent).toBe(copy.reviewProjectButton);
+  expect(button.textContent).toBe(copy.reviewProjectButton + copy.reviewProjectGo);
   cleanup();
   vi.mocked(api.getReviewCount).mockResolvedValue([{ project_id: MATH, due: 2, exam_tomorrow: false }]);
   render(<ProjectPage />);

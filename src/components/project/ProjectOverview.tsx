@@ -93,7 +93,7 @@ export function ProjectOverview({ project, sessions, onOpenSession, openFailed, 
       </div>
       {(nodes > 0 || sessions.sessions.length > 0) && <div className={styles.sideItem}>
         <button type="button" className={styles.sideMain} onClick={onReview}>
-          <span><b>{copy.reviewProjectButton}</b>{reviewDue > 0 && <i>{copy.reviewProjectDue(reviewDue)}</i>}</span>
+          <span><b>{copy.reviewProjectButton}</b>{reviewDue > 0 && <i>{copy.reviewProjectDue(reviewDue)}</i>}</span><span className={styles.sideLink} aria-hidden="true">{copy.reviewProjectGo}</span>
         </button>
         {reviewFailed && <p className={styles.error} role="alert">{copy.projectNewFailed}</p>}
       </div>}

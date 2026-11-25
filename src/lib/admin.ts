@@ -31,6 +31,8 @@ export type Cost = {
 };
 export type Latency = {
   master_first_text_ms: Pct;
+  master_visible_first_ms: Pct;
+  master_first_by_day: { day: string; first_text: (number | null)[]; visible: (number | null)[]; n: number }[];
   master_total_ms: Pct;
   planner_total_ms: Pct;
   simulator_total_ms: Pct;
@@ -232,8 +234,18 @@ export type BusinessLink = {
   did_something: number; came_back: number; started_own: number;
 };
 
+export type Comebacks = { returning: number; active: number; doors: { door: string; return_days: number; persons: number }[] };
+type Split<K extends string> = ({ [P in K]: string } & { count: number; persons: number })[];
+export type FeaturePanel = {
+  subjects: { opened: number; tabs: Split<"tab">; reused: number };
+  notes: { uploaded: number; extracted: number; merged: number; failed: number; retries: Split<"stage">; reused: number };
+  review: { started: number; by_via: Split<"via">; built: number; finished: number; answered: number; reused_v1: number; home_chip: number; home_chip_with_exam: number };
+  home: { empty_state: number; doors: { door: string; sessions: number; persons: number }[]; old_session: number };
+  learner: { replies: number; observed: number; persons_with_signals: number; persons_ready: number; transitions: { from: string; to: string; why: string; count: number; persons: number }[] };
+};
+
 export type Business = {
-  scorecard: Scorecard; scorecard_previous: Scorecard;
+  scorecard: Scorecard; scorecard_previous: Scorecard; comebacks: Comebacks;
   weekly: { week: string; start: string; partial: boolean; active: number; new: number; returning: number; messages: number; workspaces: number }[];
   frequency: { bucket: "1" | "2" | "3-5" | "6+"; persons: number }[];
   cohorts: { week: string; n: number; weeks: (number | null)[] }[];

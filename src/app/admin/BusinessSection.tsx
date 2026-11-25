@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import type { Business } from "@/lib/admin";
 import { Empty, Failure, Metric, Section, money, percent, useAdmin, when } from "./sections";
 import { LineChart } from "./LineChart";
+import { FeaturesPanel } from "./FeaturesPanel";
 import styles from "./admin.module.css";
 
 const sign = (value: number) => value > 0 ? "+" : value < 0 ? "−" : "";
@@ -71,6 +72,12 @@ export function BusinessSection({ token, days, onGuestOpen, children }: { token:
         <Metric label="$ per active person" value={money(current.usd_per_active)} detail={changeMoney(current.usd_per_active, previous.usd_per_active)} />
       </div>
     </>}</Section>
+    <Section title="Comebacks">{!data ? state : <>
+      <div className={styles.metrics}><Metric label="Returning people" value={countPercent(data.comebacks.returning, data.comebacks.active)} detail="returning / active in the range" /></div>
+      {data.comebacks.doors.length ? <div className={`${styles.tableWrap} ${styles.narrow}`}><table><thead><tr><th>Door</th><th>Return days</th><th>People</th></tr></thead><tbody>{data.comebacks.doors.map(row => <tr key={row.door}><td>{row.door.replaceAll("_", " ")}</td><td>{row.return_days}</td><td>{row.persons}</td></tr>)}</tbody></table></div> : <Empty />}
+      <p className={styles.note}>A return day is any day after a person&apos;s first. The door is the first thing they did that day. “Opened only” means they opened the app but didn&apos;t start or reopen anything. Read it for which door brings people back; people can appear under more than one door.</p>
+    </>}</Section>
+    <FeaturesPanel token={token} days={days} />
     <Section title="How often people come back">{!data ? state : !data.frequency.some(row => row.persons) ? <Empty /> : <div className={styles.bars}>{data.frequency.map(row => <div className={styles.barRow} key={row.bucket}><span>{row.bucket === "3-5" ? "3–5" : row.bucket}</span><div><i style={{ width: `${row.persons / Math.max(1, ...data.frequency.map(item => item.persons)) * 100}%` }} /></div><b>{row.persons}</b></div>)}</div>}</Section>
     <Section title="Weekly cohorts">{!data ? state : data.cohorts.length ? <div className={styles.tableWrap}><table><thead><tr><th>Week</th><th>n</th><th>+1</th><th>+2</th><th>+3</th><th>+4 weeks</th></tr></thead><tbody>{data.cohorts.map(row => <tr key={row.week}><td>{row.week}</td><td>{row.n}</td>{[0, 1, 2, 3].map(index => <td key={index}>{row.weeks[index] ?? "—"}</td>)}</tr>)}</tbody></table></div> : <Empty />}<p className={styles.note}>All time; ignores the date range.</p></Section>
     <Section title="People">

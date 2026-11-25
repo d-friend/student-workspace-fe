@@ -53,7 +53,7 @@ test("shows windowed people activity and links with no opens", () => {
     subjects: { opened: 4, tabs: [{ tab: "map", count: 5, persons: 3 }], reused: 2 },
     notes: { uploaded: 2, extracted: 2, merged: 1, failed: 1, retries: [{ stage: "merge", count: 1, persons: 1 }], reused: 1 },
     review: { started: 5, by_via: [{ via: "home_chip", count: 3, persons: 3 }], built: 4, finished: 2, answered: 3, reused_v1: 1, home_chip: 3, home_chip_with_exam: 2 },
-    home: { empty_state: 10, doors: [{ door: "starter_surprise", sessions: 4, persons: 3 }], old_session: 2 },
+    home: { empty_state: 10, doors: [{ door: "starter_surprise", sessions: 4, persons: 3 }], old_session: { picked: 5, from_home_card: 2, from_history_list: 2, unsplit: 1 } },
     learner: { replies: 20, observed: 5, persons_with_signals: 6, persons_ready: 2, transitions: [{ from: "intermediate", to: "advanced", why: "evidence", count: 1, persons: 1 }] },
   };
   const serve = (business: Business) => vi.mocked(useAdmin).mockImplementation(((path: string) => ({ data: path === "/business/features" ? panel : business, error: false })) as typeof useAdmin);
@@ -75,6 +75,10 @@ test("shows windowed people activity and links with no opens", () => {
   expect(within(within(comebacks).getByRole("row", { name: /starter surprise/ })).getAllByRole("cell").map(cell => cell.textContent)).toEqual(["starter surprise", "4", "2"]);
   expect(within(comebacks).getByText(/The door is the first thing they did that day/)).toBeTruthy();
   expect(within(comebacks).getByText("opened only")).toBeTruthy();
+  const featuresSection0 = screen.getByRole("heading", { name: "Features", level: 2 }).closest("section")!;
+  expect(within(featuresSection0).getByText("Picked up an old session from the home card").nextElementSibling!.textContent).toBe("2");
+  expect(within(featuresSection0).getByText("…from the history list").nextElementSibling!.textContent).toBe("2");
+  expect(within(featuresSection0).getByText(/can't be told apart/)).toBeTruthy();
   const featuresSection = screen.getByRole("heading", { name: "Features", level: 2 }).closest("section")!;
   expect(within(featuresSection).getByText("Opened the same subject on 2+ days").nextElementSibling!.textContent).toBe("2 / 4 (—)");
   expect(within(featuresSection).getByText("Master replies with an observation").nextElementSibling!.textContent).toBe("5 / 20 (—)");

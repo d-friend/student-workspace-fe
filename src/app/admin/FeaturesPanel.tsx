@@ -34,8 +34,9 @@ export function FeaturesPanel({ token, days }: { token: string; days: number }) 
       <Feature title="Review" steps={[["Started", review.started], ...review.by_via.map((row): Step => [`via ${label(row.via)}`, row.persons, review.started]), ["Built", review.built, review.started], ["Finished", review.finished, review.built], ["Answered a card", review.answered]]}
         reuse={["Answered a card on a later day than it was made", review.reused_v1, review.answered]}
         note={`Home chip starts with a test date: ${countPercent(review.home_chip_with_exam, review.home_chip)}`} />
-      <Feature title="Home" steps={[["Saw the empty home", home.empty_state], ...home.doors.map((row): Step => [`${label(row.door)} (${row.sessions} sessions)`, row.persons, home.empty_state]), ["Picked up an old session", home.old_session]]}
-        note="Picked-up sessions mix the home card and the history list." />
+      <Feature title="Home" steps={[["Saw the empty home", home.empty_state], ...home.doors.map((row): Step => [`${label(row.door)} (${row.sessions} sessions)`, row.persons, home.empty_state]), ["Picked up an old session from the home card", home.old_session.from_home_card], ["…from the history list", home.old_session.from_history_list],
+        ...(home.old_session.unsplit ? [["…on days before the split, either", home.old_session.unsplit] as Step] : [])]}
+        note={home.old_session.unsplit ? "Before the home card tap was recorded, the two doors can't be told apart." : undefined} />
       <Feature title="Learner signals" steps={[["Master replies with an observation", learner.observed, learner.replies], ["People with signals", learner.persons_with_signals], ["…with a ready tier", learner.persons_ready, learner.persons_with_signals],
         ...learner.transitions.map((row): Step => [`${row.from} → ${row.to} (${row.why})`, row.persons])]} />
     </div>

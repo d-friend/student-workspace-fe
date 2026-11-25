@@ -203,3 +203,25 @@ test("the fourth card starts a review", () => {
   fireEvent.click(screen.getByRole("button", { name: new RegExp(copy.reviewHomeMain) }));
   expect(onReview).toHaveBeenCalledTimes(1);
 });
+
+test("each home card tap sends home_card_tapped with its card and nothing else", async () => {
+  const sent = vi.spyOn(await import("@/lib/track"), "track").mockImplementation(() => {});
+  const onReview = vi.fn(), onOpen = vi.fn();
+  const s = setup({ progress: { item: progressItem, onOpen }, onReview, onPackUploaded: vi.fn() });
+  render(s.ui);
+  fireEvent.click(within(screen.getByRole("region", { name: copy.entryNext })).getByRole("button"));
+  fireEvent.click(within(screen.getByRole("region", { name: copy.reviewHomeLabel })).getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: new RegExp(copy.homeUploadHint) }));
+  fireEvent.click(await screen.findByTitle(surprise.teaser));
+  expect(sent.mock.calls).toEqual([
+    ["home_card_tapped", { card: "next_step" }], ["home_card_tapped", { card: "review" }],
+    ["home_card_tapped", { card: "upload_notes" }], ["home_card_tapped", { card: "surprise" }],
+  ]);
+  cleanup();
+  sent.mockClear();
+  const plain = setup();
+  render(plain.ui);
+  fireEvent.click(screen.getByText(copy.starter1));
+  expect(sent.mock.calls).toEqual([["home_card_tapped", { card: "starter" }]]);
+  sent.mockRestore();
+});

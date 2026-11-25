@@ -6,10 +6,14 @@ import { copy } from "@/lib/copy";
 import { PackUpload } from "@/components/pack/PackUpload";
 import { getSurpriseCard, type Pack, type ProgressItem, type SurpriseCard } from "@/lib/api";
 import { progressDateLabel } from "@/lib/progress";
+import { track, type TrackEvents } from "@/lib/track";
 import { MdInline } from "@/workspace/md";
 import styles from "./EmptyThread.module.css";
 
 type Starter = "derivative" | "geometry";
+
+// One event per tap on a home card, so a way back in from the card is not mistaken for the history list.
+const tap = (card: TrackEvents["home_card_tapped"]["card"]) => track("home_card_tapped", { card });
 
 export type EmptyThreadProps = {
   onStarter: (starter: Starter) => void | Promise<void>;
@@ -37,7 +41,7 @@ export function EmptyThread({ onStarter, onSurprise, progress, onPackUploaded, r
         {progress ? <NextStep {...progress} /> : <Sample onOpen={() => onStarter("derivative")} />}
         <Surprise onOpen={onSurprise} />
         {onPackUploaded && <PackUpload onUploaded={onPackUploaded} card={{
-          className: styles.tile, cellClassName: styles.cell,
+          onTap: () => tap("upload_notes"), className: styles.tile, cellClassName: styles.cell,
           children: busy => <>
             <span className={styles.label}>{copy.packUpload}</span>
             <span className={styles.main}>
@@ -49,7 +53,7 @@ export function EmptyThread({ onStarter, onSurprise, progress, onPackUploaded, r
         }} />}
         {onReview && <section className={styles.tile} aria-label={copy.reviewHomeLabel}>
           <div className={styles.head}><h2>{copy.reviewHomeLabel}</h2></div>
-          <button type="button" className={styles.main} onClick={onReview}>
+          <button type="button" className={styles.main} onClick={() => { tap("review"); onReview(); }}>
             <IconCalendarEvent size={24} aria-hidden="true" className={styles.lead} />
             <span className={styles.text}><span className={styles.name}>{copy.reviewHomeMain}</span></span>
             <IconArrowRight size={20} aria-hidden="true" className={styles.arrow} />
@@ -74,7 +78,7 @@ function usePending<A extends unknown[]>(act: (...args: A) => void | Promise<voi
 const arrow = (pending: boolean) => pending ? <span className={styles.arrow}><Spin /></span> : <IconArrowRight size={20} aria-hidden="true" className={styles.arrow} />;
 
 function Sample({ onOpen }: { onOpen: () => void | Promise<void> }) {
-  const [pending, open] = usePending(onOpen);
+  const [pending, open] = usePending(async () => { tap("starter"); await onOpen(); });
   return <section className={styles.tile} aria-label={copy.samplesLabel} aria-busy={pending || undefined}>
     <div className={styles.head}><h2>{copy.samplesLabel}</h2></div>
     <button type="button" className={styles.main} aria-disabled={pending || undefined} onClick={() => void open()}>
@@ -98,7 +102,7 @@ function NextStep({ item, onOpen }: { item: ProgressItem; onOpen: () => void }) 
       <h2>{copy.entryNext}</h2>
       <Link className={styles.corner} href="/progress">{copy.progressSeeAll}</Link>
     </div>
-    <button type="button" className={styles.main} onClick={onOpen}>
+    <button type="button" className={styles.main} onClick={() => { tap("next_step"); onOpen(); }}>
       <span className={styles.text}>
         <span className={styles.nextMain}>
           {!next && !continuing && <IconCheck size={18} className={styles.done} aria-hidden="true" />}
@@ -115,7 +119,7 @@ function NextStep({ item, onOpen }: { item: ProgressItem; onOpen: () => void }) 
 }
 
 function Surprise({ onOpen }: { onOpen: (id?: string) => void | Promise<void> }) {
-  const [opening, open] = usePending(onOpen);
+  const [opening, open] = usePending(async (...args: [id?: string]) => { tap("surprise"); await onOpen(...args); });
   const [state, setState] = useState<{ card: SurpriseCard | null; loading: boolean }>({ card: null, loading: true });
   const request = useRef<Promise<SurpriseCard> | null>(null);
   const inFlight = useRef(false);

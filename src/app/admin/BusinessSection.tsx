@@ -52,7 +52,7 @@ export function BusinessSection({ token, days, onGuestOpen, children }: { token:
 
   return <>
     <Section title="Weekly traction">{!data ? state : !weekly?.some(week => week.active > 0) ? <Empty /> : <>
-      <LineChart labels={weekly.map(week => week.start)} label="Weekly active, new and returning people" series={[
+      <LineChart labels={weekly.map(week => week.start)} label="Weekly active, new and returning people" partialLast={weekly[weekly.length - 1].partial} series={[
         { label: "Active", color: "var(--c-1)", values: weekly.map(week => week.active) },
         { label: "New", color: "var(--c-2)", values: weekly.map(week => week.new) },
         { label: "Returning", color: "var(--c-3)", dash: "5 4", values: weekly.map(week => week.returning) },

@@ -240,7 +240,7 @@ export type FeaturePanel = {
   subjects: { opened: number; tabs: Split<"tab">; reused: number };
   notes: { uploaded: number; extracted: number; merged: number; failed: number; retries: Split<"stage">; reused: number };
   review: { started: number; by_via: Split<"via">; built: number; finished: number; answered: number; reused_v1: number; home_chip: number; home_chip_with_exam: number };
-  home: { empty_state: number; doors: { door: string; sessions: number; persons: number }[]; old_session: number };
+  home: { empty_state: number; doors: { door: string; sessions: number; persons: number }[]; old_session: { picked: number; from_home_card: number; from_history_list: number; unsplit: number } };
   learner: { replies: number; observed: number; persons_with_signals: number; persons_ready: number; transitions: { from: string; to: string; why: string; count: number; persons: number }[] };
 };
 

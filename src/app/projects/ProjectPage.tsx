@@ -10,13 +10,13 @@ import { Sidebar } from "@/components/sidebar/Sidebar";
 import { useSidebar } from "@/components/sidebar/useSidebar";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useLeaveSession } from "@/hooks/useLeaveSession";
-import { useProject, useReader, useReview } from "@/hooks/useProject";
+import { useProject, useReader, useReviewDue } from "@/hooks/useProject";
 import { useProjectSessions } from "@/hooks/useProjectSessions";
-import { type Pack, type ReviewCard, resumeSession } from "@/lib/api";
+import { type Pack, resumeSession } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { discardHandoffPhotos, stashHandoffPhotos } from "@/lib/photo";
 import { screenOf, trackedTab, type ProjectScreen } from "@/lib/projectMap";
-import { similarProblemUrl } from "@/lib/review";
+import { reviewUrl } from "@/lib/review";
 import { track } from "@/lib/track";
 import styles from "@/components/project/Project.module.css";
 
@@ -36,14 +36,10 @@ function ProjectContent({ id }: { id: string }) {
   const [sheet, setSheet] = useState<Pack | null>(null); // the upload status sheet
   const sessions = useProjectSessions(id, true);
   const reader = useReader(id, readerWanted);
-  const review = useReview(id);
-  const viaParam = query.get("via"); // the home chip and the sidebar badge link to ?tab=review with ?via=; the row has none
-  const [reviewTick, setReviewTick] = useState(0); // bumped on a review answer: the sidebar badges recount
-  const bumpReview = useCallback(() => setReviewTick(t => t + 1), []);
-  const reviewTracked = useRef(false);
-  const [reviewStartFailed, setReviewStartFailed] = useState(false);
+  const due = useReviewDue(id);
   const fresh = useLeaveSession();
   const learn = useLeaveSession();
+  const review = useLeaveSession();
   const side = useSidebar();
   const desktop = useDesktop();
   const tracked = useRef<ProjectScreen | null>(null);
@@ -52,20 +48,8 @@ function ProjectContent({ id }: { id: string }) {
   useEffect(() => {
     if (!project || tracked.current === screen) return;
     tracked.current = screen;
-    if (screen !== "review") track("project_tab_viewed", { project_id: id, tab: trackedTab(screen) });
+    track("project_tab_viewed", { project_id: id, tab: trackedTab(screen) });
   }, [project, screen, id]);
-
-  // One review_opened per visit to the review screen, once its cards are known. Leaving it reloads the cards, so the overview row counts what is still due.
-  const { reload: reloadReview } = review;
-  useEffect(() => {
-    if (screen !== "review") {
-      if (reviewTracked.current) { reviewTracked.current = false; reloadReview(); }
-      return;
-    }
-    if (reviewTracked.current || !review.data) return;
-    reviewTracked.current = true;
-    track("review_opened", { project_id: id, due: review.data.cards.length, via: viaParam === "home_chip" || viaParam === "sidebar" ? viaParam : "project_row" });
-  }, [screen, review.data, id, reloadReview, viaParam]);
 
   // A new screen starts at its top, whatever the one before was scrolled to.
   useEffect(() => { document.querySelector("main")?.scrollTo?.(0, 0); }, [screen]);
@@ -73,7 +57,7 @@ function ProjectContent({ id }: { id: string }) {
   // Opening the map or the notes pushes a history entry, so the phone's back gesture and the browser's back button return to the overview.
   // `subjectDepth` counts the entries pushed since the first one; "← subject" goes back that many, so it lands on the overview even after map > Xem nguồn.
   // `subjectDeep` marks a first entry that was itself the map or the notes (a link, a reload): there is no overview behind it to go back to.
-  const push = useCallback((next: "map" | "sources" | "review", blockId?: string) => {
+  const push = useCallback((next: "map" | "sources", blockId?: string) => {
     const url = new URL(window.location.href);
     url.searchParams.set("tab", next);
     url.searchParams.delete("via"); // it described how this entry was reached, not the next one
@@ -118,25 +102,22 @@ function ProjectContent({ id }: { id: string }) {
     return navigating;
   }, [id, fresh]);
 
-  // A problem card: the Học thêm path, with the card id so the new session is linked to it.
-  const startProblem = useCallback(async (card: ReviewCard) => {
-    setReviewStartFailed(false);
-    const navigating = await fresh.leave(similarProblemUrl(id, card), false);
-    if (!navigating) setReviewStartFailed(true);
-    return navigating;
-  }, [id, fresh]);
+  // "Ôn tập môn này": a new session in the subject whose first message asks for a review (the same handoff as Học thêm).
+  const startReview = useCallback(() => {
+    if (project) void review.leave(reviewUrl(copy.reviewProjectMessage(project.name), "review", id), false);
+  }, [id, project, review]);
 
   const view = project ? <ProjectView project={project} screen={screen} onOpen={push} onBack={back}
     sessions={sessions} onOpenSession={openSession} openFailed={openFailed} onSend={send} sendError={sendError}
     reader={{ pages: reader.data, failed: reader.error !== null }} block={block}
     onLearnMore={text => void learn.leave(`/?${new URLSearchParams({ q: text, via: "pack_learn_more", project: id })}`, false)} learnFailed={learn.failed} onViewSource={viewSource} onUploaded={setSheet}
-    review={{ cards: review.data?.cards ?? null, failed: review.error !== null }} onStartProblem={startProblem} reviewStartFailed={reviewStartFailed} onReviewProgress={bumpReview} />
+    reviewDue={due.data ?? 0} onReview={startReview} reviewFailed={review.failed} />
     : <div className={styles.page}>{error && <p className={styles.error} role="alert">{error === "missing" ? copy.projectNotFound : copy.projectLoadFailed}</p>}</div>;
 
   return <>
     <Shell work={view} layer={null} floatingPanels showCornerActions={!desktop} inert={side.drawerOpen && !desktop}
     sidebar={<Sidebar side={side} progress={{ active: false }} awayFromHome activeProjectId={id} refreshKey={`project-${id}`}
-      onNewProblem={() => void fresh.leave("/", true)} onOpenSession={openSession} reviewTick={reviewTick} />}
+      onNewProblem={() => void fresh.leave("/", true)} onOpenSession={openSession} />}
     side={desktop ? side.mode : undefined} />
     {sheet && <PackSheet initial={sheet} onClose={closeSheet} onSettled={settled} inProject />}
   </>;

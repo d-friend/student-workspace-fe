@@ -53,7 +53,7 @@
 }
 .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* Three cards, one size and style. Label on top, content, an arrow: the whole card is the action. */
+/* Four cards, one size and style. Label on top, content, an arrow: the whole card is the action. */
 .tiles {
   margin-top: 18px;
   display: grid;
@@ -116,17 +116,19 @@ button.main { cursor: pointer; }
 .nextMain .name { -webkit-line-clamp: 1; } /* keeps the cards one height when a next step is long */
 @media (max-width: 639px) { .sub { font-size: 15px; } .tile:hover { transform: none; } }
 
-/* Room for two: the third card takes the second row. */
+/* Room for two: two by two (a lone last card takes the whole row). */
 @container (min-width: 420px) {
   .tiles { margin-top: 24px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  .tiles > :nth-child(3) { grid-column: 1 / -1; }
+  .tiles > :last-child:nth-child(odd) { grid-column: 1 / -1; }
   .tile { min-height: 112px; gap: 8px; padding: 14px 16px; }
   .name, .nextMain .name { -webkit-line-clamp: 3; }
 }
 
-/* Room for three in a row. */
+/* Room for four in a row. */
+@container (min-width: 880px) {
+  .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .tiles > :last-child:nth-child(odd) { grid-column: auto; }
+}
 @container (min-width: 640px) {
-  .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .tiles > :nth-child(3) { grid-column: auto; }
   .tile { min-height: 136px; }
 }

@@ -7,7 +7,7 @@ import styles from "./Project.module.css";
 
 // "Gần đây": this project's sessions, newest first. The overview's composer is the way to start a new one.
 export function ProjectSessionList({ sessions, onOpen, openFailed }: { sessions: ProjectSessions; onOpen: (id: string) => void; openFailed: boolean }) {
-  const phases = { learn: copy.phaseLearn, solve: copy.phaseSolve, practice: copy.phasePractice };
+  const phases = { learn: copy.phaseLearn, solve: copy.phaseSolve, practice: copy.phasePractice, review: copy.phaseReview };
   return <div className={styles.sessions} aria-busy={!sessions.ready}>
     {openFailed && <p className={styles.error} role="alert">{copy.projectSessionOpenFailed}</p>}
     {sessions.ready && sessions.failed && <p className={styles.error} role="alert">{copy.projectSessionsFailed}</p>}

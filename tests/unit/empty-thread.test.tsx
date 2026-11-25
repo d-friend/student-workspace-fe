@@ -184,12 +184,22 @@ test("without a way to hand the pack over there is no upload card", () => {
   expect(screen.queryByRole("button", { name: new RegExp(copy.packUpload) })).toBeNull();
 });
 
-test("the review chip links to the subject with the most due cards, and is hidden at 0 or with no data", () => {
-  const { rerender } = render(setup({ review: { due: 4, projectId: "p-1" } }).ui);
-  const chip = screen.getByRole("link", { name: copy.homeReviewChip(4) });
-  expect(chip.getAttribute("href")).toBe("/projects/p-1?tab=review&via=home_chip");
-  rerender(setup({ review: { due: 0, projectId: "p-1" } }).ui);
-  expect(screen.queryByRole("link", { name: /Ôn tập hôm nay/ })).toBeNull();
+test("the review chip starts the follow-up, says the test is tomorrow when it is, and is hidden at 0 or with no data", () => {
+  const onReviewChip = vi.fn();
+  const { rerender } = render(setup({ review: { due: 4, projectId: "p-1", subject: "Toán", examTomorrow: false }, onReviewChip }).ui);
+  fireEvent.click(screen.getByRole("button", { name: copy.homeReviewChip(4) }));
+  expect(onReviewChip).toHaveBeenCalledTimes(1);
+  rerender(setup({ review: { due: 3, projectId: "p-1", subject: "Toán", examTomorrow: true }, onReviewChip }).ui);
+  expect(screen.getByRole("button", { name: copy.homeReviewChipExam("Toán", 3) })).toBeTruthy();
+  rerender(setup({ review: { due: 0, projectId: "p-1", subject: "Toán", examTomorrow: false } }).ui);
+  expect(screen.queryByRole("button", { name: /Ôn lại câu sai/ })).toBeNull();
   rerender(setup({ review: null }).ui);
-  expect(screen.queryByRole("link", { name: /Ôn tập hôm nay/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Ôn lại câu sai/ })).toBeNull();
+});
+
+test("the fourth card starts a review", () => {
+  const onReview = vi.fn();
+  render(setup({ onReview }).ui);
+  fireEvent.click(screen.getByRole("button", { name: new RegExp(copy.reviewHomeMain) }));
+  expect(onReview).toHaveBeenCalledTimes(1);
 });

@@ -6,7 +6,7 @@ export type TrackEvents = {
   line_why_opened: { block_id: string; line: number };
   roadmap_opened: { block_id: string };
   share_clicked: { scope: "workspace" | "session"; workspace_count: number; target_id?: string };
-  tab_switched: { from_phase: "learn" | "solve" | "practice"; to_phase: "learn" | "solve" | "practice" };
+  tab_switched: { from_phase: "learn" | "solve" | "practice" | "review"; to_phase: "learn" | "solve" | "practice" | "review" };
   history_opened: { sessions: number };
   progress_opened: { place: "entry" | "page"; cards: number };
   tree_opened: { nodes: number };
@@ -18,7 +18,7 @@ export type TrackEvents = {
   pack_retry_clicked: { pack_id: string; stage: "extract" | "subject" | "concepts" | "merge" };
   project_opened: { project_id: string; via: "sidebar" | "pack_sheet" };
   project_tab_viewed: { project_id: string; tab: "map" | "sessions" | "sources" };
-  review_opened: { project_id: string; due: number; via: "project_row" | "home_chip" | "sidebar" };
+  review_finished: { workspace_id: string; correct: number; total: number; kept_cards: number; practices_done: number };
   history_session_viewed: { tabs: number; age_days: number };
   app_opened: { path: string; referrer_host?: string; viewport_w: number; viewport_h: number; restored: boolean };
   empty_state_shown: NoProps;

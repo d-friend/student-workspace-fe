@@ -1,10 +1,10 @@
-import type { Block, CheckResponse, Phase, QuizAnswer, Workspace, WorkspaceDoc } from "@/workspace/types";
+import type { Block, CheckResponse, Phase, Workspace, WorkspaceDoc } from "@/workspace/types";
 import { getLocale } from "./copy";
 import { readSse } from "./sse";
 
 // Typed client for spec 4.2 to 4.6. A 401 no_guest makes one guest call and one retry.
 
-export type StartedVia = "photo" | "typed" | "starter_derivative" | "starter_geometry" | "pack_learn_more" | "review";
+export type StartedVia = "photo" | "typed" | "starter_derivative" | "starter_geometry" | "pack_learn_more" | "review" | "starter_review" | "review_chip";
 
 export type ImageBlock = {
   type: "image";
@@ -108,9 +108,8 @@ async function postGuest(locale?: string): Promise<{ guestId: string; created: b
 }
 
 // projectId files the new session in that project from the start (Học thêm, "new session in this project").
-// reviewCardId links a "review" session to the problem card it came from.
-export async function createSession(startedVia: StartedVia, projectId?: string, reviewCardId?: string): Promise<{ sessionId: string }> {
-  const res = await post("/api/sessions", { started_via: startedVia, ...(projectId && { project_id: projectId }), ...(reviewCardId && { review_card_id: reviewCardId }) });
+export async function createSession(startedVia: StartedVia, projectId?: string): Promise<{ sessionId: string }> {
+  const res = await post("/api/sessions", { started_via: startedVia, ...(projectId && { project_id: projectId }) });
   if (!res.ok) throw await toApiError(res);
   const body = await res.json();
   return { sessionId: body.session_id };
@@ -382,7 +381,7 @@ export type SessionSummary = {
   title: string | null;
   created_at: string;
   last_active_at: string; // the list is ordered and grouped by this, so a resumed session moves to the top
-  tabs: { phase: "learn" | "solve" | "practice" }[];
+  tabs: { phase: Phase }[];
   done: boolean;
   current: boolean;
   project_id: string | null; // null = not filed yet
@@ -601,35 +600,10 @@ export async function putWorkspaceState(id: string, state: NonNullable<Workspace
   if (!res.ok) throw await toApiError(res);
 }
 
-// Review mode: cards due today, from what the student already did. A quiz card is answered here; a problem card opens a similar session.
-export type ReviewCard = {
-  id: string;
-  kind: "quiz" | "problem";
-  node_name: string;
-  due_at: string;
-  box: number;
-  quiz?: { question_md: string; answer: QuizAnswer; options: string[] | null }; // no key and no explanation until it is answered
-  problem?: { excerpt_md: string; workspace_id: string };
-};
-export type ReviewDay = { due: number; cards: ReviewCard[] };
-export type ReviewResult = { correct: boolean; explanation_md: string | null; box: number; due_at: string }; // explanation_md is null on a wrong first attempt, so the retry stays unspoiled
-
-export async function getReview(projectId: string): Promise<ReviewDay> {
-  const res = await get(`/api/review?${new URLSearchParams({ project_id: projectId })}`);
-  if (!res.ok) throw await toApiError(res);
-  return res.json();
-}
-
-// Due cards per project, for the home chip.
-export async function getReviewCount(): Promise<{ project_id: string; due: number }[]> {
+// Due cards per project, for the sidebar badge, the project button and the home chip. exam_tomorrow: a review of that project has its test tomorrow.
+export type ReviewCount = { project_id: string; due: number; exam_tomorrow: boolean };
+export async function getReviewCount(): Promise<ReviewCount[]> {
   const res = await get("/api/review/count");
   if (!res.ok) throw await toApiError(res);
   return (await res.json()).projects ?? [];
-}
-
-// `answer` is what a learn doc's check takes: a choice goes as its option's index. `attempt` is 1, or 2 on the retry.
-export async function answerReview(cardId: string, answer: string, attempt: number): Promise<ReviewResult> {
-  const res = await post(`/api/review/${encodeURIComponent(cardId)}/answer`, { answer, attempt });
-  if (!res.ok) throw await toApiError(res);
-  return res.json();
 }

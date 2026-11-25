@@ -348,6 +348,8 @@ function Home() {
           progress: latest ? { item: latest, onOpen: () => void openProgressSession(latest, "reload") } : null,
           onPackUploaded: setPackSheet,
           review: reviewDue,
+          onReview: () => void ws.startReview("starter_review", copy.reviewHomeMessage),
+          onReviewChip: () => reviewDue && void ws.startReview("review_chip", copy.reviewFollowupMessage(reviewDue.subject), reviewDue.projectId),
         }}
         workspaceVisible={showWorkspace}
         onOpenLegacyWorkspace={legacyWorkspace ? openWorkspaceView : undefined}

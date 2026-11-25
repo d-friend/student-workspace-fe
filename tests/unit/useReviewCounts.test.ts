@@ -7,7 +7,7 @@ vi.mock("@/lib/api", () => ({ getReviewCount: vi.fn() }));
 beforeEach(() => vi.mocked(getReviewCount).mockReset());
 
 test("counts by project, recounts on a new refresh value, and does nothing while disabled", async () => {
-  vi.mocked(getReviewCount).mockResolvedValueOnce([{ project_id: "a", due: 3 }, { project_id: "b", due: 1 }]).mockResolvedValueOnce([{ project_id: "a", due: 2 }]);
+  vi.mocked(getReviewCount).mockResolvedValueOnce([{ project_id: "a", due: 3, exam_tomorrow: false }, { project_id: "b", due: 1, exam_tomorrow: false }]).mockResolvedValueOnce([{ project_id: "a", due: 2, exam_tomorrow: false }]);
   const { result, rerender } = renderHook(({ on, key }) => useReviewCounts(on, key), { initialProps: { on: false, key: "1" } });
   expect(getReviewCount).not.toHaveBeenCalled();
   rerender({ on: true, key: "1" });
@@ -17,7 +17,7 @@ test("counts by project, recounts on a new refresh value, and does nothing while
 });
 
 test("a failed recount keeps the last counts", async () => {
-  vi.mocked(getReviewCount).mockResolvedValueOnce([{ project_id: "a", due: 3 }]).mockRejectedValueOnce(new Error("offline"));
+  vi.mocked(getReviewCount).mockResolvedValueOnce([{ project_id: "a", due: 3, exam_tomorrow: false }]).mockRejectedValueOnce(new Error("offline"));
   const { result, rerender } = renderHook(({ key }) => useReviewCounts(true, key), { initialProps: { key: "1" } });
   await waitFor(() => expect(result.current).toEqual({ a: 3 }));
   rerender({ key: "2" });

@@ -1,15 +1,15 @@
-import { IconAlertTriangle, IconBookmark, IconBulb } from "@tabler/icons-react";
+import { IconAlertTriangle, IconBookmark, IconBulb, IconNotes, IconRepeat } from "@tabler/icons-react";
 import { useCopy } from "../WorkspaceCopy";
 import { Md } from "../md";
 import type { Block, BlockProps } from "../types";
 import styles from "./blocks.module.css";
 
-const TONES = { idea: IconBulb, remember: IconBookmark, warning: IconAlertTriangle };
+const TONES = { idea: IconBulb, remember: IconBookmark, warning: IconAlertTriangle, note: IconNotes, mistake: IconRepeat };
 
 export function Callout({ block }: BlockProps<Extract<Block, { type: "callout" }>>) {
   const copy = useCopy();
   const Icon = TONES[block.tone];
-  const label = { idea: copy.calloutIdea, remember: copy.calloutRemember, warning: copy.calloutWarning }[block.tone];
+  const label = { idea: copy.calloutIdea, remember: copy.calloutRemember, warning: copy.calloutWarning, note: copy.reviewSegNotes, mistake: copy.reviewMistake }[block.tone];
   return (
     <aside className={`${styles.card} ${block.tone === "idea" ? styles.idea : ""}`}>
       <p className={styles.label}>

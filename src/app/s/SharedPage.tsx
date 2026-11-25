@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Bone, Loading } from "@/components/Skeleton";
+import { copy } from "@/lib/copy";
 import { ApiError, openSharedSession, openSharedWorkspace, resumeSession } from "@/lib/api";
 import styles from "./[id]/page.module.css";
 
@@ -43,7 +45,8 @@ export function SharedPage({ scope }: { scope: "workspace" | "session" }) {
   return (
     <main className={styles.page}>
       <div className={styles.content}>
-        {state === "loading" ? <p role="status">Đang mở bài…</p> : state === "missing" ? (
+        <Loading busy={state === "loading"} label={copy.loadingShared} skeleton={<SharedSkeleton />}>
+        {state === "missing" ? (
           <>
             <h1>Không tìm thấy bài được chia sẻ</h1>
             <p>Liên kết này không còn khả dụng.</p>
@@ -59,7 +62,18 @@ export function SharedPage({ scope }: { scope: "workspace" | "session" }) {
             }}>Thử lại</button>
           </>
         )}
+        </Loading>
       </div>
     </main>
   );
+}
+
+// The lesson being opened, as a title and a few lines in the column the page draws its messages in.
+function SharedSkeleton() {
+  return <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, width: "min(440px, 80vw)" }}>
+    <Bone w="70%" h={28} />
+    <Bone w="100%" h={18} />
+    <Bone w="85%" h={18} />
+    <Bone w={140} h={44} style={{ marginTop: 8, borderRadius: "var(--radius-md)" }} />
+  </div>;
 }

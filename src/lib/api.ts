@@ -1,5 +1,6 @@
 import type { Block, CheckResponse, Phase, Workspace, WorkspaceDoc } from "@/workspace/types";
 import { getLocale } from "./copy";
+import { markOpening } from "./opening";
 import { readSse } from "./sse";
 
 // Typed client for spec 4.2 to 4.6. A 401 no_guest makes one guest call and one retry.
@@ -590,6 +591,7 @@ export async function deleteSession(sessionId: string): Promise<void> {
 export async function resumeSession(sessionId: string): Promise<void> {
   const res = await post(`/api/sessions/${sessionId}/resume`, {});
   if (!res.ok) throw await toApiError(res);
+  markOpening(); // every caller loads home next
 }
 
 // Content is saved separately from the content-free event stream.

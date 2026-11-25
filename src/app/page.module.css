@@ -89,3 +89,4 @@
   .stage { --workspace-top-space: 12px; }
   .buildScroll { display: flex; flex: 1; min-height: 0; overflow: auto; }
 }
+.buildScroll[data-wait] { visibility: hidden; }

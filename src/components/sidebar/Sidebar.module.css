@@ -190,3 +190,10 @@
 @media (prefers-reduced-motion: reduce) {
   .sessionRow { transition: none; }
 }
+
+/* Loading: the history's grey rows, and the row being opened. */
+.skeletonRow { display: flex; align-items: center; box-sizing: border-box; min-height: 44px; padding: 0 var(--side-row-inset); }
+.sessionRow[data-pending] { background: var(--side-selected); }
+.sessionRow[data-pending] .session { background: linear-gradient(90deg, transparent, var(--side-hover), transparent); background-size: 200% 100%; animation: pending 1.2s ease-in-out infinite; }
+@keyframes pending { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .sessionRow[data-pending] .session { animation: none; background: none; } }

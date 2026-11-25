@@ -17,14 +17,14 @@ const firstItemKey = (block: PreviewSteps) => {
 };
 
 // Grey shapes in the shape of the doc being built: learn is a title, text and an image; solve (also practice) is a
-// problem card and step rows.
+// problem card and step rows; review is the three-segment bar over note cards.
 export function BuildingSkeleton({
   variant = "solve",
   problem,
   preview,
   onQueue,
 }: {
-  variant?: "learn" | "solve";
+  variant?: "learn" | "solve" | "review";
   problem?: string; // Keep the student's problem visible while the preview loads.
   preview?: Preview | null;
   onQueue?: (answer: QueuedAnswer) => void;
@@ -56,7 +56,20 @@ export function BuildingSkeleton({
   return (
     <WorkspaceCopy.Provider value={previewCopy}>
       <section className={styles.wrap} aria-busy="true" data-variant={variant}>
-        {variant === "learn" && preview && preview.blocks.length > 0 ? (
+        {variant === "review" ? (
+          <div className={styles.stack}>
+            <div className={styles.bar}>
+              {[0, 1, 2].map(i => <div key={i} className={styles.seg} data-active={i === 0 || undefined}>{b(styles.segLabel)}{b(styles.segCount)}</div>)}
+            </div>
+            {b(styles.sectionLabel)}
+            {[0, 1].map(i => <div key={i} className={styles.lesson}>
+              {b(styles.lessonName)}
+              <div className={styles.noteCard}>{b(styles.line)}{b(styles.line)}{b(styles.line)}{b(styles.line)}{b(styles.lineShort)}</div>
+              {i === 1 && <div className={styles.mistakeCard}>{b(styles.mistakeLabel)}{b(styles.line)}</div>}
+            </div>)}
+            {b(styles.button)}
+          </div>
+        ) : variant === "learn" && preview && preview.blocks.length > 0 ? (
           <div className={styles.stack}>
             {preview.title && (
               <h1 className={styles.previewTitle}>

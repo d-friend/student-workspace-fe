@@ -1,14 +1,16 @@
 import { IconCheck } from "@tabler/icons-react";
 import type { ProjectSessions } from "@/hooks/useProjectSessions";
+import { Loading } from "@/components/Skeleton";
 import { copy } from "@/lib/copy";
 import { progressDateLabel } from "@/lib/progress";
 import { MdInline } from "@/workspace/md";
+import { SessionRowsSkeleton } from "./ProjectSkeleton";
 import styles from "./Project.module.css";
 
 // "Gần đây": this project's sessions, newest first. The overview's composer is the way to start a new one.
 export function ProjectSessionList({ sessions, onOpen, openFailed }: { sessions: ProjectSessions; onOpen: (id: string) => void; openFailed: boolean }) {
   const phases = { learn: copy.phaseLearn, solve: copy.phaseSolve, practice: copy.phasePractice, review: copy.phaseReview };
-  return <div className={styles.sessions} aria-busy={!sessions.ready}>
+  return <Loading busy={!sessions.ready} label={copy.loadingSessions} skeleton={<SessionRowsSkeleton />}><div className={styles.sessions} aria-busy={sessions.loadingMore || undefined}>
     {openFailed && <p className={styles.error} role="alert">{copy.projectSessionOpenFailed}</p>}
     {sessions.ready && sessions.failed && <p className={styles.error} role="alert">{copy.projectSessionsFailed}</p>}
     {sessions.ready && !sessions.failed && !sessions.sessions.length && <p className={styles.empty}>{copy.projectSessionsEmpty}</p>}
@@ -26,5 +28,5 @@ export function ProjectSessionList({ sessions, onOpen, openFailed }: { sessions:
       })}
     </div>}
     {sessions.hasMore && <button type="button" className={styles.secondary} disabled={sessions.loadingMore} onClick={sessions.more}>{copy.historyMore}</button>}
-  </div>;
+  </div></Loading>;
 }

@@ -1,6 +1,7 @@
 import { IconArrowLeft } from "@tabler/icons-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PanelActions } from "@/components/Shell";
+import { Loading } from "@/components/Skeleton";
 import { useDesktop, useNarrow } from "@/hooks/useDesktop";
 import type { ProjectSessions } from "@/hooks/useProjectSessions";
 import { NodePanel } from "@/components/pack/NodePanel";
@@ -11,6 +12,7 @@ import { KnowledgeTree } from "@/workspace/KnowledgeTree";
 import { ProjectOutline } from "./ProjectOutline";
 import { ProjectOverview } from "./ProjectOverview";
 import { ProjectReader } from "./ProjectReader";
+import { ReaderSkeleton } from "./ProjectSkeleton";
 import styles from "./Project.module.css";
 
 export type ProjectViewProps = {
@@ -88,8 +90,10 @@ export function ProjectView(props: ProjectViewProps) {
           {nodePanel}
         </div>
       : <p className={styles.empty}>{copy.projectMapEmpty}</p>)}
-    {screen === "sources" && <ProjectReader projectName={project.name} packs={project.packs} pages={props.reader.pages} failed={props.reader.failed} block={props.block}
-      onLearnMore={props.onLearnMore} learnFailed={props.learnFailed} />}
+    {screen === "sources" && <Loading busy={!props.reader.pages && !props.reader.failed} label={copy.loadingNotes} skeleton={<ReaderSkeleton packs={project.packs} />}>
+      <ProjectReader projectName={project.name} packs={project.packs} pages={props.reader.pages} failed={props.reader.failed} block={props.block}
+        onLearnMore={props.onLearnMore} learnFailed={props.learnFailed} />
+    </Loading>}
   </div>;
 
   if (desktop) return <div className={styles.panel} data-shell-panel>

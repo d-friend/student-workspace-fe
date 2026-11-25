@@ -2,6 +2,7 @@ import { IconX } from "@tabler/icons-react";
 import Link from "next/link";
 import { useId, useMemo, useRef, useState } from "react";
 import { PanelActions } from "@/components/Shell";
+import { Bone, Loading } from "@/components/Skeleton";
 import { useDesktop } from "@/hooks/useDesktop";
 import type { ProgressItem, TreeResponse } from "@/lib/api";
 import { copy } from "@/lib/copy";
@@ -16,6 +17,14 @@ import styles from "./ProgressPage.module.css";
 type Props = {
   items: ProgressItem[]; tree: TreeResponse | null; ready: boolean; failed: boolean; onRetry: () => void; newFailed: boolean;
 };
+
+// The activity list before it is there: a group heading and three cards.
+function ProgressSkeleton() {
+  return <section>
+    <h2 className={styles.group}><Bone w={160} h={24} /></h2>
+    <div className={styles.list}>{[0, 1, 2].map(i => <Bone key={i} h={84} style={{ borderRadius: "var(--radius-lg)" }} />)}</div>
+  </section>;
+}
 
 // The content of the work area: the mind map with a filtered activity list beside it (desktop) or under it (phone).
 export function ProgressView({ items, tree, ready, failed, onRetry, newFailed }: Props) {
@@ -121,20 +130,22 @@ export function ProgressView({ items, tree, ready, failed, onRetry, newFailed }:
     </div>;
   }
 
-  const page = <div className={styles.page} aria-busy={!ready}>
+  const page = <div className={styles.page}>
     <div className={styles.content}>
       {header}
       {newFailed && <p className={styles.error} role="alert">{copy.progressNewFailed}</p>}
-      {ready && (failed ? <div className={styles.state}>
-        <p role="alert">{copy.progressError}</p>
-        <button type="button" className={styles.action} onClick={onRetry}>{copy.progressRetry}</button>
-      </div> : <>
-        {activity}
-        {cards.length === 0 && learned.length === 0 && <div className={styles.state}>
-          <p>{copy.progressEmpty}</p>
-          <Link className={styles.action} href="/">{copy.progressBack}</Link>
-        </div>}
-      </>)}
+      <Loading busy={!ready} label={copy.loadingProgress} skeleton={<ProgressSkeleton />}>
+        {ready && (failed ? <div className={styles.state}>
+          <p role="alert">{copy.progressError}</p>
+          <button type="button" className={styles.action} onClick={onRetry}>{copy.progressRetry}</button>
+        </div> : <>
+          {activity}
+          {cards.length === 0 && learned.length === 0 && <div className={styles.state}>
+            <p>{copy.progressEmpty}</p>
+            <Link className={styles.action} href="/">{copy.progressBack}</Link>
+          </div>}
+        </>)}
+      </Loading>
     </div>
   </div>;
   return desktop ? <div className={styles.panel} data-shell-panel><PanelActions /><div className={styles.scroll}>{page}</div></div> : page;

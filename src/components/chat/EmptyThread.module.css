@@ -109,9 +109,6 @@ button.main { cursor: pointer; }
 .arrow { flex: none; color: var(--muted); }
 
 .skeleton { cursor: default; }
-.skeleton span { height: 16px; border-radius: var(--radius-sm); background: var(--hairline); }
-.skeleton span:first-child { width: 28px; height: 28px; flex: none; }
-.skeleton span:last-child { width: 60%; }
 
 .nextMain .name { -webkit-line-clamp: 1; } /* keeps the cards one height when a next step is long */
 @media (max-width: 639px) { .sub { font-size: 15px; } .tile:hover { transform: none; } }

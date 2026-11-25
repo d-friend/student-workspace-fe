@@ -37,7 +37,7 @@ export function ProjectReader({ projectName, packs, pages, failed, block, onLear
   }, [block, pages, land]);
 
   if (failed) return <p className={styles.error} role="alert">{copy.projectSourcesFailed}</p>;
-  if (!pages) return <p className={styles.empty} aria-busy="true" />;
+  if (!pages) return null; // ProjectView shows the skeleton until they arrive
   if (!pages.length && !packs.length) return <p className={styles.empty}>{copy.projectSourcesEmpty}</p>;
 
   const toggle = (id: string) => setPicked(current => current === id ? null : id);

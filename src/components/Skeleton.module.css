@@ -1,0 +1,74 @@
+/* The house loading shapes: grey blocks in the building skeleton's tokens. Everything that waits on the network is made of .block. */
+.block {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--hairline), var(--agent), var(--hairline));
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* The wrappers add no box: they only carry the role, the delay and the fade. */
+.live,
+.in {
+  display: contents;
+}
+
+/* Busy but not yet worth showing: the skeleton holds its space so nothing moves when it appears or the content arrives. */
+.live[data-wait] {
+  visibility: hidden;
+}
+
+.in[data-fade] > * {
+  animation: fadeIn 150ms ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+.inplace {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inplace [data-hide] {
+  visibility: hidden;
+}
+
+.inplace > svg {
+  position: absolute;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+
+  .block,
+  .in[data-fade] > * {
+    animation: none;
+  }
+}

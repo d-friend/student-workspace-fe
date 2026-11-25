@@ -45,6 +45,6 @@ function ProgressContent() {
 
   return <Shell work={work} layer={null} floatingPanels showCornerActions={!desktop} inert={side.drawerOpen && !desktop}
     sidebar={<Sidebar side={side} progress={{ active: true }} onNewProblem={() => void fresh.leave("/", true)} refreshKey="progress"
-      onOpenSession={sessionId => { void resumeSession(sessionId).then(() => window.location.assign("/"), () => {}); }} />}
+      onOpenSession={sessionId => resumeSession(sessionId).then(() => { window.location.assign("/"); return true; }, () => false)} />}
     side={desktop ? side.mode : undefined} />;
 }

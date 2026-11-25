@@ -40,6 +40,7 @@ export default function Page() {
 }
 
 const noop = () => {};
+const EXPECT_MS = 4000;
 
 function Home() {
   const ws = useWorkspace();
@@ -150,7 +151,13 @@ function Home() {
   }
 
   // A session the student picked is on its way back: draw its shape (the workspace beside the chat on a desktop), not the start screen.
-  const expecting = useExpectingSession();
+  // Never hold the start screen for good: if home has not heard from the server in 4 s (a hung request), it shows anyway.
+  const [gaveUp, setGaveUp] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => { setGaveUp(true); releaseStartScreen(); }, EXPECT_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  const expecting = useExpectingSession() && !gaveUp;
   const restoring = expecting && !ws.ready;
   const restorePhase = useLoadingPhase(restoring);
   useEffect(() => {

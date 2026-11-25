@@ -18,7 +18,7 @@ const row = (id: string, current = false): SessionSummary => ({ id, title: id, c
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 let first: SessionList;
 beforeEach(() => {
-  vi.clearAllMocks(); setLocale("vi"); desktop = true; signedIn = false; enabled = true;
+  vi.clearAllMocks(); sessionStorage.clear(); setLocale("vi"); desktop = true; signedIn = false; enabled = true;
   first = { sessions: [row("first", true)], next_before: "cursor&x" };
   vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: desktop, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
   fetchMock.mockImplementation(async (path: string) => {

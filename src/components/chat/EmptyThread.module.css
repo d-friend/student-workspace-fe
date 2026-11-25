@@ -129,3 +129,6 @@ button.main { cursor: pointer; }
 @container (min-width: 640px) {
   .tile { min-height: 136px; }
 }
+
+/* A browser with a session to restore: the server-rendered start screen stays hidden until home knows whether it is needed (THEME_INIT sets data-expect). */
+:global(html[data-expect]) .emptyThread { visibility: hidden; }

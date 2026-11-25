@@ -11,6 +11,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { useReviewCounts } from "@/hooks/useReviewCounts";
 import { ApiError, deleteSession, listSessions, resumeSession, type ProjectSummary, type SessionList as SessionPage, type SessionSummary } from "@/lib/api";
 import { copy } from "@/lib/copy";
+import { readCache, writeCache } from "@/lib/sideCache";
 import { track } from "@/lib/track";
 import { Bone, Loading } from "@/components/Skeleton";
 import { AccountMenu, type AccountStatus } from "./AccountMenu";
@@ -66,6 +67,14 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
   const due = preload?.due ?? counted;
   const projectNames = useMemo(() => new Map(projects.map(project => [project.id, project.name])), [projects]);
 
+  // After a hard reload the last history shows until the fresh page lands. Read after mount, so the server and first client render agree.
+  useEffect(() => {
+    if (preload) return;
+    const cached = readCache<SessionPage>("history");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (cached) setPage(current => current.sessions.length ? current : cached);
+  }, [preload]);
+
   useEffect(() => {
     const revealAccount = (event: Event) => {
       if (!desktop && (event as CustomEvent).detail === "account") openDrawer();
@@ -88,6 +97,7 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
     listSessions().catch((): SessionPage => ({ sessions: [], next_before: null })).then(result => {
       if (!active || request.current !== id) return;
       setPage(result);
+      writeCache("history", result);
       setLoading(false);
       pending.current = false;
       if (!desktop) phoneTracked.current = true;

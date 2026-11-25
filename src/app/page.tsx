@@ -22,7 +22,7 @@ import { useLeaveSession } from "@/hooks/useLeaveSession";
 import { useReviewDue } from "@/hooks/useReviewDue";
 import type { Pack } from "@/lib/api";
 import { copy } from "@/lib/copy";
-import { clearOpening, useOpening } from "@/lib/opening";
+import { clearOpening, releaseStartScreen, setSessionHint, useExpectingSession } from "@/lib/opening";
 import { frameDoc } from "@/lib/frame";
 import { JPEG_PREFIX } from "@/lib/photo";
 import { openProgressSession, progressCards } from "@/lib/progress";
@@ -150,10 +150,15 @@ function Home() {
   }
 
   // A session the student picked is on its way back: draw its shape (the workspace beside the chat on a desktop), not the start screen.
-  const opening = useOpening();
-  const restoring = opening && !ws.ready;
+  const expecting = useExpectingSession();
+  const restoring = expecting && !ws.ready;
   const restorePhase = useLoadingPhase(restoring);
-  useEffect(() => { if (ws.ready) clearOpening(); }, [ws.ready]);
+  useEffect(() => {
+    if (!ws.ready) return;
+    clearOpening();
+    releaseStartScreen();
+    setSessionHint(ws.sessionId !== null);
+  }, [ws.ready, ws.sessionId]);
   const showWorkspace = (desktop || view === "workspace") && (hasWorkspace || buildingId !== null || (restoring && desktop));
   const hideChat = showWorkspace && (!desktop || chatCollapsed);
   const desktopCollapsed = desktop && showWorkspace && chatCollapsed;
@@ -367,7 +372,7 @@ function Home() {
           onReview: () => void ws.startReview("starter_review", copy.reviewHomeMessage),
           onReviewChip: () => reviewDue && void ws.startReview("review_chip", copy.reviewFollowupMessage(reviewDue.subject), reviewDue.projectId),
         }}
-        ready={ws.ready}
+        ready={ws.ready || !expecting}
         workspaceVisible={showWorkspace}
         onOpenLegacyWorkspace={legacyWorkspace ? openWorkspaceView : undefined}
         hidden={hideChat}

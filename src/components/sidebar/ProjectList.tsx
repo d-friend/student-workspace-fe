@@ -25,7 +25,7 @@ export function ProjectList({ projects, activeId, onOpen, due = {}, onReview }: 
         <span className={styles.title}>{project.name}</span>
         <span className={styles.srOnly}>{copy.projectSessions(project.sessions)}</span>
       </Link>
-      {due[project.id] > 0 && <Link href={`/projects/${project.id}?tab=review&via=sidebar`} className={styles.due}
+      {due[project.id] > 0 && <Link href={`/projects/${project.id}`} className={styles.due}
         aria-label={copy.reviewDueLabel(project.name, due[project.id])} onClick={() => onReview?.(project)}>
         <span aria-hidden="true">{due[project.id]}</span>
       </Link>}

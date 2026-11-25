@@ -44,7 +44,7 @@ export function SessionList({ sessions, onChoose, onDelete, disabled = false, de
     }, 500);
   };
   const labels = { today: copy.historyToday, yesterday: copy.historyYesterday, week: copy.historyWeek, older: copy.historyOlder };
-  const phases = { learn: copy.phaseLearn, solve: copy.phaseSolve, practice: copy.phasePractice };
+  const phases = { learn: copy.phaseLearn, solve: copy.phaseSolve, practice: copy.phasePractice, review: copy.phaseReview };
   return groupSessions(sessions, new Date()).map(group => (
     <section key={group.key}>
       <h2 className={styles.group}>{labels[group.key]}</h2>

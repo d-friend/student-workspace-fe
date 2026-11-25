@@ -5,7 +5,7 @@ import * as api from "@/lib/api";
 import { copy, setLocale } from "@/lib/copy";
 import { readPhoto } from "@/lib/photo";
 import { track } from "@/lib/track";
-import { MATH, mapNodeView, mathProject, mathReader, projectsFixture, reviewCards, sessionsFixture } from "../../src/app/dev/fixtures/projects/projectsFixture";
+import { MATH, mapNodeView, mathProject, mathReader, projectsFixture, sessionsFixture } from "../../src/app/dev/fixtures/projects/projectsFixture";
 
 // Next keeps useSearchParams in step with pushState and the back gesture; the mock does the same from the real jsdom history.
 const nav = vi.hoisted(() => ({ search: "", listeners: new Set<() => void>() }));
@@ -57,7 +57,6 @@ beforeEach(() => {
   vi.mocked(api.getProject).mockResolvedValue(mathProject);
   vi.mocked(api.getReader).mockResolvedValue(mathReader);
   vi.mocked(api.getMapNode).mockImplementation(async id => mapNodeView(id)!);
-  vi.mocked(api.getReview).mockResolvedValue({ due: 0, cards: [] });
   vi.mocked(api.getReviewCount).mockResolvedValue([]);
   vi.mocked(api.currentSession).mockResolvedValue(null);
   vi.mocked(api.endSession).mockResolvedValue(undefined);
@@ -358,63 +357,25 @@ test("Học thêm on a map node hands the node's name, the project and the pack_
   expect(url.searchParams.get("q")).toContain("Mình muốn hiểu kĩ hơn: Hệ thức Viète.");
 });
 
-test("review: the overview row appears only with due cards; it opens ?tab=review, tracks review_opened once, and leaving reloads the count", async () => {
-  vi.mocked(api.getReview).mockResolvedValue({ due: 3, cards: reviewCards });
+test("review: the project button starts a review session in the subject, with the due count under it", async () => {
+  vi.mocked(api.getReviewCount).mockResolvedValue([{ project_id: MATH, due: 3, exam_tomorrow: false }]);
   render(<ProjectPage />);
-  const row = await screen.findByRole("button", { name: copy.reviewStartLabel });
-  expect(row.textContent).toContain(copy.reviewToday(3));
-  expect(track).not.toHaveBeenCalledWith("review_opened", expect.anything());
-  fireEvent.click(row);
-  expect(realWindow.location.search).toContain("tab=review");
-  await screen.findByText(copy.reviewCount(1, 3));
-  expect(track).toHaveBeenCalledWith("review_opened", { project_id: MATH, due: 3, via: "project_row" });
-  expect(vi.mocked(track).mock.calls.filter(c => c[0] === "review_opened")).toHaveLength(1);
-  expect(vi.mocked(track).mock.calls.filter(c => c[0] === "project_tab_viewed" && (c[1] as { tab: string }).tab === "review")).toHaveLength(0);
-  expect(api.getReview).toHaveBeenCalledTimes(1);
-  vi.mocked(api.getReview).mockResolvedValue({ due: 1, cards: reviewCards.slice(2) });
-  fireEvent.click(screen.getByRole("button", { name: copy.projectBack("Toán") }));
-  await waitFor(() => expect(api.getReview).toHaveBeenCalledTimes(2));
-  expect((await screen.findByRole("button", { name: copy.reviewStartLabel })).textContent).toContain(copy.reviewToday(1));
-});
-
-test("review: no due cards means no row, and a deep link to ?tab=review with ?via=home_chip reports that", async () => {
-  render(<ProjectPage />);
-  await screen.findByRole("heading", { level: 1, name: "Toán" });
-  expect(screen.queryByRole("button", { name: copy.reviewStartLabel })).toBeNull();
-  cleanup();
-  vi.mocked(api.getReview).mockResolvedValue({ due: 3, cards: reviewCards });
-  setSearch("tab=review&via=home_chip");
-  render(<ProjectPage />);
-  await screen.findByText(copy.reviewCount(1, 3));
-  expect(track).toHaveBeenCalledWith("review_opened", { project_id: MATH, due: 3, via: "home_chip" });
-});
-
-test("review: a problem card ends the open session and loads home with the card and the project", async () => {
-  vi.mocked(api.getReview).mockResolvedValue({ due: 1, cards: reviewCards.slice(2) });
-  setSearch("tab=review");
-  render(<ProjectPage />);
-  fireEvent.click(await screen.findByRole("button", { name: copy.reviewSimilar }));
+  const button = await screen.findByRole("button", { name: new RegExp(copy.reviewProjectButton) });
+  await waitFor(() => expect(button.textContent).toContain(copy.reviewProjectDue(3)));
+  fireEvent.click(button);
   await waitFor(() => expect(assign).toHaveBeenCalled());
   const url = new URL(assign.mock.calls[0][0], "http://x");
   expect(url.pathname).toBe("/");
-  expect(url.searchParams.get("via")).toBe("review");
-  expect(url.searchParams.get("card")).toBe(reviewCards[2].id);
-  expect(url.searchParams.get("project")).toBe(MATH);
+  expect([url.searchParams.get("via"), url.searchParams.get("project"), url.searchParams.get("q")]).toEqual(["review", MATH, copy.reviewProjectMessage("Toán")]);
 });
 
-test("review: the sidebar badge shows the count, ?via=sidebar is reported, and an answer recounts the badges", async () => {
-  vi.mocked(api.getReview).mockResolvedValue({ due: 3, cards: reviewCards });
-  vi.mocked(api.getReviewCount).mockResolvedValueOnce([{ project_id: MATH, due: 3 }]).mockResolvedValue([{ project_id: MATH, due: 2 }]);
-  vi.mocked(api.answerReview).mockResolvedValue({ correct: true, explanation_md: "ok", box: 3, due_at: "2026-12-01T00:00:00Z" });
-  setSearch("tab=review&via=sidebar");
+test("review: with nothing due the button has no count line, and the sidebar badge goes to the project page", async () => {
   render(<ProjectPage />);
-  const badge = await screen.findByRole("link", { name: copy.reviewDueLabel("Toán", 3) });
-  expect(badge.getAttribute("href")).toBe(`/projects/${MATH}?tab=review&via=sidebar`);
-  await screen.findByText(copy.reviewCount(1, 3));
-  expect(track).toHaveBeenCalledWith("review_opened", { project_id: MATH, due: 3, via: "sidebar" });
-  const before = vi.mocked(api.getReviewCount).mock.calls.length;
-  fireEvent.click(screen.getAllByRole("radio")[1]);
-  await screen.findByRole("button", { name: copy.reviewNext });
-  await waitFor(() => expect(vi.mocked(api.getReviewCount).mock.calls.length).toBe(before + 1));
-  await screen.findByRole("link", { name: copy.reviewDueLabel("Toán", 2) });
+  const button = await screen.findByRole("button", { name: new RegExp(copy.reviewProjectButton) });
+  expect(button.textContent).toBe(copy.reviewProjectButton + copy.reviewProjectGo);
+  cleanup();
+  vi.mocked(api.getReviewCount).mockResolvedValue([{ project_id: MATH, due: 2, exam_tomorrow: false }]);
+  render(<ProjectPage />);
+  const badge = await screen.findByRole("link", { name: copy.reviewDueLabel("Toán", 2) });
+  expect(badge.getAttribute("href")).toBe(`/projects/${MATH}`);
 });

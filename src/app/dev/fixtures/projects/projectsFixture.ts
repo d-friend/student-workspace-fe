@@ -1,4 +1,4 @@
-import type { MapItem, MapNodeView, Mastery, PackBlock, PackSummary, Project, ProjectSummary, ReaderPage, ReviewCard, SessionSummary } from "@/lib/api";
+import type { MapItem, MapNodeView, Mastery, PackBlock, PackSummary, Project, ProjectSummary, ReaderPage, SessionSummary } from "@/lib/api";
 
 // Rounded to the hour so the server and client renders of this dev page agree on every timestamp.
 const hours = (h: number) => new Date(Math.floor(Date.now() / 3_600_000) * 3_600_000 - h * 3_600_000).toISOString();
@@ -110,14 +110,4 @@ export const sessionsFixture: SessionSummary[] = [
   session("s2", "Tại sao bầu trời có màu xanh?", null, 3),
   session("s3", "Vật rơi từ độ cao 20 m, tính thời gian chạm đất", PHYSICS, 4),
   session("s4", "Tìm $m$ để phương trình có hai nghiệm thỏa $x_1^2 + x_2^2 = 10$", MATH, 30),
-];
-
-// Review mode: today's cards for Toán. The quiz keys live in e2e (the answer endpoint is mocked there): option 1 and "5" are right.
-export const reviewCards: ReviewCard[] = [
-  { id: "aaaaaaaa-0000-4000-8000-000000000001", kind: "quiz", node_name: "Công thức nghiệm", due_at: "2026-11-24T01:00:00Z", box: 1,
-    quiz: { question_md: "Phương trình $x^2 - 5x + 6 = 0$ có nghiệm nào?", answer: "choice", options: ["$x = 1$ và $x = 6$", "$x = 2$ và $x = 3$", "$x = -2$ và $x = -3$"] } },
-  { id: "aaaaaaaa-0000-4000-8000-000000000002", kind: "quiz", node_name: "Hệ thức Viète", due_at: "2026-11-24T01:00:00Z", box: 2,
-    quiz: { question_md: "Tổng hai nghiệm của $x^2 - 5x + 6 = 0$ bằng bao nhiêu?", answer: "number", options: null } },
-  { id: "aaaaaaaa-0000-4000-8000-000000000003", kind: "problem", node_name: "Giải bài toán bằng cách lập phương trình", due_at: "2026-11-24T01:00:00Z", box: 1,
-    problem: { excerpt_md: "Hai vòi nước cùng chảy vào một bể thì sau $6$ giờ đầy bể. Nếu vòi thứ nhất chảy một mình đầy bể nhanh hơn vòi thứ hai $5$ giờ, hỏi mỗi vòi chảy một mình thì sau bao lâu đầy bể?", workspace_id: "bbbbbbbb-0000-4000-8000-000000000001" } },
 ];

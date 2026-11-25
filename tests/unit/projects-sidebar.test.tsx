@@ -55,13 +55,13 @@ test("a filed session shows its project; an unfiled one, or one with an unknown 
   expect(screen.getByRole("button", { name: /^Bài b/ }).textContent).not.toContain("Môn");
 });
 
-test("a subject with cards due shows a small count that links to its review; none shows at 0 or with no counts", () => {
+test("a subject with cards due shows a small count that links to the subject; none shows at 0 or with no counts", () => {
   const onReview = vi.fn();
   const { rerender } = render(<ProjectList projects={many(3)} onOpen={vi.fn()} due={{ p2: 4, p3: 0 }} onReview={onReview} />);
   const badge = screen.getByRole("link", { name: copy.reviewDueLabel("Môn 2", 4) });
-  expect(badge.getAttribute("href")).toBe("/projects/p2?tab=review&via=sidebar");
+  expect(badge.getAttribute("href")).toBe("/projects/p2");
   expect(badge.textContent).toBe("4");
-  expect(screen.getAllByRole("link").filter(l => l.getAttribute("href")?.includes("tab=review"))).toHaveLength(1);
+  expect(screen.getAllByRole("link").filter(l => l.getAttribute("href") === "/projects/p2" && l.textContent === "4")).toHaveLength(1);
   fireEvent.click(badge);
   expect(onReview).toHaveBeenCalledWith(expect.objectContaining({ id: "p2" }));
   rerender(<ProjectList projects={many(3)} onOpen={vi.fn()} />);

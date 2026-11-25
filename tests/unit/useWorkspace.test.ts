@@ -2241,11 +2241,10 @@ describe("problem handed over from the landing page (?q=)", () => {
     expect(t.api.createSession).toHaveBeenLastCalledWith("typed");
   });
 
-  it("a review problem card starts a review session in its project, linked to the card, once", async () => {
-    const CARD = "aaaaaaaa-0000-4000-8000-000000000003";
-    history.replaceState(null, "", "/?q=" + encodeURIComponent("Cho mình một bài tương tự") + "&via=review&card=" + CARD + "&project=" + PROJECT);
+  it("a review door hands over its message, its kind and the project, once", async () => {
+    history.replaceState(null, "", "/?q=" + encodeURIComponent("Ôn lại các câu mình sai môn Toán") + "&via=review_chip&project=" + PROJECT);
     const t = await boot();
-    expect(t.api.createSession).toHaveBeenCalledWith("review", PROJECT, CARD);
+    expect(t.api.createSession).toHaveBeenCalledWith("review_chip", PROJECT);
     expect(location.search).toBe("");
     t.ws.actions.newProblem();
     t.ws.actions.setInput("bài khác");
@@ -2253,10 +2252,16 @@ describe("problem handed over from the landing page (?q=)", () => {
     expect(t.api.createSession).toHaveBeenLastCalledWith("typed");
   });
 
-  it("ignores a review card that is not an id", async () => {
-    history.replaceState(null, "", "/?q=" + encodeURIComponent("bài") + "&via=review&card=../x");
+  it("ignores a via it does not know", async () => {
+    history.replaceState(null, "", "/?q=" + encodeURIComponent("bài") + "&via=bogus");
     const t = await boot();
     expect(t.api.createSession).toHaveBeenCalledWith("typed");
+  });
+
+  it("startReview opens a session of the door's kind, filed in the subject for the chip", async () => {
+    const t = await boot();
+    await t.ws.actions.startReview("review_chip", "Ôn lại các câu mình sai môn Toán", PROJECT);
+    expect(t.api.createSession).toHaveBeenCalledWith("review_chip", PROJECT);
   });
 
   it("an empty composer started from a project page files the first typed session there", async () => {

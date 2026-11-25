@@ -1,6 +1,7 @@
+import type { ReactNode } from "react";
 import type { QueuedAttempt } from "./queued";
 
-export type Phase = "learn" | "solve" | "practice";
+export type Phase = "learn" | "solve" | "practice" | "review";
 
 export type QuizAnswer = "choice" | "number" | "exact" | "expr" | "open";
 export type GeometryTool = "point" | "segment" | "line" | "circle" | "midpoint" | "perpendicular" | "parallel" | "angle";
@@ -13,9 +14,10 @@ export type Block =
   | { type: "text"; id: string; md: string }
   | { type: "math"; id: string; tex: string }
   | { type: "image"; id: string; src: string; alt: string; caption?: string; credit: string; source_url: string }
-  | { type: "callout"; id: string; tone: "idea" | "remember" | "warning"; md: string }
+  | { type: "callout"; id: string; tone: "idea" | "remember" | "warning" | "note" | "mistake"; md: string; source_block?: string | null }
   | { type: "example"; id: string; title: string; problem_md: string; steps: string[] }
-  | { type: "quiz"; id: string; question_md: string; answer: QuizAnswer; options?: string[]; explanation_md: string }
+  | { type: "quiz"; id: string; question_md: string; answer: QuizAnswer; options?: string[]; explanation_md: string; card_id?: string | null; lesson?: string | null }
+  | { type: "practice"; id: string; title: string; md: string }
   | { type: "problem"; id: string; md: string; image?: { src: string; alt: string } }
   | { type: "steps"; id: string; problem_id: string; input: "math" | "text"; help?: string; scaffold?: ScaffoldItem[]; roadmap?: string }
   | {
@@ -43,10 +45,13 @@ export type WorkspaceDoc = {
   title: string;
   blocks: Block[];
   sources: { url: string; title: string }[];
+  exam_on?: string | null; // review docs: the test day, YYYY-MM-DD
+  from_block?: string | null; // a practice doc built from a review card: that card's block id
 };
 
 export type SavedBlockState =
   | { type: "quiz"; tries: number; done: boolean; text: string; selected: string | null; answered: { option: string; ok: boolean } | null }
+  | { type: "practice"; skipped: boolean; done?: undefined }
   | { type: "steps"; entries: { text: string; state: "ok" | "review"; answer?: string; item?: number; why?: string; tries?: number; hint?: number; wrong?: string }[]; done: boolean; free: boolean; takeaway?: string };
 
 export type StudentWork = {
@@ -82,6 +87,7 @@ export type BlockCtx = {
   saveBlock?: (blockId: string, state: SavedBlockState) => void;
   phase: Phase;
   report: (type: string, data?: unknown) => void;
+  afterQuiz?: (blockId: string, result: { ok: boolean | null; tries: number }) => ReactNode; // review docs: a link under a wrong answer's explanation
   check: (blockId: string, answer: string, previous: string[], item?: number) => Promise<CheckResponse>; // item: scaffold index
   hint?: (blockId: string, item: number, level: number) => Promise<string | null>;
   hintNote?: { blockId: string; item: number; text: string } | null;

@@ -133,6 +133,7 @@ export function Quiz({ block, ctx }: BlockProps<Quiz>) {
             <Md text={block.explanation_md} />
           </div>
         )}
+        {done && !isOpen && ctx.afterQuiz?.(block.id, { ok: answered?.ok ?? null, tries })}
       </div>
     </section>
   );

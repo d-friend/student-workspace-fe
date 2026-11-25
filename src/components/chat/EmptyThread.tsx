@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { IconArrowRight, IconArrowsShuffle, IconCheck, IconPhotoPlus } from "@tabler/icons-react";
+import { IconArrowRight, IconArrowsShuffle, IconCalendarEvent, IconCheck, IconPhotoPlus } from "@tabler/icons-react";
 import { copy } from "@/lib/copy";
 import { PackUpload } from "@/components/pack/PackUpload";
 import { getSurpriseCard, type Pack, type ProgressItem, type SurpriseCard } from "@/lib/api";
@@ -15,19 +15,23 @@ export type EmptyThreadProps = {
   onSurprise: (id?: string) => void;
   progress?: { item: ProgressItem; onOpen: () => void } | null;
   onPackUploaded?: (pack: Pack) => void; // "Tải vở / sách": the page owns the status sheet
-  review?: { due: number; projectId: string } | null; // cards due today across subjects; the chip opens the one with the most
+  onReview?: () => void; // "Sắp kiểm tra?": a new session that opens with a request to review
+  review?: { due: number; projectId: string; subject: string; examTomorrow: boolean } | null; // the subject with the most cards waiting; the chip starts its follow-up review
+  onReviewChip?: () => void;
 };
 
-// Three cards of one size and style: a next step (or, with no progress yet, one sample), a surprise, and the notes upload.
+// Four cards of one size and style: a next step (or, with no progress yet, one sample), a surprise, the notes upload, and a review.
 // Each is label on top, content, and an arrow: the card is the action.
-export function EmptyThread({ onStarter, onSurprise, progress, onPackUploaded, review }: EmptyThreadProps) {
+export function EmptyThread({ onStarter, onSurprise, progress, onPackUploaded, review, onReview, onReviewChip }: EmptyThreadProps) {
   return (
     <section className={styles.emptyThread}>
       <div className={styles.hello}>
         <h1 className={styles.title}>{copy.entryTitle}</h1>
         <p className={styles.sub}>{copy.entrySub}</p>
       </div>
-      {review && review.due > 0 && <Link className={styles.chip} href={`/projects/${review.projectId}?tab=review&via=home_chip`}>{copy.homeReviewChip(review.due)}</Link>}
+      {review && review.due > 0 && <button type="button" className={styles.chip} onClick={onReviewChip}>
+        {review.examTomorrow ? copy.homeReviewChipExam(review.subject, review.due) : copy.homeReviewChip(review.due)}
+      </button>}
       <div className={styles.tiles}>
         {progress ? <NextStep {...progress} /> : <Sample onOpen={() => onStarter("derivative")} />}
         <Surprise onOpen={onSurprise} />
@@ -42,6 +46,14 @@ export function EmptyThread({ onStarter, onSurprise, progress, onPackUploaded, r
             </span>
           </>,
         }} />}
+        {onReview && <section className={styles.tile} aria-label={copy.reviewHomeLabel}>
+          <div className={styles.head}><h2>{copy.reviewHomeLabel}</h2></div>
+          <button type="button" className={styles.main} onClick={onReview}>
+            <IconCalendarEvent size={24} aria-hidden="true" className={styles.lead} />
+            <span className={styles.text}><span className={styles.name}>{copy.reviewHomeMain}</span></span>
+            <IconArrowRight size={20} aria-hidden="true" className={styles.arrow} />
+          </button>
+        </section>}
       </div>
       <p className={styles.foot}>{copy.entryFoot}</p>
     </section>

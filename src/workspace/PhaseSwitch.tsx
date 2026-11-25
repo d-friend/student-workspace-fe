@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { IconBook, IconPencil, IconSchool } from "@tabler/icons-react";
+import { IconBook, IconChecklist, IconPencil, IconSchool } from "@tabler/icons-react";
 import type { Phase, Workspace } from "./types";
 import styles from "./PhaseSwitch.module.css";
 
-const icons = { learn: IconBook, solve: IconPencil, practice: IconSchool };
+const icons = { learn: IconBook, solve: IconPencil, practice: IconSchool, review: IconChecklist };
 
 export function PhaseSwitch({ tabs, activeId, onActive, barTarget }: {
   tabs: (Workspace & { phase: Phase })[];

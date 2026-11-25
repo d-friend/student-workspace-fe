@@ -158,7 +158,6 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let input = "";
   let nextVia: StartedVia | undefined; // set by a handoff (?via=) for the session the next submit creates
-  let nextCard: string | undefined; // set by a handoff (?card=) from a review problem card: the session the next submit creates is linked to it
   let nextProject: string | undefined; // set by a handoff (?project=) from a project page: the session the next submit creates is filed there
   let photos: string[] = [];
   let photoNoteId: number | null = null;
@@ -604,10 +603,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
     try {
       if (sessionId === null) {
         const startedVia = via ?? (shots.length ? "photo" : "typed");
-        const created = await (nextCard ? api.createSession(startedVia, nextProject, nextCard) : nextProject ? api.createSession(startedVia, nextProject) : api.createSession(startedVia));
+        const created = await (nextProject ? api.createSession(startedVia, nextProject) : api.createSession(startedVia));
         if (epoch !== mine) return;
         nextProject = undefined;
-        nextCard = undefined; // kept until it worked, so a failed first send still files the retry
         sessionId = created.sessionId;
         sheet = null;
         sessionConfirmed = true;
@@ -971,12 +969,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
       if (q) {
         const url = new URL(location.href);
         const via = url.searchParams.get("via");
-        const card = url.searchParams.get("card");
-        if (via === "pack_learn_more") nextVia = "pack_learn_more";
-        if (via === "review" && card && !applied && UUID.test(card)) { nextVia = "review"; nextCard = card; }
+        if (via === "pack_learn_more" || via === "review" || via === "review_chip") nextVia = via;
         url.searchParams.delete("q");
         url.searchParams.delete("via");
-        url.searchParams.delete("card");
         history.replaceState(null, "", url);
       }
       if (q || handed.length) {
@@ -994,7 +989,6 @@ export function createWorkspace(deps: WorkspaceDeps) {
 
   function resetToNew(reason: "new_problem" | "abandoned") {
     nextProject = undefined;
-    nextCard = undefined;
     epoch++;
     flushSaves();
     if (sessionId) api.endSession(sessionId, reason).catch(() => {});
@@ -1158,6 +1152,13 @@ export function createWorkspace(deps: WorkspaceDeps) {
         starterInFlight = false;
       }
       if (fallback) await actions.startStarter(Math.random() < 0.5 ? "derivative" : "geometry");
+    },
+
+    // The review doors on home: a first message that asks for a review, in a new session of the door's kind (filed in the subject for the chip).
+    startReview(via: "starter_review" | "review_chip", text: string, projectId?: string): Promise<void> {
+      if (busy || starterInFlight) return Promise.resolve();
+      nextProject = projectId;
+      return dispatch(text, [], via);
     },
 
     async startStarter(starter: "derivative" | "geometry"): Promise<void> {

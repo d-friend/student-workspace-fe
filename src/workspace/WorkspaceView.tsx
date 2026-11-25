@@ -17,6 +17,7 @@ import { stageResults } from "./stageResults";
 import { MdInline } from "./md";
 import { ActionBar } from "./ActionBar";
 import { PhaseSwitch } from "./PhaseSwitch";
+import { ReviewBody } from "./ReviewBody";
 import type { Block, BlockCtx, Phase, SavedBlockState, Workspace } from "./types";
 import { canReturnToProblem, returnTarget } from "./navigation";
 import styles from "./WorkspaceView.module.css";
@@ -42,11 +43,12 @@ type Props = {
   brokenTabs?: Record<string, true>;
   onRebuild?: (id: string) => void;
   onSelectionAsk?: (quote: SelectionQuote) => void;
+  onLeave?: (url: string) => void; // a review's end card: end this session and go to the url
   mobile?: MobileWorkspace;
   tabsTarget?: HTMLElement | null; // desktop with the chat hidden: the top bar slot that holds the tabs
 };
 
-function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onRebuild, sessionId, workspaceCount, sessionUnready, tabs, onActive, onReset, resetDisabled, offer, onOfferShown, mobile }: {
+function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, allTaskDone, onLeave, busy, broken, onRebuild, sessionId, workspaceCount, sessionUnready, tabs, onActive, onReset, resetDisabled, offer, onOfferShown, mobile }: {
   offer?: Props["offer"];
   onOfferShown?: Props["onOfferShown"];
   w: Workspace;
@@ -63,6 +65,8 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
   base: BlockCtx;
   hasSolve: boolean;
   taskDone: string[];
+  allTaskDone: Record<string, string[]>;
+  onLeave?: (url: string) => void;
   busy: boolean;
   broken: boolean;
   onRebuild?: (id: string) => void;
@@ -108,7 +112,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
   const learnReported = useRef(w.doc.blocks.filter((b) => b.type === "quiz").length > 0 &&
     w.doc.blocks.filter((b) => b.type === "quiz").every((b) => restoredQuizzes.has(b.id)));
   const level = Math.min(presses, 3);
-  const working = p !== "learn";
+  const working = p === "solve" || p === "practice";
   const offerShown = !!offer && allDone && working && !hidden;
   useEffect(() => {
     onOfferShown?.(offerShown);
@@ -222,7 +226,8 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, busy, broken, onR
           <button ref={cancelReset} type="button" className={styles.headerButton} onClick={closeReset}>{copy.workspaceResetCancel}</button>
         </div>}
       </header>
-      {w.doc.blocks.map((b) => {
+      {p === "review" ? <ReviewBody w={w} ctx={ctx} tabs={tabs} taskDone={allTaskDone} hidden={hidden} busy={busy} onActive={onActive} onLeave={onLeave} />
+      : w.doc.blocks.map((b) => {
         const steps = b.type === "problem" ? w.doc.blocks.find((item) => item.type === "steps" && item.problem_id === b.id) : undefined;
         const problem = b.type === "steps" ? w.doc.blocks.find((item) => item.type === "problem" && item.id === b.problem_id) : undefined;
         const sticky = working && steps?.type === "steps" && acceptedSteps(steps, state, ctx.overrides[steps.id]) > 0;
@@ -308,8 +313,8 @@ function LocalizedDoc(props: Parameters<typeof Doc>[0]) {
   return <WorkspaceCopy.Provider value={copyFor(lang)}><Doc {...props} /></WorkspaceCopy.Provider>;
 }
 
-export function WorkspaceView({ sessionId, tabs, activeId, onActive, onReset, resets = {}, resetDisabled = false, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild, onSelectionAsk, offer, onOfferShown, mobile, tabsTarget }: Props) {
-  const lastWorkingId = tabs.findLast(tab => tab.phase !== "learn")?.id;
+export function WorkspaceView({ sessionId, tabs, activeId, onActive, onReset, resets = {}, resetDisabled = false, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild, onSelectionAsk, onLeave, offer, onOfferShown, mobile, tabsTarget }: Props) {
+  const lastWorkingId = tabs.findLast(tab => tab.phase === "solve" || tab.phase === "practice")?.id;
   const activeDoc = tabs.find((tab) => tab.id === activeId)?.doc;
   const activeCopy = useMemo(() => activeDoc ? copyFor(workspaceLocale(activeDoc)) : copy, [activeDoc]);
   // Hidden docs share this scroller; keep an independent offset for each workspace.
@@ -332,7 +337,7 @@ export function WorkspaceView({ sessionId, tabs, activeId, onActive, onReset, re
       <div className={styles.view} data-pet-column>
         <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} barTarget={tabsTarget} />
         {tabs.map((w) => (
-          <LocalizedDoc key={`${w.id}:${resets[w.id] ?? 0}`} sessionId={sessionId} workspaceCount={tabs.length} sessionUnready={tabs.some((tab) => tab.doc.blocks.some((block) => block.type === "custom" && block.html == null))} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} tabs={tabs} onActive={onActive} onReset={onReset} resetDisabled={resetDisabled} offer={w.id === lastWorkingId ? offer : null} onOfferShown={w.id === lastWorkingId ? onOfferShown : undefined} mobile={mobile} />
+          <LocalizedDoc key={`${w.id}:${resets[w.id] ?? 0}`} sessionId={sessionId} workspaceCount={tabs.length} sessionUnready={tabs.some((tab) => tab.doc.blocks.some((block) => block.type === "custom" && block.html == null))} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} allTaskDone={taskDone} onLeave={onLeave} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} tabs={tabs} onActive={onActive} onReset={onReset} resetDisabled={resetDisabled} offer={w.id === lastWorkingId ? offer : null} onOfferShown={w.id === lastWorkingId ? onOfferShown : undefined} mobile={mobile} />
         ))}
       </div>
     </div>

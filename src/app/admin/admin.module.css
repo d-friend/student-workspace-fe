@@ -264,3 +264,13 @@
   .funnel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .barRow { grid-template-columns: minmax(0, auto) minmax(30px, 1fr) auto; }
 }
+
+.features { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.feature { min-width: 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); }
+.feature h3 { margin: 0 0 8px; }
+.feature ul { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: 14px; }
+.feature li { display: flex; justify-content: space-between; gap: 12px; }
+.feature li span { min-width: 0; overflow-wrap: anywhere; color: var(--muted); }
+.feature li b, .reuse b { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.reuse { display: flex; justify-content: space-between; gap: 12px; margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--border); font-size: 14px; }
+.feature small { display: block; margin-top: 8px; color: var(--muted); font-size: 13px; }

@@ -76,8 +76,8 @@ test("Latency lists the slowest turns and the guest id is a button", async () =>
   expect(screen.getByText("sim-model")).toBeTruthy();
   expect(screen.getByText("turn-1")).toBeTruthy();
   expect(screen.getByText("Master first visible text")).toBeTruthy();
-  const day = screen.getByRole("row", { name: /2026-10-19/ });
-  expect(Array.from(day.querySelectorAll("td")).map(cell => cell.textContent)).toEqual(["2026-10-19", "2", "20 ms / 30 ms", "25 ms / —"]);
+  const day = screen.getByRole("row", { name: /10-19/ });
+  expect(Array.from(day.querySelectorAll("td")).map(cell => cell.textContent)).toEqual(["10-19", "2", "20 / 30", "25 / —"]);
 });
 
 test("Users shows funnel step percentages", async () => {

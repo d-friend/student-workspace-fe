@@ -74,7 +74,7 @@ export function BusinessSection({ token, days, onGuestOpen, children }: { token:
     </>}</Section>
     <Section title="Comebacks">{!data ? state : <>
       <div className={styles.metrics}><Metric label="Returning people" value={countPercent(data.comebacks.returning, data.comebacks.active)} detail="returning / active in the range" /></div>
-      {data.comebacks.doors.length ? <div className={styles.tableWrap}><table><thead><tr><th>Door</th><th>Return days</th><th>People</th></tr></thead><tbody>{data.comebacks.doors.map(row => <tr key={row.door}><td>{row.door.replaceAll("_", " ")}</td><td>{row.return_days}</td><td>{row.persons}</td></tr>)}</tbody></table></div> : <Empty />}
+      {data.comebacks.doors.length ? <div className={`${styles.tableWrap} ${styles.narrow}`}><table><thead><tr><th>Door</th><th>Return days</th><th>People</th></tr></thead><tbody>{data.comebacks.doors.map(row => <tr key={row.door}><td>{row.door.replaceAll("_", " ")}</td><td>{row.return_days}</td><td>{row.persons}</td></tr>)}</tbody></table></div> : <Empty />}
       <p className={styles.note}>A return day is any day after a person&apos;s first. The door is the first thing they did that day. Read it for which door brings people back; people can appear under more than one door.</p>
     </>}</Section>
     <FeaturesPanel token={token} days={days} />

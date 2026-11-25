@@ -39,6 +39,6 @@ export function FeaturesPanel({ token, days }: { token: string; days: number }) 
       <Feature title="Learner signals" steps={[["Master replies with an observation", learner.observed, learner.replies], ["People with signals", learner.persons_with_signals], ["…with a ready tier", learner.persons_ready, learner.persons_with_signals],
         ...learner.transitions.map((row): Step => [`${row.from} → ${row.to} (${row.why})`, row.persons])]} />
     </div>
-    <p className={styles.note}>People per step, counted once each in the date range. A fraction is out of the step it names (the first row, or the one above). A good sign is the reuse line: people who came back to the feature on another day.</p>
+    <p className={styles.note}>Each row counts people once in the date range, unless it says replies or sessions. n / d is out of the step the row builds on. A good sign is a high reuse line: people who came back to the feature on another day.</p>
   </>}</Section>;
 }

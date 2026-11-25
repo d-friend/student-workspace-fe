@@ -140,18 +140,20 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
   }, [desktop, side.drawerOpen, closeDrawer]);
 
   // Opening a past session resumes it, then a reload runs the app's normal restore. A failed resume leaves things as they were.
-  const open = (id: string) => {
+  // Returns true when it started opening: on a phone the drawer then stays open (the row shows progress) until the page navigates.
+  const open = (id: string): boolean => {
     const session = page.sessions.find(row => row.id === id);
-    if (!session || (session.current && !away)) return;
+    if (!session || (session.current && !away)) return false;
     const createdAt = Date.parse(session.created_at);
     // Measure age from creation, so resuming does not make an old session look new.
     const ageDays = Number.isFinite(createdAt) ? Math.max(0, Math.floor((Date.now() - createdAt) / 86_400_000)) : 0;
     track("history_session_viewed", { tabs: session.tabs.length, age_days: ageDays }, id);
-    if (opening) return;
+    if (opening) return true;
     setOpening(id);
     // Success navigates away, so the row stays marked until the page unloads; only a failure clears it.
     const done = onOpenSession ? Promise.resolve(onOpenSession(id)) : resumeSession(id).then(() => window.location.reload(), () => false);
-    void done.then(ok => { if (ok === false) setOpening(null); });
+    void done.then(ok => { if (ok === false) { setOpening(null); if (!desktop) closeDrawer(); } });
+    return true;
   };
 
   const remove = async (id: string) => {
@@ -219,8 +221,8 @@ export function Sidebar({ side, onNewProblem, refreshKey, onOpenSession, progres
           <Loading busy={loading && !page.sessions.length} label={copy.loadingHistory} skeleton={<HistorySkeleton />}>
             <SessionList sessions={page.sessions} projectNames={projectNames} openingId={opening} disabled={deleting || loading || opening !== null} deleteDisabled={busy || deleting || loading} onDelete={id => void remove(id)} onChoose={id => {
               // On /progress even the current session needs a navigation back to its workspace.
-              if (away || !page.sessions.find(row => row.id === id)?.current) open(id);
-              if (!desktop) closeDrawer();
+              const started = (away || !page.sessions.find(row => row.id === id)?.current) && open(id);
+              if (!started && !desktop) closeDrawer();
             }} />
           </Loading>
           {deleteError && <p className={styles.deleteError} role="alert">{copy[deleteError]}</p>}

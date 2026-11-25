@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { useSidebar } from "@/components/sidebar/useSidebar";
@@ -75,7 +75,7 @@ it("rail has an accessible new-problem icon, no list fetch", async () => {
   await waitFor(() => expect(requests()).toHaveLength(2));
   expect(screen.queryByText("first")).toBeNull();
 });
-function Phone({ onOpen = vi.fn(), onNew = vi.fn(), progress }: { onOpen?: (id: string) => void; onNew?: () => void; progress?: { active?: boolean } | null }) {
+function Phone({ onOpen = vi.fn(), onNew = vi.fn(), progress }: { onOpen?: (id: string) => void | Promise<boolean>; onNew?: () => void; progress?: { active?: boolean } | null }) {
   const state = useSidebar();
   return <Sidebar side={state} onNewProblem={onNew} onOpenSession={onOpen} progress={progress} refreshKey="1" />;
 }
@@ -101,6 +101,20 @@ it("rail progress link has an accessible icon-only name", async () => {
   await waitFor(() => expect(requests()).toHaveLength(2));
 });
 
+it("phone: picking a session keeps the drawer open with the row busy until the page navigates; a failed open closes it", async () => {
+  desktop = false;
+  first = { sessions: [row("first")], next_before: null }; // not the current one
+  let settle!: (ok: boolean) => void;
+  const onOpen = vi.fn(() => new Promise<boolean>(resolve => { settle = resolve; }));
+  render(<Phone onOpen={onOpen} />);
+  fireEvent.click(screen.getByRole("button", { name: copy.historyOpen }));
+  fireEvent.click(await screen.findByRole("button", { name: /first/ }));
+  expect(onOpen).toHaveBeenCalledOnce();
+  expect(screen.getByRole("button", { name: /first/ }).getAttribute("aria-busy")).toBe("true");
+  await act(async () => settle(false));
+  expect(screen.queryByRole("button", { name: /first/ })).toBeNull();
+});
+
 it("phone progress link closes the drawer on tap", async () => {
   desktop = false;
   render(<Phone progress={{}} />);
@@ -113,7 +127,7 @@ it("phone progress link closes the drawer on tap", async () => {
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(document.activeElement).toBe(menu);
 });
-it.each(["Escape", "scrim", "session", "new"])("phone closes via %s and restores focus", async (action) => {
+it.each(["Escape", "scrim", "new"])("phone closes via %s and restores focus", async (action) => {
   desktop = false;
   const onOpen = vi.fn(); const onNew = vi.fn();
   if (action === "session") first = { sessions: [row("first")], next_before: null }; // not the current one

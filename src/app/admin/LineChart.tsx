@@ -23,7 +23,7 @@ export function labelIndices(count: number): number[] {
   return Array.from({ length: count }, (_, i) => i).filter((i) => (count - 1 - i) % step === 0);
 }
 
-const W = 640, H = 240, L = 34, R = 12, T = 12, B = 26;
+const W = 640, H = 240, L = 34, R = 20, T = 12, B = 26;
 const dayName = (iso: string) => new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" });
 
 // `partialLast`: the last point is a bucket still filling (this week), so its segment is faded and dashed and its point hollow.

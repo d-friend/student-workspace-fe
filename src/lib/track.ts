@@ -19,6 +19,7 @@ export type TrackEvents = {
   project_opened: { project_id: string; via: "sidebar" | "pack_sheet" };
   project_tab_viewed: { project_id: string; tab: "map" | "sessions" | "sources" };
   review_finished: { workspace_id: string; correct: number; total: number; kept_cards: number; practices_done: number };
+  home_card_tapped: { card: "next_step" | "starter" | "surprise" | "upload_notes" | "review" };
   history_session_viewed: { tabs: number; age_days: number };
   app_opened: { path: string; referrer_host?: string; viewport_w: number; viewport_h: number; restored: boolean };
   empty_state_shown: NoProps;

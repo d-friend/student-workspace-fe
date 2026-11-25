@@ -13,7 +13,7 @@ import styles from "./Pack.module.css";
 // `card`: home's upload card, where the whole card is the button. Its content gets `busy` so it can say it is uploading.
 export function PackUpload({ onUploaded, projectId, rowClassName, card }: {
   onUploaded: (pack: Pack) => void; projectId?: string; rowClassName?: string;
-  card?: { className: string; cellClassName: string; children: (busy: boolean) => ReactNode };
+  card?: { className: string; cellClassName: string; children: (busy: boolean) => ReactNode; onTap?: () => void };
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -42,7 +42,7 @@ export function PackUpload({ onUploaded, projectId, rowClassName, card }: {
 
   return <div className={card ? card.cellClassName : rowClassName ? undefined : styles.upload} style={rowClassName ? { display: "contents" } : undefined}>
     {card
-      ? <button type="button" className={card.className} aria-busy={busy || undefined} disabled={busy || unavailable} onClick={() => input.current?.click()}>{card.children(busy)}</button>
+      ? <button type="button" className={card.className} aria-busy={busy || undefined} disabled={busy || unavailable} onClick={() => { card.onTap?.(); input.current?.click(); }}>{card.children(busy)}</button>
       : rowClassName
       ? <button type="button" className={rowClassName} aria-label={copy.projectAddLabel} disabled={busy || unavailable} onClick={() => input.current?.click()}>
         <InPlace busy={busy}>{copy.projectAdd}</InPlace>

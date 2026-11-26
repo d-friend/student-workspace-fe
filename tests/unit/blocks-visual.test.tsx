@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { copy } from "@/lib/copy";
 import { renderBlock } from "@/workspace/blocks";
@@ -11,6 +11,9 @@ const jx = vi.hoisted(() => {
     create: vi.fn(),
     update: vi.fn(),
     setBoundingBox: vi.fn(),
+    zoomIn: vi.fn(),
+    zoomOut: vi.fn(),
+    zoom100: vi.fn(),
     jc: { scope: { locals: {} as Record<string, number> }, snippet: vi.fn((expr: string) => (x: number) => (expr === "bad(" ? NaN : x)) },
   };
   return { board, initBoard: vi.fn(() => board), freeBoard: vi.fn() };
@@ -180,7 +183,7 @@ test("draws fixed figure", async () => {
 test("toolbar shows only listed tools", () => {
   setupGeo();
   render(<>{renderBlock(geo({ tools: ["midpoint", "angle"] }), ctx)}</>);
-  expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["Trung điểm", "Góc"]);
+  expect(within(screen.getByRole("group", { name: copy.geoToolbar })).getAllByRole("button").map((b) => b.textContent)).toEqual(["Trung điểm", "Góc"]);
   fireEvent.click(screen.getByRole("button", { name: "Góc" }));
   expect(screen.getByRole("button", { name: "Góc" }).getAttribute("aria-pressed")).toBe("true");
   expect(screen.getByRole("status").textContent).toBe("Chọn 3 điểm");
@@ -347,18 +350,23 @@ test("the old tuple-only figure renders as before, with its toolbar", async () =
   expect(seg.attrs.name).toBeUndefined();
   expect(seg.attrs.lastArrow).toBeUndefined();
   expect(seg.h.down).toBeDefined();
-  expect(screen.getAllByRole("button")).toHaveLength(4);
+  expect(within(screen.getByRole("group", { name: copy.geoToolbar })).getAllByRole("button")).toHaveLength(4);
   expect(screen.getByRole("status")).toBeTruthy();
 });
 
-test("empty tools is a static picture: no toolbar, no status, nothing to drag or pick", async () => {
+test("empty tools is a static picture: no toolbar, no status, nothing to drag or pick, but the view moves and zooms", async () => {
   setupGeo();
   render(<>{renderBlock(figure(), ctx)}</>);
   await waitFor(() => expect(els.filter((e) => e.kind === "point")).toHaveLength(3));
-  expect(screen.queryAllByRole("button")).toHaveLength(0);
+  expect(screen.queryByRole("group", { name: copy.geoToolbar })).toBeNull();
   expect(screen.queryByRole("status")).toBeNull();
-  expect(screen.getByRole("group").getAttribute("aria-label")).toBe(copy.geoBoard(["TP.HCM", "Gặp ?", "Cần Thơ"]));
-  expect(jx.initBoard).toHaveBeenCalledWith(expect.any(HTMLElement), expect.objectContaining({ pan: { enabled: false }, zoom: { wheel: false } }));
+  expect(screen.getByRole("group", { name: copy.geoBoard(["TP.HCM", "Gặp ?", "Cần Thơ"]) })).toBeTruthy();
+  // One finger scrolls the page (browserPan); two fingers or a mouse drag move the figure; Shift+wheel or a pinch zooms.
+  expect(jx.initBoard).toHaveBeenCalledWith(expect.any(HTMLElement), expect.objectContaining({
+    browserPan: true,
+    pan: { enabled: true, needShift: false, needTwoFingers: true },
+    zoom: expect.objectContaining({ wheel: true, needShift: true, pinch: true }),
+  }));
   expect(boardOn()).not.toHaveBeenCalled(); // no pointer handler on the board
   for (const e of els) {
     expect(e.h.down).toBeUndefined(); // no element reacts to a press
@@ -401,7 +409,7 @@ test("a static board takes its aspect ratio from the padded box and is drawn in 
   setupGeo();
   render(<>{renderBlock(figure({ points: [{ id: "TP.HCM", x: 0, y: 0 }, { id: "Cần Thơ", x: 189, y: 0 }], segments: [["TP.HCM", "Cần Thơ"]] }), ctx)}</>);
   await waitFor(() => expect(els.filter((e) => e.kind === "point")).toHaveLength(2));
-  expect(parseFloat(screen.getByRole("group").style.aspectRatio)).toBe(4); // jsdom reads "4" back as "4 / 1"
+  expect(parseFloat(screen.getByRole("group", { name: copy.geoBoard(["TP.HCM", "Cần Thơ"]) }).style.aspectRatio)).toBe(4); // jsdom reads "4" back as "4 / 1"
   const opts = (jx.initBoard.mock.calls as unknown as [unknown, { boundingbox: number[]; keepaspectratio: boolean }][])[0][1];
   expect(opts.boundingbox).toEqual(staticFrame([{ x: 0, y: 0 }, { x: 189, y: 0 }]).box);
   expect(opts.keepaspectratio).toBe(true);
@@ -414,4 +422,19 @@ test("an interactive board keeps 4:3, the forced origin and the fixed padding", 
   expect(screen.getByRole("group", { name: copy.geoBoard(["A", "B", "C"]) }).style.aspectRatio).toBe(""); // the CSS 4 / 3 applies
   const opts = (jx.initBoard.mock.calls as unknown as [unknown, { boundingbox: number[] }][])[0][1];
   expect(opts.boundingbox).toEqual([-2, 5, 6, -2]);
+});
+
+test.each([["static", figure], ["with tools", geo]])("the zoom buttons zoom in, out and back to the first view (%s)", async (_name, make) => {
+  setupGeo();
+  render(<>{renderBlock(make(), ctx)}</>);
+  await waitFor(() => expect(els.filter((e) => e.kind === "point")).toHaveLength(3));
+  const zoom = within(screen.getByRole("group", { name: copy.geoZoom }));
+  fireEvent.click(zoom.getByRole("button", { name: copy.geoZoomIn }));
+  fireEvent.click(zoom.getByRole("button", { name: copy.geoZoomIn }));
+  fireEvent.click(zoom.getByRole("button", { name: copy.geoZoomOut }));
+  fireEvent.click(zoom.getByRole("button", { name: copy.geoZoomReset }));
+  expect(jx.board.zoomIn).toHaveBeenCalledTimes(2);
+  expect(jx.board.zoomOut).toHaveBeenCalledTimes(1);
+  expect(jx.board.zoom100).toHaveBeenCalledTimes(1);
+  for (const svg of screen.getByRole("group", { name: copy.geoZoom }).querySelectorAll("svg")) expect(svg.getAttribute("aria-hidden")).toBe("true");
 });

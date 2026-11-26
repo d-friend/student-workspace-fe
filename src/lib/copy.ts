@@ -441,6 +441,10 @@ const vi = {
   geoPickPoints: (n: number) => `Chọn ${n} điểm`,
   geoPickLine: "Chọn 1 đường",
   geoToolbar: "Công cụ dựng hình",
+  geoZoom: "Phóng to, thu nhỏ hình",
+  geoZoomIn: "Phóng to",
+  geoZoomOut: "Thu nhỏ",
+  geoZoomReset: "Về như ban đầu",
   geoBoard: (points: string[]) => `Bảng dựng hình, các điểm ${points.join(", ")}`,
   graphBoard: (labels: string[]) => `Đồ thị của ${labels.join(", ")}`,
   starterPrompts: {
@@ -891,6 +895,10 @@ const en: typeof vi = {
   geoPickPoints: (n: number) => `Pick ${n} points`,
   geoPickLine: "Pick 1 line",
   geoToolbar: "Construction tools",
+  geoZoom: "Zoom the figure",
+  geoZoomIn: "Zoom in",
+  geoZoomOut: "Zoom out",
+  geoZoomReset: "Reset the view",
   geoBoard: (points: string[]) => `Construction board, points ${points.join(", ")}`,
   graphBoard: (labels: string[]) => `Graph of ${labels.join(", ")}`,
   starterPrompts: {

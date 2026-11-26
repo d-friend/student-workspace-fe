@@ -74,7 +74,9 @@
 .seg svg { flex: none; }
 
 /* Queued problems: a short number plus a status word, never squeezed. */
-.seg[data-queue] { flex: 0 0 auto; }
+.seg[data-queue], .seg[data-numbered] { flex: 0 0 auto; min-width: 0; }
+/* A fade says there is more to scroll to. */
+.bar[data-more] { mask-image: linear-gradient(to right, var(--text) calc(100% - 48px), transparent); }
 .seg[data-queue="queued"] { color: var(--muted); font-weight: 500; }
 .seg[data-queue="queued"] svg { opacity: 0.7; }
 .label { white-space: nowrap; }

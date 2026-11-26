@@ -15,7 +15,7 @@ const doc = Object.values(fixtures)[0];
 const first = { id: "w1", phase: "solve" as const, doc };
 const second = { id: "w2", phase: "solve" as const, doc };
 const item = (label: string, status: QueueItem["status"], extra: Partial<QueueItem> = {}): QueueItem =>
-  ({ id: `q${label}`, label, firstLabel: "5.28", status, opened: false, workspaceId: null, tab: null, ...extra });
+  ({ id: `q${label}`, label, firstLabel: "5.28", firstWorkspaceId: "w1", status, opened: false, workspaceId: null, tab: null, ...extra });
 const ready = (opened = false) => item("5.29", "ready", { workspaceId: "w2", tab: second, opened });
 
 async function setup(...answers: QueueItem[][]) {
@@ -94,6 +94,7 @@ describe("problem queue", () => {
     const onOpen = vi.fn();
     render(<PhaseSwitch tabs={[first]} activeId="w1" onActive={() => {}} queue={{ items: [item("5.29", "building"), item("5.30", "queued")], viewId: null, onOpen }} />);
     expect(screen.getByRole("tab", { name: `5.29 ${copy.queueStatus.building}` })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "5.28" }).getAttribute("title")).toBe(doc.title);
     fireEvent.click(screen.getByRole("tab", { name: `5.30 ${copy.queueStatus.queued}` }));
     expect(onOpen).toHaveBeenCalledWith("q5.30", "tab");
   });

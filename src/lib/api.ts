@@ -213,6 +213,7 @@ export type QueueItem = {
   id: string;
   label: string;
   firstLabel: string | null; // the page's number of the problem built first
+  firstWorkspaceId: string | null; // and its tab
   status: QueueStatus;
   opened: boolean;
   workspaceId: string | null;
@@ -224,10 +225,10 @@ export async function getQueue(sessionId: string): Promise<QueueItem[]> {
   if (!res.ok) throw await toApiError(res);
   const body = await res.json();
   return body.items.map((i: {
-    id: string; label: string; first_label: string | null; status: QueueStatus; opened: boolean; workspace_id: string | null;
+    id: string; label: string; first_label: string | null; first_workspace_id: string | null; status: QueueStatus; opened: boolean; workspace_id: string | null;
     workspace: { workspace_id: string; phase: Phase; doc: WorkspaceDoc; parent_workspace_id?: string | null; state?: Workspace["state"] } | null;
   }) => ({
-    id: i.id, label: i.label, firstLabel: i.first_label, status: i.status, opened: i.opened, workspaceId: i.workspace_id,
+    id: i.id, label: i.label, firstLabel: i.first_label, firstWorkspaceId: i.first_workspace_id, status: i.status, opened: i.opened, workspaceId: i.workspace_id,
     tab: i.workspace && { id: i.workspace.workspace_id, phase: i.workspace.phase, doc: i.workspace.doc,
       parent_workspace_id: i.workspace.parent_workspace_id, state: i.workspace.state },
   }));

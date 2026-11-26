@@ -391,6 +391,16 @@ export function createWorkspace(deps: WorkspaceDeps) {
   // Lines checked since the current turn started: its line_state judged an older attempt at them.
   const rechecked = new Set<string>();
 
+  // The code key decides a picked scaffold choice: the master cannot mark it ok (it may still withdraw an ok).
+  function pickedChoice(workspaceId: string, blockId: string, line: number): boolean {
+    const w = tabs.find((x) => x.id === workspaceId);
+    const block = w?.doc.blocks.find((b) => b.id === blockId);
+    const saved = w?.state?.blocks?.[blockId];
+    if (block?.type !== "steps" || saved?.type !== "steps") return false;
+    const item = saved.entries[line - 1]?.item;
+    return item !== undefined && block.scaffold?.[item]?.kind === "choice";
+  }
+
   async function runTurn(
     typed: boolean,
     text: string,
@@ -593,6 +603,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
         simulationPending = { ...simulationPending, [versionKey]: false };
       } else if (e.event === "line_state") {
         if (rechecked.has(`${e.workspaceId}:${e.blockId}:${e.line}`)) return;
+        if (e.state === "ok" && pickedChoice(e.workspaceId, e.blockId, e.line)) return;
         const w = overrides[e.workspaceId] ?? {};
         overrides = { ...overrides, [e.workspaceId]: { ...w, [e.blockId]: { ...w[e.blockId], [e.line]: e.state } } };
         verdicts = { ...verdicts, [e.workspaceId]: { seq: ++verdictSeq, state: e.state, done: false } };

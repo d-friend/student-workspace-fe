@@ -176,8 +176,7 @@ it("reopens a restored legacy iframe from its chat card on mobile", async () => 
 });
 
 // A turn held open so a check can land while it runs; `judge` then delivers the master's verdict.
-async function heldTurn() {
-  const solve = fixtures["solve-tangent.json"];
+async function heldTurn(solve = fixtures["solve-tangent.json"]) {
   let emit!: Parameters<typeof api.turn>[3];
   let end!: () => void;
   const turn = vi.fn()
@@ -246,5 +245,17 @@ it("a re-check leaves the same turn's line_state for another line in place", asy
   await t.checkLine(["a"]);
   t.judge(1);
   expect(t.result.current.overrides.S1?.s1).toEqual({ 1: "ok" });
+  await t.end();
+});
+
+it.each([
+  ["a scaffold choice line keeps the key's review", 0, undefined],
+  ["a scaffold blank line takes the master's ok", 1, "ok"],
+])("master line_state ok: %s", async (_name, item, expected) => {
+  const t = await heldTurn(fixtures["steps-scaffold.json"]);
+  act(() => t.result.current.saveBlock("S1", "s1", { type: "steps", entries: [{ text: "x", state: "review", item }], done: false, free: false }));
+  await t.start();
+  t.judge(1);
+  expect(t.result.current.overrides.S1?.s1?.[1]).toBe(expected);
   await t.end();
 });

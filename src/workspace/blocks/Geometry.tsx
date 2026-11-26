@@ -1,4 +1,4 @@
-import { IconAngle, IconBoxAlignRight, IconCircle, IconEqual, IconLine, IconLineDashed, IconPoint, IconSquareDot } from "@tabler/icons-react";
+import { IconAngle, IconBoxAlignRight, IconCircle, IconEqual, IconLine, IconLineDashed, IconPoint, IconSquareDot, IconZoomIn, IconZoomOut, IconZoomReset } from "@tabler/icons-react";
 import type { ComponentType, KeyboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
@@ -21,6 +21,9 @@ type Board = {
   getUsrCoordsOfMouse: (e: unknown) => number[];
   objectsList: El[];
   update: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  zoom100: () => void;
 };
 
 const ICONS: Record<GeometryTool, ComponentType<{ size?: number; stroke?: number }>> = {
@@ -37,6 +40,15 @@ const ICONS: Record<GeometryTool, ComponentType<{ size?: number; stroke?: number
 const NEED: Record<GeometryTool, number> = { point: 0, segment: 2, line: 2, circle: 2, midpoint: 2, perpendicular: 3, parallel: 3, angle: 3 };
 
 const cssVar = (el: Element, name: string) => getComputedStyle(el).getPropertyValue(name).trim();
+
+// A static figure is only looked at, so it may be moved and zoomed. On touch, one finger still scrolls the page
+// (browserPan), two fingers move the figure and a pinch zooms; with a mouse, drag moves it and Shift+wheel zooms,
+// so a plain wheel keeps scrolling the page. Zoom stays between half and eight times the first view.
+const STATIC_VIEW = {
+  browserPan: true,
+  pan: { enabled: true, needShift: false, needTwoFingers: true },
+  zoom: { wheel: true, needShift: true, pinch: true, min: 0.5, max: 8 },
+};
 
 // An angle's wedge: the accent, faint, so the figure under it stays readable.
 const ANGLE_FILL = { fillOpacity: 0.14, highlightFillOpacity: 0.14 };
@@ -74,6 +86,7 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
   const isStatic = block.tools.length === 0;
   const frame = isStatic ? staticFrame(block.points) : null;
   const box = useRef<HTMLDivElement>(null);
+  const boardRef = useRef<Board | null>(null); // the live board, for the zoom buttons
   const [error, setError] = useState<Error | null>(null);
   const [tool, setTool] = useState<GeometryTool | null>(null);
   const [picks, setPicks] = useState<string[]>([]);
@@ -119,8 +132,9 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
           const [y0, y1] = [Math.min(...ys, 0) - pad, Math.max(...ys, 0) + pad];
           boundingbox = [x0, y1, x1, y0];
         }
-        b = JXG.JSXGraph.initBoard(box.current, { boundingbox, axis: false, grid: false, showCopyright: false, showNavigation: false, keepaspectratio: true, ...(isStatic ? { pan: { enabled: false }, zoom: { wheel: false } } : {}) }) as unknown as Board;
+        b = JXG.JSXGraph.initBoard(box.current, { boundingbox, axis: false, grid: false, showCopyright: false, showNavigation: false, keepaspectratio: true, ...(isStatic ? STATIC_VIEW : {}) }) as unknown as Board;
         const board = b;
+        boardRef.current = board;
         freeBoard = (x) => JXG.JSXGraph.freeBoard(x as never);
         const paint = () => {
           const { accent } = ink();
@@ -234,6 +248,7 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
     return () => {
       dead = true;
       recolor.current = null;
+      boardRef.current = null;
       if (b && freeBoard) freeBoard(b);
       act.current = null;
       select(null);
@@ -264,7 +279,22 @@ export function Geometry({ block, ctx }: BlockProps<GeoBlock>) {
           );
         })}
       </div>}
-      <div ref={box} className={styles.board} style={frame ? { aspectRatio: String(frame.ratio) } : undefined} role="group" aria-label={copy.geoBoard(block.points.map((p) => p.id))} />
+      <div className={styles.frame}>
+        <div ref={box} className={styles.board} style={frame ? { aspectRatio: String(frame.ratio) } : undefined} role="group" aria-label={copy.geoBoard(block.points.map((p) => p.id))} />
+        <div className={styles.zoom} role="group" aria-label={copy.geoZoom}>
+          {([["in", IconZoomIn, copy.geoZoomIn], ["out", IconZoomOut, copy.geoZoomOut], ["reset", IconZoomReset, copy.geoZoomReset]] as const).map(([kind, Icon, label]) => (
+            <button key={kind} type="button" className={styles.zoomButton} aria-label={label} title={label}
+              onClick={() => {
+                const board = boardRef.current;
+                if (kind === "in") board?.zoomIn();
+                else if (kind === "out") board?.zoomOut();
+                else board?.zoom100();
+              }}>
+              <Icon size={20} stroke={2} aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+      </div>
       {!isStatic && <p className={styles.status} role="status" aria-live="polite">
         {status}
       </p>}

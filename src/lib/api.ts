@@ -206,6 +206,33 @@ export async function currentSession(): Promise<{
   return { sessionId: body.session_id, messages: body.messages, html: body.html ?? null, tabs, activeId: body.active_workspace_id ?? null, sheet: body.sheet ?? null };
 }
 
+export type QueueStatus = "queued" | "building" | "ready" | "failed";
+
+// One of the other problems of a photographed page; `tab` is set once it is built.
+export type QueueItem = {
+  id: string;
+  label: string;
+  firstLabel: string | null; // the page's number of the problem built first
+  status: QueueStatus;
+  opened: boolean;
+  workspaceId: string | null;
+  tab: (Workspace & { phase: Phase }) | null;
+};
+
+export async function getQueue(sessionId: string): Promise<QueueItem[]> {
+  const res = await get(`/api/sessions/${sessionId}/queue`);
+  if (!res.ok) throw await toApiError(res);
+  const body = await res.json();
+  return body.items.map((i: {
+    id: string; label: string; first_label: string | null; status: QueueStatus; opened: boolean; workspace_id: string | null;
+    workspace: { workspace_id: string; phase: Phase; doc: WorkspaceDoc; parent_workspace_id?: string | null; state?: Workspace["state"] } | null;
+  }) => ({
+    id: i.id, label: i.label, firstLabel: i.first_label, status: i.status, opened: i.opened, workspaceId: i.workspace_id,
+    tab: i.workspace && { id: i.workspace.workspace_id, phase: i.workspace.phase, doc: i.workspace.doc,
+      parent_workspace_id: i.workspace.parent_workspace_id, state: i.workspace.state },
+  }));
+}
+
 // Whether a turn of this session is still running on the server.
 export async function turnStatus(sessionId: string): Promise<boolean> {
   const res = await get(`/api/sessions/${sessionId}/turn-status`);

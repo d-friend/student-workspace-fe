@@ -1,5 +1,7 @@
 import { IconArrowRight, IconBulb, IconCheck, IconRefresh } from "@tabler/icons-react";
 import type { ReactNode } from "react";
+import type { QueueItem } from "@/lib/api";
+import { QueueStatusIcon } from "./PhaseSwitch";
 import { useCopy } from "./WorkspaceCopy";
 import { MdInline } from "./md";
 import type { StageResult } from "./stageResults";
@@ -11,6 +13,7 @@ type Props = {
   roadmap?: string;
   rows?: StageResult[];
   offer?: { opts: string[]; onPick: (text: string) => void } | null;
+  next?: { item: QueueItem; onOpen: () => void } | null; // the page's next problem, in the offer's place
 };
 
 export function StagePill({ result, children, className = "", firstIcon = true }: { result: StageResult["result"]; children: ReactNode; className?: string; firstIcon?: boolean }) {
@@ -22,7 +25,7 @@ export function StagePill({ result, children, className = "", firstIcon = true }
   </span>;
 }
 
-export function ProgressCard({ hints, takeaway, roadmap, rows = [], offer }: Props) {
+export function ProgressCard({ hints, takeaway, roadmap, rows = [], offer, next }: Props) {
   const copy = useCopy();
   const topic = roadmap && Object.hasOwn(copy.roadmapTitle, roadmap) ? copy.roadmapTitle[roadmap] : undefined;
   const names = roadmap && Object.hasOwn(copy.roadmaps, roadmap) ? copy.roadmaps[roadmap] : undefined;
@@ -49,7 +52,16 @@ export function ProgressCard({ hints, takeaway, roadmap, rows = [], offer }: Pro
       </ul>}
       {takeaway && <p className={styles.takeaway}><b>{copy.takeawayLabel}</b>{" "}<MdInline text={takeaway} /></p>}
       {shown.length === 0 && hints > 0 && <p className={styles.hints}>{copy.doneHints(hints)}</p>}
-      {!!offer?.opts.length && <div className={styles.buttons}>
+      {next && <div className={styles.buttons}>
+        <button type="button" className={`${styles.button} ${styles.primary} ${styles.next}`} onClick={next.onOpen}>
+          <span className={styles.nextText}>
+            <span>{copy.queueNext(next.item.label)}</span>
+            <span className={styles.nextStatus}><QueueStatusIcon status={next.item.status} size={16} />{copy.queueStatus[next.item.status]}</span>
+          </span>
+          <IconArrowRight size={18} aria-hidden="true" />
+        </button>
+      </div>}
+      {!next && !!offer?.opts.length && <div className={styles.buttons}>
         {offer.opts.map((text, i) => <button key={i} type="button" className={`${styles.button} ${i === 0 ? styles.primary : styles.secondary}`} onClick={() => offer.onPick(text)}>
           <span>{text}</span>{i === 0 && <IconArrowRight size={18} aria-hidden="true" />}
         </button>)}

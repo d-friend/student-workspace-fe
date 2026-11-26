@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 import { IconChevronDown } from "@tabler/icons-react";
 import { track } from "@/lib/track";
 import { useCopy } from "./WorkspaceCopy";
+import { MdInline } from "./md";
 import type { Block, StudentWork } from "./types";
 import styles from "./WorkspaceView.module.css";
 
@@ -15,7 +16,7 @@ export function acceptedSteps(block: StepsBlock, state?: StudentWork | null, ove
   return accepted;
 }
 
-export function StepProgress({ block, state, overrides = {}, sessionId }: { block: StepsBlock; state?: StudentWork | null; overrides?: Record<number, "ok" | "review">; sessionId?: string | null }) {
+export function StepProgress({ block, state, overrides = {}, sessionId, part }: { block: StepsBlock; state?: StudentWork | null; overrides?: Record<number, "ok" | "review">; sessionId?: string | null; part?: string | null }) {
   const copy = useCopy();
   const [open, setOpen] = useState(false);
   const listId = useId();
@@ -34,6 +35,7 @@ export function StepProgress({ block, state, overrides = {}, sessionId }: { bloc
   ));
   return (
     <div className={styles.progress}>
+      {part && <div className={styles.progressPart}><MdInline text={part} /></div>}
       {nodes ? <>
         <div className={styles.progressRow}>
           <div className={styles.progressNodes}>{items}</div>

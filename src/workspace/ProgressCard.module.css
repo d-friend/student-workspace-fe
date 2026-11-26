@@ -3,6 +3,7 @@
 .header > svg, .pill > svg, .button > svg { flex-shrink: 0; }
 .title { font: 800 28px/1.2 var(--font-display), var(--font-sans); }
 .topic { padding: 3px 10px; border: 1px solid currentColor; border-radius: var(--radius-pill); font: 500 13px/1.4 var(--font-sans); overflow-wrap: anywhere; }
+.part { margin: 0; padding: 12px 22px 0; font: 700 14px/1.4 var(--font-sans); }
 .rows { margin: 0; padding: 4px 22px; list-style: none; }
 .row { padding: 12px 0; border-top: 1px solid var(--border); }
 .row:first-child { border-top: 0; }
@@ -27,7 +28,7 @@
 @media (prefers-reduced-motion: reduce) { .card { animation: none; } }
 @media (max-width: 400px) {
   .header { padding: 16px; }
-  .rows { padding-inline: 16px; }
+  .rows, .part { padding-inline: 16px; }
   .takeaway, .hints { margin-inline: 16px; }
   .buttons { padding-inline: 16px; }
   .button { flex: 1 1 100%; }

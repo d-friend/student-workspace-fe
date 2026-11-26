@@ -19,7 +19,7 @@ export type Block =
   | { type: "quiz"; id: string; question_md: string; answer: QuizAnswer; options?: string[]; explanation_md: string; card_id?: string | null; lesson?: string | null }
   | { type: "practice"; id: string; title: string; md: string }
   | { type: "problem"; id: string; md: string; image?: { src: string; alt: string } }
-  | { type: "steps"; id: string; problem_id: string; input: "math" | "text"; help?: string; scaffold?: ScaffoldItem[]; roadmap?: string }
+  | { type: "steps"; id: string; problem_id: string; label?: string | null; input: "math" | "text"; help?: string; scaffold?: ScaffoldItem[]; roadmap?: string }
   | {
       type: "graph";
       id: string;
@@ -95,7 +95,8 @@ export type BlockCtx = {
   hint?: (blockId: string, item: number, level: number) => Promise<string | null>;
   hintNote?: { blockId: string; item: number; text: string } | null;
   overrides: Record<string, Record<number, "ok" | "review">>; // from SSE line_state, by block id
-  hintCount: number; // "Gợi ý" presses in this doc
+  hintCount: number;
+  hintStart?: number; // a later part of a multi-part problem: hints already used when it opened are not its own // "Gợi ý" presses in this doc
   onSolved: (blockId: string) => void; // a steps block reached its final checkpoint
   help: { level: number; onHint: () => void; onIdea?: () => void; ideaPending: boolean; free?: boolean } | null; // Doc provides working-mode action state
   finished?: boolean; // Doc sets it per steps block; completed blocks ask for no more lines

@@ -13,6 +13,7 @@ import math from "./math.json";
 import mobile_sim from "./mobile-sim.json";
 import problem from "./problem.json";
 import quiz from "./quiz.json";
+import solve_multipart from "./solve-multipart.json";
 import solve_patrol_boat_figure from "./solve-patrol-boat-figure.json";
 import solve_patrol_boat_v4 from "./solve-patrol-boat-v4.json";
 import solve_patrol_boat from "./solve-patrol-boat.json";
@@ -38,6 +39,7 @@ const raw: Record<string, unknown> = {
   "mobile-sim.json": mobile_sim,
   "problem.json": problem,
   "quiz.json": quiz,
+  "solve-multipart.json": solve_multipart,
   "solve-patrol-boat-figure.json": solve_patrol_boat_figure,
   "solve-patrol-boat-v4.json": solve_patrol_boat_v4,
   "solve-patrol-boat.json": solve_patrol_boat,

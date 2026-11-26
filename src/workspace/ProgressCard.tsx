@@ -1,5 +1,5 @@
 import { IconArrowRight, IconBulb, IconCheck, IconRefresh } from "@tabler/icons-react";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import type { QueueItem } from "@/lib/api";
 import { QueueStatusIcon } from "./PhaseSwitch";
 import { useCopy } from "./WorkspaceCopy";
@@ -12,6 +12,7 @@ type Props = {
   takeaway?: string;
   roadmap?: string;
   rows?: StageResult[];
+  parts?: { label: string; roadmap?: string; rows: StageResult[] }[]; // a multi-part problem: stage rows per part
   offer?: { opts: string[]; onPick: (text: string) => void } | null;
   next?: { item: QueueItem; onOpen: () => void } | null; // the page's next problem, in the offer's place
 };
@@ -25,11 +26,13 @@ export function StagePill({ result, children, className = "", firstIcon = true }
   </span>;
 }
 
-export function ProgressCard({ hints, takeaway, roadmap, rows = [], offer, next }: Props) {
+export function ProgressCard({ hints, takeaway, roadmap, rows = [], parts, offer, next }: Props) {
   const copy = useCopy();
   const topic = roadmap && Object.hasOwn(copy.roadmapTitle, roadmap) ? copy.roadmapTitle[roadmap] : undefined;
-  const names = roadmap && Object.hasOwn(copy.roadmaps, roadmap) ? copy.roadmaps[roadmap] : undefined;
-  const shown = names ? rows : [];
+  const sections = (parts ?? [{ label: undefined, roadmap, rows }]).flatMap((part) => {
+    const names = part.roadmap && Object.hasOwn(copy.roadmaps, part.roadmap) ? copy.roadmaps[part.roadmap] : undefined;
+    return names && part.rows.length > 0 ? [{ ...part, names }] : [];
+  });
   return (
     <div className={styles.card} role="status">
       <div className={styles.header}>
@@ -37,21 +40,24 @@ export function ProgressCard({ hints, takeaway, roadmap, rows = [], offer, next 
         <b className={styles.title}>{copy.doneLabel}</b>
         {topic && <span className={styles.topic}>{topic}</span>}
       </div>
-      {shown.length > 0 && <ul className={styles.rows}>
-        {shown.map(row => (
-          <li key={row.stage} className={styles.row}>
-            <div className={styles.line}>
-              <span className={styles.stage}><MdInline text={names?.[row.stage] ?? ""} /></span>
-              <StagePill result={row.result}>
-                {row.result === "first" ? copy.stageFirst : row.result === "hint" ? copy.stageHint(row.n ?? 0) : row.result === "fixed" ? copy.stageFixed(row.n ?? 0) : row.result === "todo" ? copy.stageTodo : copy.stageUnknown}
-              </StagePill>
-            </div>
-            {(row.result === "hint" || row.result === "fixed") && row.wrong && <p className={styles.reason}>“<MdInline text={row.wrong} />”</p>}
-          </li>
-        ))}
-      </ul>}
+      {sections.map(({ label, names, rows }) => <Fragment key={label ?? ""}>
+        {label && <h3 className={styles.part}><MdInline text={label} /></h3>}
+        <ul className={styles.rows}>
+          {rows.map(row => (
+            <li key={row.stage} className={styles.row}>
+              <div className={styles.line}>
+                <span className={styles.stage}><MdInline text={names[row.stage] ?? ""} /></span>
+                <StagePill result={row.result}>
+                  {row.result === "first" ? copy.stageFirst : row.result === "hint" ? copy.stageHint(row.n ?? 0) : row.result === "fixed" ? copy.stageFixed(row.n ?? 0) : row.result === "todo" ? copy.stageTodo : copy.stageUnknown}
+                </StagePill>
+              </div>
+              {(row.result === "hint" || row.result === "fixed") && row.wrong && <p className={styles.reason}>“<MdInline text={row.wrong} />”</p>}
+            </li>
+          ))}
+        </ul>
+      </Fragment>)}
       {takeaway && <p className={styles.takeaway}><b>{copy.takeawayLabel}</b>{" "}<MdInline text={takeaway} /></p>}
-      {shown.length === 0 && hints > 0 && <p className={styles.hints}>{copy.doneHints(hints)}</p>}
+      {sections.length === 0 && hints > 0 && <p className={styles.hints}>{copy.doneHints(hints)}</p>}
       {next && <div className={styles.buttons}>
         <button type="button" className={`${styles.button} ${styles.primary} ${styles.next}`} onClick={next.onOpen}>
           <span className={styles.nextText}>

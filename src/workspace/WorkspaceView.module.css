@@ -187,6 +187,7 @@
 .progress { position: sticky; top: var(--workspace-tabs-height, 0px); z-index: 1; padding: 8px 0; background: var(--panel); font: 600 14px/1.4 var(--font-sans); color: var(--text); }
 .stickyProblem { position: sticky; top: var(--workspace-tabs-height, 0px); z-index: 2; background: var(--panel); }
 .stickyProblem .progress { position: static; }
+.progressPart { margin-bottom: 4px; color: var(--brand); }
 @media (max-width: 799px) {
   .stickyProblem, .progress { top: calc(var(--workspace-sticky-top, 60px) + var(--workspace-tabs-height, 0px)); }
 }

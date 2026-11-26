@@ -64,7 +64,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const input = useRef<HTMLInputElement>(null);
   const refocus = useRef(false); // focus the input once the next render has put it in place
   const dirty = useRef(false); // this position had a review or error
-  const hintBase = useRef(0); // ctx.hintCount at the last ok line
+  const hintBase = useRef(ctx.hintStart ?? 0); // ctx.hintCount at the last ok line
   // shortcut: counters live in the tab and restart on reload mid-step, so a reload undercounts
   const tries = useRef(0);
   const firstWrong = useRef<string | undefined>(undefined);

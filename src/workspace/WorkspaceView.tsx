@@ -10,6 +10,7 @@ import { SelectionAsk, type SelectionQuote } from "./SelectionAsk";
 import { BlockBoundary } from "./BlockBoundary";
 import { renderBlock } from "./blocks";
 import { acceptedSteps, StepProgress } from "./StepProgress";
+import { PartHeading } from "./PartHeading";
 import { Problem } from "./blocks/Problem";
 import { scaffoldPos } from "./blocks/Steps";
 import { ProgressCard } from "./ProgressCard";
@@ -131,11 +132,24 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, allTaskDone, onLe
     return b.type === "steps" && saved?.type === "steps" && saved.done && !!saved.takeaway;
   }) ?? w.doc.blocks.find((b): b is Extract<Block, { type: "steps" }> => b.type === "steps");
   const finishedState = finishedSteps && state.blocks[finishedSteps.id];
-  const results = working && finishedSteps?.roadmap ? stageResults(
-    finishedSteps.scaffold?.map(item => item.stage) ?? [],
-    finishedState?.type === "steps" ? finishedState.entries.map((entry, i) => ({ ...entry, state: base.overrides[finishedSteps.id]?.[i + 1] ?? entry.state })) : [],
-    !!freeBlocks[finishedSteps.id] || (finishedState?.type === "steps" && finishedState.free),
-  ) : [];
+  const rowsOf = (steps: Extract<Block, { type: "steps" }> | undefined) => {
+    if (!working || !steps?.roadmap) return [];
+    const saved = state.blocks[steps.id];
+    return stageResults(
+      steps.scaffold?.map(item => item.stage) ?? [],
+      saved?.type === "steps" ? saved.entries.map((entry, i) => ({ ...entry, state: base.overrides[steps.id]?.[i + 1] ?? entry.state })) : [],
+      !!freeBlocks[steps.id] || (saved?.type === "steps" && saved.free),
+    );
+  };
+  // A multi-part problem (one labelled block per part) opens one part at a time, in order.
+  const stepsBlocks = w.doc.blocks.filter((b): b is Extract<Block, { type: "steps" }> => b.type === "steps");
+  const multipart = working && stepsBlocks.length > 1 && stepsBlocks.every((b) => !!b.label);
+  const activeSteps = stepsBlocks.find((b) => !completedIds.has(b.id));
+  const locked = (b: Extract<Block, { type: "steps" }>) => {
+    const saved = state.blocks[b.id];
+    return multipart && b !== activeSteps && !completedIds.has(b.id) && !(saved?.type === "steps" && saved.entries.length);
+  };
+  const anyAccepted = multipart && stepsBlocks.some((b) => acceptedSteps(b, state, base.overrides[b.id]) > 0);
   const stepsId = w.doc.blocks.find((b) => b.type === "steps")?.id ?? "";
 
   useEffect(() => {
@@ -235,31 +249,36 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, allTaskDone, onLe
       </header>
       {p === "review" ? <ReviewBody w={w} ctx={ctx} tabs={tabs} taskDone={allTaskDone} hidden={hidden} busy={busy} onActive={onActive} onLeave={onLeave} />
       : w.doc.blocks.map((b) => {
-        const steps = b.type === "problem" ? w.doc.blocks.find((item) => item.type === "steps" && item.problem_id === b.id) : undefined;
+        const steps = b.type !== "problem" ? undefined : multipart ? activeSteps : w.doc.blocks.find((item): item is Extract<Block, { type: "steps" }> => item.type === "steps" && item.problem_id === b.id);
         const problem = b.type === "steps" ? w.doc.blocks.find((item) => item.type === "problem" && item.id === b.problem_id) : undefined;
-        const sticky = working && steps?.type === "steps" && acceptedSteps(steps, state, ctx.overrides[steps.id]) > 0;
+        const sticky = working && !!steps && (multipart ? anyAccepted && !!activeSteps : acceptedSteps(steps, state, ctx.overrides[steps.id]) > 0);
         const firstSteps = problem && w.doc.blocks.find((item) => item.type === "steps" && item.problem_id === problem.id);
-        const progressMoved = working && b.type === "steps" && firstSteps?.id === b.id && acceptedSteps(b, state, ctx.overrides[b.id]) > 0;
+        const progressMoved = working && b.type === "steps" && (multipart
+          ? b !== activeSteps || anyAccepted
+          : firstSteps?.id === b.id && acceptedSteps(b, state, ctx.overrides[b.id]) > 0);
+        const later = b.type === "steps" && locked(b);
         return (
         <div key={b.id} className={styles.block} data-block-id={b.id} data-sel={b.type === "problem" ? "problem" : p === "learn" ? "lesson" : "explanation"}>
         <BlockBoundary blockId={b.id} report={ctx.report}>
-          {sticky && b.type === "problem" && steps?.type === "steps" ? (
+          {sticky && b.type === "problem" && steps ? (
             <div className={styles.stickyProblem}>
               <Problem block={b} ctx={ctx} collapsible />
-              <StepProgress block={steps} state={state} overrides={ctx.overrides[steps.id]} sessionId={ctx.sessionId} />
+              <StepProgress key={steps.id} block={steps} state={state} overrides={ctx.overrides[steps.id]} sessionId={ctx.sessionId} part={multipart ? steps.label : undefined} />
             </div>
           ) : <>
-          {working && b.type === "steps" && !progressMoved && <StepProgress block={b} state={state} overrides={ctx.overrides[b.id]} sessionId={ctx.sessionId} />}
-          {renderBlock(b, b.type === "steps" ? {
+          {b.type === "steps" && b.label && <PartHeading label={b.label} status={later ? "later" : multipart && completedIds.has(b.id) ? "done" : undefined} />}
+          {working && b.type === "steps" && !later && !progressMoved && <StepProgress block={b} state={state} overrides={ctx.overrides[b.id]} sessionId={ctx.sessionId} />}
+          {later ? null : renderBlock(b, b.type === "steps" ? {
             ...ctx,
             finished: completedIds.has(b.id),
+            ...(multipart && { hintStart: presses }),
             help: { ...help, onHint: () => onHint(b.id), free: freeBlocks[b.id] || (state.blocks[b.id]?.type === "steps" && (state.blocks[b.id] as Extract<SavedBlockState, { type: "steps" }>).free) },
           } : ctx)}
           </>}
         </BlockBoundary>
         </div>
       ); })}
-      {allDone && <ProgressCard hints={presses} takeaway={finishedState?.type === "steps" ? finishedState.takeaway : undefined} roadmap={finishedSteps?.roadmap} rows={results} offer={working ? offer : null} />}
+      {allDone && <ProgressCard hints={presses} takeaway={finishedState?.type === "steps" ? finishedState.takeaway : undefined} roadmap={finishedSteps?.roadmap} rows={multipart ? [] : rowsOf(finishedSteps)} parts={multipart ? stepsBlocks.map((b) => ({ label: b.label!, roadmap: b.roadmap, rows: rowsOf(b) })) : undefined} offer={working ? offer : null} />}
       {working && allDone && (
         <div ref={doneAnchorRef} data-pet-anchor data-pet-done data-pet-inline className={styles.donePet}>
           <div data-pet-slot />

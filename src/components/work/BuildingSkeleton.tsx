@@ -2,6 +2,7 @@ import type { Preview, PreviewSteps } from "@/lib/api";
 import { copy, copyFor } from "@/lib/copy";
 import { MdInline } from "@/workspace/md";
 import { renderBlock } from "@/workspace/blocks";
+import { PartHeading } from "@/workspace/PartHeading";
 import { WorkspaceCopy } from "@/workspace/WorkspaceCopy";
 import { workspaceLocale } from "@/workspace/workspaceLocale";
 import type { QueuedAnswer } from "@/workspace/queued";
@@ -113,9 +114,15 @@ export function BuildingSkeleton({
             </div>}
             {preview?.blocks.filter((blk) => blk.type !== "problem").map((blk) => {
               if (blk.type === "stub") return <div key={blk.id}>{b(styles.box)}</div>;
-              if (blk.type === "steps") return blk.scaffold?.length
-                ? <div key={firstItemKey(blk)}>{renderBlock(asSteps(blk), previewCtx(blk))}</div>
-                : null;
+              if (blk.type === "steps") {
+                if (!blk.scaffold?.length) return null;
+                // As in the built doc, only the first part of a multi-part problem is open.
+                const later = !!blk.label && blk.id !== preview.blocks.find((other) => other.type === "steps")?.id;
+                return <div key={firstItemKey(blk)}>
+                  {blk.label && <PartHeading label={blk.label} status={later ? "later" : undefined} />}
+                  {!later && renderBlock(asSteps(blk), previewCtx(blk))}
+                </div>;
+              }
               return <div key={blk.id}>{renderBlock(blk, ctx)}</div>;
             })}
             {!readySteps && <div className={styles.card}>

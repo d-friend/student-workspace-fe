@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "phase": "solve",
+  "title": "Bài 5.30: Ba tiếp tuyến",
+  "blocks": [
+    {
+      "type": "problem",
+      "id": "p1",
+      "md": "Cho đường tròn $(O)$ đường kính $AB$, tiếp tuyến $xx'$ tại $A$ và tiếp tuyến $yy'$ tại $B$ của $(O)$. Một tiếp tuyến thứ ba của $(O)$ tại điểm $P$ ($P$ khác $A$ và $B$) cắt $xx'$ tại $M$ và cắt $yy'$ tại $N$.\n\na) Chứng minh rằng $MN = MA + NB$.\n\nb) Đường thẳng đi qua $O$ và vuông góc với $AB$ cắt $NM$ tại $Q$. Chứng minh rằng $Q$ là trung điểm của đoạn $MN$.\n\nc) Chứng minh rằng $AB$ tiếp xúc với đường tròn đường kính $MN$."
+    },
+    {
+      "type": "steps",
+      "id": "s1",
+      "problem_id": "p1",
+      "input": "text",
+      "label": "Câu a",
+      "roadmap": "generic",
+      "scaffold": [
+        {
+          "stage": 0,
+          "kind": "choice",
+          "prompt": "$MP$ bằng đoạn nào?",
+          "options": [
+            "$MA$",
+            "$NB$",
+            "$MO$"
+          ],
+          "goal": "Để tính $MN$, trước hết cần đổi từng phần của nó"
+        },
+        {
+          "stage": 1,
+          "kind": "choice",
+          "prompt": "Vì sao $MP = MA$ và $NP = NB$?",
+          "options": [
+            "Hai tiếp tuyến cắt nhau",
+            "$O$ là trung điểm của $AB$"
+          ],
+          "goal": "Cần một căn cứ cho hai cặp đoạn bằng nhau"
+        },
+        {
+          "stage": 2,
+          "kind": "choice",
+          "prompt": "Kết luận câu a?",
+          "options": [
+            "$MN = MA + NB$",
+            "$MN = MA - NB$"
+          ],
+          "goal": "$P$ nằm giữa $M$ và $N$: ghép hai phần lại"
+        }
+      ]
+    },
+    {
+      "type": "steps",
+      "id": "s2",
+      "problem_id": "p1",
+      "input": "text",
+      "label": "Câu b",
+      "roadmap": "generic",
+      "scaffold": [
+        {
+          "stage": 0,
+          "kind": "choice",
+          "prompt": "$OQ$ song song với những đường nào?",
+          "options": [
+            "$AM$ và $BN$",
+            "$AB$",
+            "$MN$"
+          ],
+          "goal": "Cần quan hệ giữa $OQ$ và hai cạnh bên"
+        },
+        {
+          "stage": 1,
+          "kind": "choice",
+          "prompt": "Vì sao $Q$ là trung điểm của $MN$?",
+          "options": [
+            "$O$ là trung điểm $AB$ và $OQ \\parallel AM$",
+            "$OQ \\perp MN$"
+          ],
+          "goal": "Cần căn cứ để xác định vị trí của $Q$"
+        },
+        {
+          "stage": 2,
+          "kind": "choice",
+          "prompt": "Kết luận câu b?",
+          "options": [
+            "$QM = QN$",
+            "$QM = OQ$"
+          ],
+          "goal": "Phát biểu điều đề yêu cầu chứng minh"
+        }
+      ]
+    },
+    {
+      "type": "steps",
+      "id": "s3",
+      "problem_id": "p1",
+      "input": "text",
+      "label": "Câu c",
+      "roadmap": "generic",
+      "scaffold": [
+        {
+          "stage": 0,
+          "kind": "choice",
+          "prompt": "Dùng kết quả câu a, $OQ$ bằng?",
+          "options": [
+            "$\\frac{MN}{2}$",
+            "$MN$",
+            "$MA$"
+          ],
+          "goal": "Cần độ dài $OQ$ so với đường kính $MN$"
+        },
+        {
+          "stage": 1,
+          "kind": "choice",
+          "prompt": "Vì sao $AB$ tiếp xúc với đường tròn?",
+          "options": [
+            "$AB \\perp OQ$ tại $O$ thuộc đường tròn",
+            "$AB$ cắt đường tròn tại $A$ và $B$"
+          ],
+          "goal": "Cần dấu hiệu nhận biết tiếp tuyến"
+        }
+      ]
+    }
+  ],
+  "sources": []
+}

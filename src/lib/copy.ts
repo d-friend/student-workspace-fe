@@ -28,6 +28,11 @@ const vi = {
   workspaceShareCopied: "Đã sao chép liên kết",
   workspaceShareFailed: "Chưa thể chia sẻ. Bạn thử lại nhé.",
   pickedAnswer: "Bạn chọn:",
+  blankReason: {
+    final_answer: "Ô này chưa hỏi đáp số cuối, chỉ hỏi kết quả của bước này.",
+    other_step: "Số này thuộc một bước khác. Ô này hỏi kết quả của bước này.",
+    given: "Đây là số đề bài cho sẵn. Ô này cần một kết quả bạn tính ra.",
+  },
   sheetNameLabel: "Tên của bạn",
   // Proposed wording, for Eric to approve: it must match the privacy page (class summary, not per-student names).
   sheetNameNote: "Bạn có thể dùng biệt danh. Giáo viên chỉ nhận bản tổng hợp của cả lớp.",
@@ -467,6 +472,11 @@ const en: typeof vi = {
   workspaceShareCopied: "Link copied",
   workspaceShareFailed: "Couldn't share. Please try again.",
   pickedAnswer: "You chose:",
+  blankReason: {
+    final_answer: "This box doesn't ask for the final answer yet, only this step's result.",
+    other_step: "That number belongs to another step. This box asks for this step's result.",
+    given: "That number is given in the problem. This box needs a result you work out.",
+  },
   sheetNameLabel: "Your name",
   // Proposed wording, for Eric to approve: it must match the privacy page (class summary, not per-student names).
   sheetNameNote: "A nickname is fine. Your teacher only gets a summary of the whole class.",

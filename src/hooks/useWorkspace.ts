@@ -388,6 +388,19 @@ export function createWorkspace(deps: WorkspaceDeps) {
     return null;
   }
 
+  // Lines checked since the current turn started: its line_state judged an older attempt at them.
+  const rechecked = new Set<string>();
+
+  // The code key decides a picked scaffold choice: the master cannot mark it ok (it may still withdraw an ok).
+  function pickedChoice(workspaceId: string, blockId: string, line: number): boolean {
+    const w = tabs.find((x) => x.id === workspaceId);
+    const block = w?.doc.blocks.find((b) => b.id === blockId);
+    const saved = w?.state?.blocks?.[blockId];
+    if (block?.type !== "steps" || saved?.type !== "steps") return false;
+    const item = saved.entries[line - 1]?.item;
+    return item !== undefined && block.scaffold?.[item]?.kind === "choice";
+  }
+
   async function runTurn(
     typed: boolean,
     text: string,
@@ -398,6 +411,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
   ): Promise<void> {
     const mine = epoch;
     busy = true;
+    rechecked.clear();
     typedTurn = typed;
     buildFailed = false;
     const turn = ++turnNo;
@@ -588,6 +602,8 @@ export function createWorkspace(deps: WorkspaceDeps) {
         simulationFailures = { ...simulationFailures, [versionKey]: true };
         simulationPending = { ...simulationPending, [versionKey]: false };
       } else if (e.event === "line_state") {
+        if (rechecked.has(`${e.workspaceId}:${e.blockId}:${e.line}`)) return;
+        if (e.state === "ok" && pickedChoice(e.workspaceId, e.blockId, e.line)) return;
         const w = overrides[e.workspaceId] ?? {};
         overrides = { ...overrides, [e.workspaceId]: { ...w, [e.blockId]: { ...w[e.blockId], [e.line]: e.state } } };
         verdicts = { ...verdicts, [e.workspaceId]: { seq: ++verdictSeq, state: e.state, done: false } };
@@ -1269,6 +1285,9 @@ export function createWorkspace(deps: WorkspaceDeps) {
     check(workspaceId: string, blockId: string, answer: string, previous: string[], item?: number): Promise<CheckResponse> {
       const w = tabs.find((x) => x.id === workspaceId);
       if (!w || sessionId === null) return Promise.reject(new Error(`no workspace ${workspaceId}`));
+      // shortcut: the line is previous.length + 1, which is Steps' contract; other blocks hold no overrides.
+      const line = previous.length + 1;
+      rechecked.add(`${workspaceId}:${blockId}:${line}`);
       checking++;
       publish();
       return api.check(sessionId, { workspaceId, blockId, answer, previous, ...(item !== undefined && { item }) }).then((r) => {
@@ -1276,8 +1295,6 @@ export function createWorkspace(deps: WorkspaceDeps) {
           verdicts = { ...verdicts, [workspaceId]: { seq: ++verdictSeq, state: r.state, done: r.done } };
         }
         // A master line_state judged the attempt it was issued for, not the next one at that line.
-        // shortcut: the line is previous.length + 1, which is Steps' contract; other blocks hold no overrides.
-        const line = previous.length + 1;
         const lines = overrides[workspaceId]?.[blockId];
         if (lines && line in lines) {
           const rest = { ...lines };

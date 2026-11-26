@@ -174,3 +174,88 @@ it("reopens a restored legacy iframe from its chat card on mobile", async () => 
   expect(screen.getByTestId("chat-view").hidden).toBe(true);
   expect(screen.getByTitle(copy.workspaceTitle)).toBe(frame);
 });
+
+// A turn held open so a check can land while it runs; `judge` then delivers the master's verdict.
+async function heldTurn(solve = fixtures["solve-tangent.json"]) {
+  let emit!: Parameters<typeof api.turn>[3];
+  let end!: () => void;
+  const turn = vi.fn()
+    .mockImplementationOnce(async (_s, _m, onDelta, onEvent) => {
+      onEvent!({ event: "workspace", workspaceId: "S1", phase: "solve", doc: solve });
+      onDelta("Xong.");
+      return DONE;
+    })
+    .mockImplementation((_s, _m, onDelta, onEvent) => new Promise((resolve) => {
+      emit = onEvent;
+      end = () => { onDelta("Ừ."); resolve(DONE); };
+    }));
+  const check = vi.fn().mockResolvedValue({ ok: false, state: "review", done: false });
+  const deps = { ...api, turn, check };
+  const { result } = renderHook(() => useWorkspace({ api: deps as never, track: vi.fn() as never }));
+  await waitFor(() => expect(result.current.ready).toBe(true));
+  const type = async (text: string) => {
+    act(() => result.current.setInput(text));
+    act(() => void result.current.submit());
+  };
+  await type("đề bài");
+  await waitFor(() => expect(result.current.busy).toBe(false));
+  return {
+    result,
+    start: async () => {
+      await type("xem giúp");
+      await waitFor(() => expect(result.current.busy).toBe(true));
+    },
+    checkLine: (previous: string[]) => act(async () => { await result.current.check("S1", "s1", "20", previous); }),
+    judge: (line: number) => act(() => emit!({ event: "line_state", workspaceId: "S1", blockId: "s1", line, state: "ok" })),
+    end: async () => {
+      await act(async () => end());
+      await waitFor(() => expect(result.current.busy).toBe(false));
+    },
+  };
+}
+
+it("a master line_state applies to a line checked before its turn", async () => {
+  const t = await heldTurn();
+  await t.checkLine([]);
+  await t.start();
+  t.judge(1);
+  expect(t.result.current.overrides.S1?.s1).toEqual({ 1: "ok" });
+  await t.end();
+});
+
+it("a master line_state is ignored for a line re-checked while its turn ran, until the next turn", async () => {
+  const t = await heldTurn();
+  await t.checkLine([]);
+  await t.start();
+  await t.checkLine([]);
+  const seq = t.result.current.verdict.seq;
+  t.judge(1);
+  expect(t.result.current.overrides.S1?.s1?.[1]).toBeUndefined();
+  expect(t.result.current.verdict.seq).toBe(seq);
+  await t.end();
+  await t.start();
+  t.judge(1);
+  expect(t.result.current.overrides.S1?.s1).toEqual({ 1: "ok" });
+  await t.end();
+});
+
+it("a re-check leaves the same turn's line_state for another line in place", async () => {
+  const t = await heldTurn();
+  await t.start();
+  await t.checkLine(["a"]);
+  t.judge(1);
+  expect(t.result.current.overrides.S1?.s1).toEqual({ 1: "ok" });
+  await t.end();
+});
+
+it.each([
+  ["a scaffold choice line keeps the key's review", 0, undefined],
+  ["a scaffold blank line takes the master's ok", 1, "ok"],
+])("master line_state ok: %s", async (_name, item, expected) => {
+  const t = await heldTurn(fixtures["steps-scaffold.json"]);
+  act(() => t.result.current.saveBlock("S1", "s1", { type: "steps", entries: [{ text: "x", state: "review", item }], done: false, free: false }));
+  await t.start();
+  t.judge(1);
+  expect(t.result.current.overrides.S1?.s1?.[1]).toBe(expected);
+  await t.end();
+});

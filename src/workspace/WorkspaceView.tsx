@@ -103,7 +103,14 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, allTaskDone, onLe
     sessionId, workspaceCount, sessionUnready, workspaceId: w.id, title: w.doc.title,
     disabled: w.doc.blocks.some((block) => block.type === "custom" && block.html == null),
   };
-  const completedIds = new Set([...solved.ids, ...masterDone]);
+  // Accepting the last scaffold item completes the block (the check's contract), also when the master's
+  // mark_line accepted it without complete_task; otherwise Steps falls through to an empty free line.
+  const scaffoldDone = p === "solve" || p === "practice" ? w.doc.blocks.filter((b) => {
+    const saved = state.blocks[b.id];
+    return b.type === "steps" && !!b.scaffold && !freeBlocks[b.id] && !(saved?.type === "steps" && saved.free) &&
+      scaffoldPos(saved?.type === "steps" ? saved.entries : [], base.overrides[b.id] ?? {}) >= b.scaffold.length;
+  }).map((b) => b.id) : [];
+  const completedIds = new Set([...solved.ids, ...masterDone, ...scaffoldDone]);
   const allDone = stepsIds.length > 0 && stepsIds.every((id) => completedIds.has(id));
   const reported = useRef(!!w.restored && allDone);
   const restoredQuizzes = new Set(Object.entries(w.state?.blocks ?? {})

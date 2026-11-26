@@ -262,6 +262,7 @@ function Home() {
         <WorkspaceView
           sessionId={ws.sessionId}
           tabs={ws.tabs}
+          queue={{ items: ws.queue, viewId: ws.queueViewId, onOpen: ws.openQueued, onBuild: (id) => void ws.buildQueued(id) }}
           activeId={ws.activeId}
           onActive={ws.setActive}
           onReset={ws.resetWorkspace}
@@ -397,6 +398,7 @@ function Home() {
         layer={<PetLayer state={ws} actions={chipActions} offerOnCard={offerOnCard} questionInStrip={ask !== null} onWriteOwn={() => ws.inputRef.current?.focus(true)} />}
         sidebar={<Sidebar side={side} menuTarget={desktop ? undefined : menuTarget} busy={ws.busy} onNewProblem={ws.newProblem} progress={cards.length > 0 ? {} : null} refreshKey={`${ws.newProblemCount}|${ws.hasMessages}|${ws.phase}`} />}
         side={desktop ? side.mode : undefined} />
+      <p className={styles.srOnly} role="status">{ws.queueAnnouncement}</p>
       <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={onFile} />
       <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={onFile} />
       {packSheet && <PackSheet initial={packSheet} onClose={closePackSheet} onSettled={noop} />}

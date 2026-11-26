@@ -1,0 +1,10 @@
+.panel { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.line { margin: 0; font: 500 16px/1.55 var(--font-sans); color: var(--text); overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.button { min-height: 44px; padding: 0 16px; font: 600 15px/1.4 var(--font-sans); color: var(--text); background: var(--panel); border: 1px solid var(--control-border); border-radius: var(--radius-md); cursor: pointer; }
+.button:disabled { cursor: default; opacity: 0.6; }
+.button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.primary { color: var(--accent-text); background: var(--accent); border-color: var(--accent); }
+/* The skeleton sits under the message here, without the full page's own spacing. */
+.panel > section { padding: 0; }
+.panel > section > div { margin-top: 0; }

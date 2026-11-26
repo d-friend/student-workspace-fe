@@ -17,7 +17,8 @@ import { ProgressCard } from "./ProgressCard";
 import { stageResults } from "./stageResults";
 import { MdInline } from "./md";
 import { ActionBar } from "./ActionBar";
-import { PhaseSwitch } from "./PhaseSwitch";
+import { PhaseSwitch, type QueueTabs } from "./PhaseSwitch";
+import { QueuedPanel } from "./QueuedPanel";
 import { ReviewBody } from "./ReviewBody";
 import type { Block, BlockCtx, Phase, SavedBlockState, Workspace } from "./types";
 import { canReturnToProblem, returnTarget } from "./navigation";
@@ -29,6 +30,7 @@ type MobileWorkspace = {
 };
 
 type Props = {
+  queue?: QueueTabs & { onBuild: (itemId: string) => void };
   sessionId?: string | null;
   tabs: (Workspace & { phase: Phase })[];
   activeId: string;
@@ -49,7 +51,8 @@ type Props = {
   tabsTarget?: HTMLElement | null; // desktop with the chat hidden: the top bar slot that holds the tabs
 };
 
-function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, allTaskDone, onLeave, busy, broken, onRebuild, sessionId, workspaceCount, sessionUnready, tabs, onActive, onReset, resetDisabled, offer, onOfferShown, mobile }: {
+function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, allTaskDone, onLeave, busy, broken, onRebuild, sessionId, workspaceCount, sessionUnready, tabs, onActive, onReset, resetDisabled, offer, onOfferShown, mobile, next }: {
+  next?: Parameters<typeof ProgressCard>[0]["next"];
   offer?: Props["offer"];
   onOfferShown?: Props["onOfferShown"];
   w: Workspace;
@@ -278,7 +281,7 @@ function Doc({ w, p, hidden, tabbed, base, hasSolve, taskDone, allTaskDone, onLe
         </BlockBoundary>
         </div>
       ); })}
-      {allDone && <ProgressCard hints={presses} takeaway={finishedState?.type === "steps" ? finishedState.takeaway : undefined} roadmap={finishedSteps?.roadmap} rows={multipart ? [] : rowsOf(finishedSteps)} parts={multipart ? stepsBlocks.map((b) => ({ label: b.label!, roadmap: b.roadmap, rows: rowsOf(b) })) : undefined} offer={working ? offer : null} />}
+      {allDone && <ProgressCard hints={presses} takeaway={finishedState?.type === "steps" ? finishedState.takeaway : undefined} roadmap={finishedSteps?.roadmap} rows={multipart ? [] : rowsOf(finishedSteps)} parts={multipart ? stepsBlocks.map((b) => ({ label: b.label!, roadmap: b.roadmap, rows: rowsOf(b) })) : undefined} offer={working ? offer : null} next={working ? next : null} />}
       {working && allDone && (
         <div ref={doneAnchorRef} data-pet-anchor data-pet-done data-pet-inline className={styles.donePet}>
           <div data-pet-slot />
@@ -339,8 +342,14 @@ function LocalizedDoc(props: Parameters<typeof Doc>[0]) {
   return <WorkspaceCopy.Provider value={copyFor(lang)}><Doc {...props} /></WorkspaceCopy.Provider>;
 }
 
-export function WorkspaceView({ sessionId, tabs, activeId, onActive, onReset, resets = {}, resetDisabled = false, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild, onSelectionAsk, onLeave, offer, onOfferShown, mobile, tabsTarget }: Props) {
-  const lastWorkingId = tabs.findLast(tab => tab.phase === "solve" || tab.phase === "practice")?.id;
+export function WorkspaceView({ sessionId, tabs, activeId, onActive, onReset, resets = {}, resetDisabled = false, makeCtx, taskDone = {}, busy = false, brokenTabs = {}, onRebuild, onSelectionAsk, onLeave, offer, onOfferShown, mobile, tabsTarget, queue }: Props) {
+  // A prefetched tab nobody has opened is not the one the tutor's offer is about.
+  const unopened = new Set(queue?.items.filter((i) => !i.opened).map((i) => i.workspaceId));
+  const lastWorkingId = tabs.findLast(tab => (tab.phase === "solve" || tab.phase === "practice") && !unopened.has(tab.id))?.id;
+  const viewed = queue?.items.find((i) => i.id === queue.viewId);
+  // The page's next problem: the first one the student has not opened yet.
+  const upNext = queue?.items.find((i) => !(i.status === "ready" && i.opened));
+  const next = queue && upNext ? { item: upNext, onOpen: () => queue.onOpen(upNext.id, "card") } : null;
   const activeDoc = tabs.find((tab) => tab.id === activeId)?.doc;
   const activeCopy = useMemo(() => activeDoc ? copyFor(workspaceLocale(activeDoc)) : copy, [activeDoc]);
   // Hidden docs share this scroller; keep an independent offset for each workspace.
@@ -361,10 +370,11 @@ export function WorkspaceView({ sessionId, tabs, activeId, onActive, onReset, re
         </WorkspaceCopy.Provider>
       )}
       <div className={styles.view} data-pet-column>
-        <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} barTarget={tabsTarget} />
+        <PhaseSwitch tabs={tabs} activeId={activeId} onActive={onActive} barTarget={tabsTarget} queue={queue} />
         {tabs.map((w) => (
-          <LocalizedDoc key={`${w.id}:${resets[w.id] ?? 0}`} sessionId={sessionId} workspaceCount={tabs.length} sessionUnready={tabs.some((tab) => tab.doc.blocks.some((block) => block.type === "custom" && block.html == null))} w={w} p={w.phase} hidden={w.id !== activeId} tabbed={tabs.length > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} allTaskDone={taskDone} onLeave={onLeave} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} tabs={tabs} onActive={onActive} onReset={onReset} resetDisabled={resetDisabled} offer={w.id === lastWorkingId ? offer : null} onOfferShown={w.id === lastWorkingId ? onOfferShown : undefined} mobile={mobile} />
+          <LocalizedDoc key={`${w.id}:${resets[w.id] ?? 0}`} sessionId={sessionId} workspaceCount={tabs.length} sessionUnready={tabs.some((tab) => tab.doc.blocks.some((block) => block.type === "custom" && block.html == null))} w={w} p={w.phase} hidden={!!viewed || w.id !== activeId} tabbed={tabs.length + (queue?.items.length ?? 0) > 1} base={makeCtx(w)} hasSolve={tabs.some((tab) => tab.phase === "solve")} taskDone={taskDone[w.id] ?? []} allTaskDone={taskDone} onLeave={onLeave} busy={busy} broken={!!brokenTabs[w.id]} onRebuild={onRebuild} tabs={tabs} onActive={onActive} onReset={onReset} resetDisabled={resetDisabled} offer={w.id === lastWorkingId ? offer : null} onOfferShown={w.id === lastWorkingId ? onOfferShown : undefined} mobile={mobile} next={next} />
         ))}
+        {viewed && queue && <QueuedPanel item={viewed} current={queue.items.find((i) => i.workspaceId === activeId)?.label ?? viewed.firstLabel} onBack={() => onActive(activeId)} onBuild={() => queue.onBuild(viewed.id)} busy={busy} />}
       </div>
     </div>
   );

@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import * as realApi from "@/lib/api";
-import { ApiError, TurnError, type Message, type Preview, type SheetRef, type StartedVia, type TurnEvent } from "@/lib/api";
+import { ApiError, TurnError, type Message, type Preview, type QueueItem, type SheetRef, type StartedVia, type TurnEvent } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import {
   customFrames,
@@ -28,6 +28,7 @@ const statusLabel = (stage: "planning" | "searching" | "reading" | "simulating")
   ({ planning: copy.statusPlanning, searching: copy.statusSearching, reading: copy.statusReading, simulating: copy.statusSimulating })[stage];
 
 const UUID = /^[0-9a-f-]{36}$/i;
+const QUEUE_POLL_MS = 5000;
 const FLUSH_DELAY_MS = 800;
 const AWAY_MS = 30 * 60_000; // Absence after which a returning student starts on a new problem.
 const RECOVER_MS = 120_000; // how long to wait for a build that outlived its connection (the planner caps at 90 s)
@@ -102,12 +103,15 @@ export type WorkspaceState = {
   newProblemCount: number; // bumps when the session is reset
   inputDisabled: boolean;
   sendDisabled: boolean;
+  queue: QueueItem[]; // the other problems of a photographed page, in page order
+  queueViewId: string | null; // a queued problem with no tab yet is on screen (building or failed)
+  queueAnnouncement: string; // read once by screen readers when a build finishes
   verdict: { seq: number; state: "ok" | "review" | null; done: boolean }; // latest line verdict; seq never resets
   checking: number; // checks in flight
 };
 
 export type WorkspaceDeps = {
-  api: Pick<typeof realApi, "createGuest" | "currentSession" | "createSession" | "endSession" | "turn" | "turnStatus" | "check" | "setActiveWorkspace"> & Partial<Pick<typeof realApi, "putWorkspaceState" | "openStarter" | "resumeSession" | "hint">>;
+  api: Pick<typeof realApi, "createGuest" | "currentSession" | "createSession" | "endSession" | "turn" | "turnStatus" | "check" | "setActiveWorkspace"> & Partial<Pick<typeof realApi, "putWorkspaceState" | "openStarter" | "resumeSession" | "hint" | "getQueue">>;
   track: TrackFn;
   readPhoto: (file: Blob) => Promise<PhotoResult>;
   now?: () => number;
@@ -188,6 +192,12 @@ export function createWorkspace(deps: WorkspaceDeps) {
   let offerClosedId: number | null = null;
   let optsClosedId: number | null = null;
   let checking = 0;
+  let queue: QueueItem[] = [];
+  let queueViewId: string | null = null;
+  let queueAnnouncement = "";
+  let queueTimer: ReturnType<typeof setTimeout> | undefined;
+  // The queued problem the student asked for and when: timed until its tab is on screen.
+  let wanted: { label: string; at: number } | null = null;
   let verdictSeq = 0;
   let verdicts: Record<string, WorkspaceState["verdict"]> = {};
 
@@ -278,11 +288,63 @@ export function createWorkspace(deps: WorkspaceDeps) {
       sendDisabled: inputDisabled || queued !== null,
       verdict: (activeId && verdicts[activeId]) || { seq: verdictSeq, state: null, done: false },
       checking,
+      queue,
+      queueViewId,
+      queueAnnouncement,
     };
   }
 
+  function resetQueue() {
+    clearTimeout(queueTimer);
+    queue = [];
+    queueViewId = null;
+    queueAnnouncement = "";
+    wanted = null;
+  }
+
+  // Loaded after a restore and after turns; polled only while something is building.
+  async function refreshQueue(): Promise<void> {
+    if (!api.getQueue || sessionId === null || !sessionConfirmed) return;
+    clearTimeout(queueTimer);
+    const mine = epoch;
+    const session = sessionId;
+    let items: QueueItem[] | null = null;
+    try {
+      items = await api.getQueue(session);
+    } catch {
+      // Keep the last view; a building item is asked about again below.
+    }
+    if (detached || mine !== epoch || session !== sessionId) return;
+    clearTimeout(queueTimer); // a newer call may have scheduled one while this was in flight
+    let arrived: QueueItem | null = null;
+    if (items) {
+      for (const item of items) {
+        if (item.status !== "ready" || !item.tab) continue;
+        const tab = item.tab;
+        if (!tabs.some((w) => w.id === tab.id)) {
+          // Joins the row without taking the screen.
+          tabs = [...tabs, { ...tab, restored: true }];
+          overrides = { ...overrides, [tab.id]: tab.state?.overrides ?? {} };
+          taskDone = { ...taskDone, [tab.id]: tab.state?.taskDone ?? [] };
+        }
+        if (queue.some((old) => old.id === item.id && old.status === "building")) queueAnnouncement = copy.queueReadyAnnounce(item.label);
+        if (wanted?.label === item.label) arrived = item;
+      }
+      queue = items;
+    }
+    if (queue.some((i) => i.status === "building")) queueTimer = setTimeout(() => void refreshQueue(), QUEUE_POLL_MS);
+    if (arrived?.workspaceId && wanted) {
+      track("queued_problem_opened", { label: arrived.label, wait_ms: Math.max(0, now() - wanted.at) }, sid());
+      wanted = null;
+      if (queueViewId === arrived.id) actions.setActive(arrived.workspaceId); // it turns ready in place
+    }
+    publish();
+  }
+
   function activate(id: string) {
-    if (tabs.some((w) => w.id === id)) activeId = id;
+    if (!tabs.some((w) => w.id === id)) return;
+    activeId = id;
+    queueViewId = null;
   }
 
   function publish() {
@@ -731,6 +793,8 @@ export function createWorkspace(deps: WorkspaceDeps) {
         publish();
         if (typed) dom.focusInput(false);
         if (!keepEvents) flush();
+        // A turn can create a queue (it built something) or move one along (engagement).
+        if (gotWorkspace || queue.length) void refreshQueue();
       }
     }
   }
@@ -828,11 +892,13 @@ export function createWorkspace(deps: WorkspaceDeps) {
   // Registered before the first track() call, so the tracker's own hidden-flush runs after this one.
   function attach(): () => void {
     detached = false; // Strict Mode detaches and re-attaches the same workspace
+    if (queue.some((i) => i.status === "building")) void refreshQueue();
     window.addEventListener("message", onMessage);
     window.addEventListener("pagehide", recordHidden);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       detached = true;
+      clearTimeout(queueTimer);
       window.removeEventListener("message", onMessage);
       window.removeEventListener("pagehide", recordHidden);
       document.removeEventListener("visibilitychange", onVisibility);
@@ -904,6 +970,8 @@ export function createWorkspace(deps: WorkspaceDeps) {
       offerClosedId = lastAgentId();
       optsClosedId = lastAgentId();
     }
+    if (switched) resetQueue();
+    void refreshQueue();
     // A different-session restore invalidates the caller's finally, so publish the new view here.
     if (switched) publish();
   }
@@ -1037,6 +1105,7 @@ export function createWorkspace(deps: WorkspaceDeps) {
     restateClosedId = null;
     offerClosedId = null;
     optsClosedId = null;
+    resetQueue();
     publish();
   }
 
@@ -1243,12 +1312,53 @@ export function createWorkspace(deps: WorkspaceDeps) {
       enqueue({ ...event, byStudent: true, gesture: now() });
     },
 
+    // A tap on a queued problem, in the tab row or on the done card.
+    openQueued(itemId: string, from: "tab" | "card") {
+      const item = queue.find((i) => i.id === itemId);
+      if (!item) return;
+      if (item.status === "ready" && item.workspaceId) {
+        if (!item.opened) track("queued_problem_opened", { label: item.label, wait_ms: 0 }, sid());
+        wanted = null;
+        actions.setActive(item.workspaceId);
+        return;
+      }
+      wanted = wanted?.label === item.label ? wanted : { label: item.label, at: now() };
+      // A failed tab explains itself first; "Not started" and the done card go straight to a build turn.
+      if (item.status === "building" || (item.status === "failed" && from === "tab")) {
+        queueViewId = item.id;
+        publish();
+        return;
+      }
+      void actions.buildQueued(itemId);
+    },
+
+    buildQueued(itemId: string): Promise<void> {
+      const item = queue.find((i) => i.id === itemId);
+      if (!item) return Promise.resolve();
+      wanted = wanted?.label === item.label ? wanted : { label: item.label, at: now() };
+      queueViewId = null;
+      return dispatch(copy.queueBuildMessage(item.label), []);
+    },
+
     setActive(id: string) {
       const tab = tabs.find((w) => w.id === id);
-      if (!tab || id === activeId) return;
+      if (!tab) return;
+      if (queueViewId !== null) {
+        // Back from a queued problem's placeholder: the student chose this tab, so nothing may switch away later.
+        queueViewId = null;
+        wanted = null;
+        publish();
+      }
+      if (id === activeId) return;
       const from = activePhase();
       activate(id);
-      if (sessionId !== null) api.setActiveWorkspace(sessionId, id).catch(() => {}); // best effort: the turn then sees the older tab
+      const prefetched = queue.some((i) => i.workspaceId === id && !i.opened);
+      if (prefetched) queue = queue.map((i) => i.workspaceId === id ? { ...i, opened: true } : i);
+      if (sessionId !== null) {
+        // best effort: the turn then sees the older tab. Opening a prefetched tab starts the next build.
+        api.setActiveWorkspace(sessionId, id).then(() => { if (prefetched) void refreshQueue(); }).catch(() => {});
+      }
+      if (prefetched) publish();
       if (from) track("tab_switched", { from_phase: from, to_phase: tab.phase }, sid());
       actions.report("phase_viewed", { phase: tab.phase, workspace_id: id }, true, id);
     },

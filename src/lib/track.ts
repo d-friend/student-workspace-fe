@@ -43,6 +43,7 @@ export type TrackEvents = {
   simulation_shown: { ms_since_send: number; update: boolean };
   watching_cue_shown: NoProps;
   similar_offer_answered: { accepted: boolean };
+  queued_problem_opened: { label: string; wait_ms: number };
   next_topic_offered: NoProps;
   next_topic_accepted: { place?: "chat" | "card" };
   similar_problem_accepted: { place?: "chat" | "card" };

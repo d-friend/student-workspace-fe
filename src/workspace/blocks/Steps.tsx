@@ -73,7 +73,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
   const ov = ctx.overrides[block.id] ?? {};
   const effective = entries.map((e, i) => ov[i + 1] ?? e.state);
   const pos = proof && block.scaffold ? Math.min(scaffoldPos(entries, ov), block.scaffold.length - 1) : scaffoldPos(entries, ov);
-  // Past the last item without done (the master judged it ok, or an override moved on) the student types freely.
+  // Past the last item in learn the student types freely; in solve/practice WorkspaceView marks it finished.
   const item = block.scaffold && !free && pos < block.scaffold.length ? block.scaffold[pos] : null;
   const [pre = "", post = ""] = item?.kind === "blank" ? item.template.split("___") : [];
   const [displayPre, displayPost] = blankSides(pre, post);

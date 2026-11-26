@@ -221,3 +221,23 @@ test("offer visibility follows the active, completed last working tab", () => {
   unmount();
   expect(onOfferShown).toHaveBeenLastCalledWith(false);
 });
+
+test("the master accepting the last scaffold item finishes the block instead of opening an empty line", () => {
+  const w: Workspace = { id: "w", state: { blocks: { s: { type: "steps", entries: [{ text: "x = 22 km/h", state: "review", item: 0 }], done: false, free: false } } }, restored: true,
+    doc: { version: 1, phase: "solve", title: "One item", sources: [], blocks: [
+      { type: "problem", id: "p", md: "Tìm $x$" },
+      { type: "steps", id: "s", problem_id: "p", input: "math", scaffold: [{ kind: "blank", template: "$x = $ ___" }] },
+    ] } };
+  const ctx = (overrides: BlockCtx["overrides"]): BlockCtx => ({
+    workspaceId: "w", phase: "solve", report: vi.fn(), check: vi.fn(), overrides, hintCount: 0, onSolved: vi.fn(), help: null,
+  });
+  const view = (c: BlockCtx) => <PetAnchorProvider><WorkspaceView tabs={[{ ...w, phase: "solve" }]} activeId="w" onActive={vi.fn()} makeCtx={() => c} /></PetAnchorProvider>;
+  const { rerender } = render(view(ctx({})));
+  expect(screen.getAllByRole("textbox")).toHaveLength(1);
+  const accepted = ctx({ s: { 1: "ok" } });
+  rerender(view(accepted));
+  expect(screen.queryAllByRole("textbox")).toHaveLength(0);
+  expect(screen.queryByText(copy.lineLabel(2))).toBeNull();
+  expect(screen.getByText(copy.doneLabel)).toBeTruthy();
+  expect(completions(accepted)).toEqual([["task_completed", { similar: false, helped: false, max_hint: 0, via: "master" }]]);
+});

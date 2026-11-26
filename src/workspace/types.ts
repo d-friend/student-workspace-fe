@@ -62,11 +62,14 @@ export type StudentWork = {
 
 export type Workspace = { id: string; doc: WorkspaceDoc; parent_workspace_id?: string | null; state?: StudentWork | null; restored?: boolean; queued?: QueuedAttempt };
 
+export type BlankReason = "final_answer" | "other_step" | "given";
+
 export type CheckResponse = {
   ok: boolean;
   state: "ok" | "review";
   done: boolean;
   answer_tex?: string;
+  reason?: BlankReason; // a wrong blank number the server recognized
   line?: string;
   why?: string;
   takeaway?: string;

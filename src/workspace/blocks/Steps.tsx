@@ -115,10 +115,13 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
       tries.current = Math.min(9, tries.current + 1);
       const retried = dirty.current || ctx.hintCount > hintBase.current;
       const checkedItem = a.item === undefined ? undefined : block.scaffold?.[a.item];
-      const explained = ctx.phase !== "learn" && a.input === "choice" && r.state === "review" && typeof r.message === "string" && !!r.message.trim() && checkedItem?.kind === "choice";
-      if (explained) {
-        setWrongNote({ message: r.message!, pos: a.item!, item: checkedItem });
-        firstWrong.current ??= r.message!.trim().slice(0, 100);
+      const choiceReason = a.input === "choice" && checkedItem?.kind === "choice" && r.message?.trim() ? r.message : undefined;
+      const blankReason = a.input === "blank" && checkedItem?.kind === "blank" && r.reason && Object.hasOwn(copy.blankReason, r.reason) ? copy.blankReason[r.reason] : undefined;
+      const reason = ctx.phase !== "learn" && r.state === "review" && checkedItem ? (choiceReason ?? blankReason) : undefined;
+      const explained = reason !== undefined;
+      if (reason !== undefined && checkedItem) {
+        setWrongNote({ message: reason, pos: a.item!, item: checkedItem });
+        firstWrong.current ??= reason.trim().slice(0, 100);
       }
       let line = r.state === "ok" && a.input === "choice" ? (r.line ?? a.text) : a.text;
       if (ctx.phase !== "learn" && r.state === "ok" && a.input === "blank" && checkedItem?.kind === "blank" && r.answer_tex !== undefined) {
@@ -227,6 +230,7 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
               {wrongNote?.pos === pos && wrongNote.item === item && <p role="status" className={`${styles.small} ${styles.wrongNote}`}>{wrongNote.message}</p>}
             </>
           ) : item ? (
+            <>
             <form
               className={styles.blank}
               onSubmit={(e) => {
@@ -244,6 +248,8 @@ export function Steps({ block, ctx }: BlockProps<Steps>) {
                 {copy.check}
               </button>
             </form>
+            {wrongNote?.pos === pos && wrongNote.item === item && <p role="status" className={`${styles.small} ${styles.wrongNote}`}>{wrongNote.message}</p>}
+            </>
           ) : (
             <form
               className={styles.entry}

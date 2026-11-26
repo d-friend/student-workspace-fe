@@ -483,6 +483,26 @@ test("a wrong choice shows the server's reason at once and says it was explained
   expect(lineCalls(c).at(-1)![1]).not.toHaveProperty("explained");
 });
 
+test("a wrong blank shows the reason the server recognized, localized, and says it was explained", async () => {
+  const c = ctxWith([{ ...bad, reason: "final_answer" }, bad, { ...bad, reason: "made_up" as never, message: "Mình chưa đọc được dòng này" }, ok]);
+  showS(c);
+  gap(1, "8");
+  submit();
+  expect((await screen.findByText(copy.blankReason.final_answer)).getAttribute("role")).toBe("status");
+  expect(lineCalls(c).at(-1)![1]).toMatchObject({ ok: false, input: "blank", explained: true });
+
+  gap(1, "13"); // no recognized slip: no note, the master judges it
+  submit();
+  await waitFor(() => expect(screen.queryByText(copy.blankReason.final_answer)).toBeNull());
+  expect(lineCalls(c).at(-1)![1]).not.toHaveProperty("explained");
+
+  gap(1, "x"); // an unknown reason or a parse message is never shown for a blank
+  submit();
+  await waitFor(() => expect(lineCalls(c)).toHaveLength(3));
+  expect(document.querySelectorAll('p[role="status"]').length).toBe(0);
+  expect(lineCalls(c).at(-1)![1]).not.toHaveProperty("explained");
+});
+
 test("a wrong choice without a reason shows no note and sends no explained flag", async () => {
   const c = ctxWith([ok, bad, { ...bad, message: "   " }]);
   showS(c);
